@@ -31,8 +31,6 @@ set (wanted_features
 	cxx_variadic_templates
 	)
 
-# TODO maybe find better #include <...> / directory system
-
 # Header only library target (no compilation, just -I and requirements)
 add_library (lib INTERFACE)
 target_include_directories (lib INTERFACE
@@ -53,18 +51,42 @@ export (TARGETS lib FILE cpp-utils.cmake)
 
 ### Tests ###
 
-file (GLOB test_files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.cpp)
-foreach (test_file ${test_files})
+# Tests that should compile and run
+# These use boost testing framework
+file (GLOB test_files_run RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*_run.cpp)
+foreach (test_file ${test_files_run})
 	get_filename_component (test_name ${test_file} NAME_WE)
 	add_executable (${test_name} ${test_file})
 	target_link_libraries (${test_name} lib Boost::unit_test_framework)
 	target_compile_definitions (${test_name} PRIVATE "BOOST_TEST_DYN_LINK")
 	set_target_properties (
-		${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_bin
+		${test_name} PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_bin
 		)
 	add_test (
 		NAME ${test_name}
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_bin
 		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_bin/${test_name}
 		)
+endforeach (test_file)
+
+# Tests that should not compile (checking compile time failures)
+# No testing framework, just a main
+file (GLOB test_files_nocompile RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*_nocompile.cpp)
+foreach (test_file ${test_files_nocompile})
+	get_filename_component (test_name ${test_file} NAME_WE)
+	add_executable (${test_name} ${test_file})
+	target_link_libraries (${test_name} lib)
+	set_target_properties (
+		${test_name} PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_bin
+		EXCLUDE_FROM_ALL TRUE # Do not build with make
+		EXCLUDE_FROM_DEFAULT_BUILD TRUE
+		)
+	add_test (
+		NAME ${test_name}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		COMMAND ${CMAKE_COMMAND} --build . --target ${test_name} --config $<CONFIGURATION>
+		)
+	set_tests_properties (${test_name} PROPERTIES WILL_FAIL TRUE)
 endforeach (test_file)
