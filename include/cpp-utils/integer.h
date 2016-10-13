@@ -1,6 +1,6 @@
 #pragma once
 
-#include <bits.h>
+#include <cpp-utils/bits.h>
 
 #include <cassert>
 #include <cstdint> // std::size_t

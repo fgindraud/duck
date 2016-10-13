@@ -1,6 +1,6 @@
 #pragma once
 
-#include <integer.h>
+#include <cpp-utils/integer.h>
 
 #include <cstdint> // uintN_t
 

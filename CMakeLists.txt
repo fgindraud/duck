@@ -1,10 +1,15 @@
 cmake_minimum_required (VERSION 3.6)
 project (cpp-utils LANGUAGES CXX)
 
+enable_testing ()
+
+# For testing only
+find_package (Boost COMPONENTS unit_test_framework REQUIRED)
+
 ### Lib ###
 
 # List of C++ features that we use
-set (CXX_FEATURES
+set (wanted_features
 	cxx_alias_templates
 	cxx_alignof
 	cxx_auto_type
@@ -24,34 +29,42 @@ set (CXX_FEATURES
 	cxx_rvalue_references
 	cxx_static_assert
 	cxx_variadic_templates
-)
+	)
 
 # TODO maybe find better #include <...> / directory system
 
 # Header only library target (no compilation, just -I and requirements)
 add_library (lib INTERFACE)
 target_include_directories (lib INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/cpp-utils>
-	$<INSTALL_INTERFACE:include/cpp-utils>
-)
-target_compile_features (lib INTERFACE ${CXX_FEATURES}) # This will force a -std=c++14 if needed
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	$<INSTALL_INTERFACE:include>
+	)
+target_compile_features (lib INTERFACE ${wanted_features}) # This will force a -std=c++14 if needed
 
 # Install header lib and cmake crap
 install (TARGETS lib EXPORT cpp-utils
 	ARCHIVE  DESTINATION lib
 	LIBRARY  DESTINATION lib
 	RUNTIME  DESTINATION bin
-)
+	)
 install (DIRECTORY include/ DESTINATION include)
 install (EXPORT cpp-utils DESTINATION share/cpp-utils/cmake)
 export (TARGETS lib FILE cpp-utils.cmake)
 
 ### Tests ###
-enable_testing ()
 
-# Tests
-add_executable (testlib test/main.cpp)
-target_link_libraries (testlib lib)
-add_test (testlib testlib)
-
-# TODO add specific tests
+file (GLOB test_files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.cpp)
+foreach (test_file ${test_files})
+	get_filename_component (test_name ${test_file} NAME_WE)
+	add_executable (${test_name} ${test_file})
+	target_link_libraries (${test_name} lib Boost::unit_test_framework)
+	target_compile_definitions (${test_name} PRIVATE "BOOST_TEST_DYN_LINK")
+	set_target_properties (
+		${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_bin
+		)
+	add_test (
+		NAME ${test_name}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_bin
+		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_bin/${test_name}
+		)
+endforeach (test_file)
