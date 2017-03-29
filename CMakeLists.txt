@@ -1,5 +1,24 @@
-cmake_minimum_required (VERSION 3.6)
+cmake_minimum_required (VERSION 3.2)
 project (cpp-utils LANGUAGES CXX VERSION 0.0.1)
+
+### Package ###
+set (cmake_package_location lib/cmake/${PROJECT_NAME})
+include (CMakePackageConfigHelpers)
+configure_package_config_file (
+	package.cmake.in
+	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+	INSTALL_DESTINATION ${cmake_package_location}
+	)
+write_basic_package_version_file (
+	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+	VERSION ${PROJECT_VERSION}
+	COMPATIBILITY SameMajorVersion
+	)
+install (FILES
+	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+	DESTINATION ${cmake_package_location}
+	)
 
 ### Lib ###
 
@@ -29,23 +48,20 @@ set (wanted_features
 # Header only library target (no compilation, just -I and requirements)
 add_library (lib INTERFACE)
 target_include_directories (lib INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:include>
 	)
 target_compile_features (lib INTERFACE ${wanted_features}) # This will force a -std=c++14 if needed
 
 # Install header lib and cmake crap
-install (TARGETS lib EXPORT cpp-utils
+install (TARGETS lib EXPORT ${PROJECT_NAME}-targets
 	ARCHIVE  DESTINATION lib
 	LIBRARY  DESTINATION lib
 	RUNTIME  DESTINATION bin
 	)
-install (DIRECTORY include DESTINATION include)
-install (EXPORT cpp-utils DESTINATION share/cpp-utils/cmake)
-export (TARGETS lib FILE cpp-utils.cmake)
-# FIXME proper cmake package
+install (DIRECTORY cpp-utils DESTINATION include)
+install (EXPORT ${PROJECT_NAME}-targets DESTINATION ${cmake_package_location})
 
 ### Tests ###
-
 enable_testing ()
 add_subdirectory (test)
