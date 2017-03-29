@@ -1,6 +1,6 @@
-#define BOOST_TEST_MODULE bits_run
-#include <boost/test/unit_test.hpp>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
 
-BOOST_AUTO_TEST_CASE (dummy_test) {
-	BOOST_CHECK_EQUAL (1, 1);
+TEST_CASE ("dummy_test") {
+	CHECK (1 == 1);
 }
