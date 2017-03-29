@@ -1,0 +1,9 @@
+language: cpp
+dist: trusty
+compiler:
+   - clang
+   - gcc
+script:
+   - cmake .
+   - make
+   - make test
