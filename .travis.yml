@@ -11,27 +11,29 @@ addons:
            - ubuntu-toolchain-r-test
            - llvm-toolchain-precise-3.9
 
-# Default stuff
-compiler: clang
-os: linux
-
 matrix:
    include:
       # Maybe add more compiler versions...
       # Clang build probably includes recent g++ to have basic libs up to date..
       - env: COMPILER=g++-5
+        os: linux
+        dist: trusty
         compiler: gcc
         addons:
            apt:
               packages: ["g++-5", "libc6-dbg"]
               sources: *sources
       - env: COMPILER=clang++-3.9
+        os: linux
+        dist: trusty
+        compiler: clang
         addons:
            apt:
               packages: ["clang-3.9", "g++-6", "libc6-dbg"]
               sources: *sources
       - env: COMPILER=clang++
         os: osx
+        compiler: clang
 
 install:
    - export CXX="${COMPILER}"
