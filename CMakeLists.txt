@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.2)
-project (cpp-utils LANGUAGES CXX VERSION 0.0.1)
+project (duck LANGUAGES CXX VERSION 0.0.1)
 
 ### Package ###
 set (cmake_package_location lib/cmake/${PROJECT_NAME})
@@ -59,7 +59,7 @@ install (TARGETS lib EXPORT ${PROJECT_NAME}-targets
 	LIBRARY  DESTINATION lib
 	RUNTIME  DESTINATION bin
 	)
-install (DIRECTORY cpp-utils DESTINATION include)
+install (DIRECTORY ${PROJECT_NAME} DESTINATION include)
 install (EXPORT ${PROJECT_NAME}-targets DESTINATION ${cmake_package_location})
 
 ### Tests ###

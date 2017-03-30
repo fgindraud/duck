@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cpp-utils/integer.h>
+#include <duck/integer.h>
 
 #include <cassert>
 #include <cstddef> // size_t std::nullptr_t
