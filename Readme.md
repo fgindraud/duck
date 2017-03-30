@@ -17,7 +17,12 @@ Status
 ------
 
 Currently completely work in progress.
-TODO: add license stuff and small doc in files.
+TODO:
+- add license stuff and small doc in files.
+- add nocompile tests for range
+- add test for integer range
+- expand std::algorithm version with ranges ? no tests though. keep wrapper namespace ?
+- add combinators (range expressions)
 
 License
 -------

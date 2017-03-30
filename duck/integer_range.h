@@ -92,6 +92,12 @@ Range<IntIterator<Int>> range (Int to) {
 	return {Int (0), to};
 }
 
+// Index factory for containers
+template <typename Container, typename Int = typename Container::size_type>
+Range<IntIterator<Int>> index_range (const Container & container) {
+	return range (container.size ());
+}
+
 // Some specific operations for integer ranges.
-// TODO * scalar, + other range
+// TODO * scalar, + other range ?
 }
