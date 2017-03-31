@@ -12,6 +12,8 @@
 
 namespace duck {
 
+	// TODO always manipulate base
+
 // Factory function to reverse a range.
 template <typename It,
           typename = Iterator::EnableIfHasCategory<std::bidirectional_iterator_tag, It>>

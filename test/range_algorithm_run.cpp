@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/range_algorithm.h>
+#include <duck/range/algorithm.h>
 #include <vector>
 
 using duck::range;

@@ -3,7 +3,7 @@
 // Defines IntegerIterator (iterates on integral number spaces).
 // Allows to generate an integer range with all range features.
 
-#include <duck/range.h>
+#include <duck/range/base.h>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -86,22 +86,27 @@ namespace Iterator {
 	}
 }
 
-// Factory functions for integral types.
-template <typename Int, typename = std::enable_if_t<std::is_integral<Int>::value>>
-auto range (Int from, Int to) {
-	return Range<Iterator::Integer<Int>>{from, to};
-}
-template <typename Int, typename = std::enable_if_t<std::is_integral<Int>::value>>
-auto range (Int to) {
-	return range (Int{0}, to);
-}
+namespace Range {
+	// Factory functions for integral types.
+	template <typename Int, typename = std::enable_if_t<std::is_integral<Int>::value>>
+	auto range (Int from, Int to) {
+		using IntIt = Iterator::Integer<Int>;
+		return Base<IntIt>{from, to};
+	}
+	template <typename Int, typename = std::enable_if_t<std::is_integral<Int>::value>>
+	auto range (Int to) {
+		return range (Int{0}, to);
+	}
 
-// Index factory for containers (enabled if they define a size_type).
-template <typename Container, typename = typename Container::size_type>
-auto index_range (const Container & container) {
-	return range (container.size ());
-}
+	// TODO return base !
 
-// Some specific operations for integer ranges.
-// TODO * scalar, + other range ?
+	// Index factory for containers (enabled if they define a size_type).
+	template <typename Container, typename = typename Container::size_type>
+	auto index_range (const Container & container) {
+		return range (container.size ());
+	}
+
+	// Some specific operations for integer ranges.
+	// TODO * scalar, + other range ?
+}
 }
