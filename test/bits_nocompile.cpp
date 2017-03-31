@@ -1,4 +1,4 @@
-#include <cpp-utils/bits.h>
+#include <duck/bits.h>
 int main () {
 	using B = Bits<int>;
 	auto p = B::ones ();

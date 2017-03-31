@@ -1,4 +1,4 @@
-#include <cpp-utils/bits.h>
+#include <duck/bits.h>
 struct A {
 	int a;
 };
