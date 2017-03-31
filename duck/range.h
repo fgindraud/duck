@@ -1,31 +1,43 @@
 #pragma once
 
+// Defines the range base class, and factory functions to build it from container-like objects.
+
+#include <duck/iterator.h>
 #include <iterator>
 #include <type_traits>
 
 namespace duck {
 
-template <typename Iterator> class Range {
-	// Represents a range of iterators.
-	// This is a non putable value type (small, can be passed by value).
-	// This is a temporary object, has the same invalidation properties as the iterator type used.
-	// Range is not mutable: we can only build new ranges from it.
-	//
-	// TODO slice to end / from start
-	// TODO checked operations ?
-private:
-	using Traits = typename std::iterator_traits<Iterator>;
-
+template <typename It> class Range {
+	/* Represents a matching pair of iterators.
+	 *
+	 * This class has constant value semantics.
+	 * It can not be modified, but new ranges can be built from it.
+	 * It can be passed by value.
+	 *
+	 * This class has the same properties has the underlying iterator type.
+	 * This applies for invalidation, and which operations can be used.
+	 * Some operations may work inefficiently for low capability iterators (like size ()).
+	 *
+	 * Beware with input iterators, as some read-only operations (like size()) might iterate on them.
+	 * This will "invalidate all iterator copies", which can be bad and is difficult to check.
+	 * It is better to use this class starting at forward iterators.
+	 * Output only iterator are even more dangerous (size() might be UB).
+	 *
+	 * TODO more slices (to_end, from_start).
+	 * TODO checked operations ?
+	 */
 public:
-	using ValueType = typename Traits::value_type;
-	using ReferenceType = typename Traits::reference;
-	using DifferenceType = typename Traits::difference_type;
+	using ValueType = Iterator::GetValueType<It>;
+	using ReferenceType = Iterator::GetReferenceType<It>;
+	using DifferenceType = Iterator::GetDifferenceType<It>;
+	using IteratorCategory = Iterator::GetCategory<It>;
 
-	constexpr Range (Iterator begin, Iterator end) noexcept : begin_ (begin), end_ (end) {}
+	constexpr Range (It begin, It end) noexcept : begin_ (begin), end_ (end) {}
 
 	// Basic access (also makes it for-range capable)
-	constexpr Iterator begin () const noexcept { return begin_; }
-	constexpr Iterator end () const noexcept { return end_; }
+	constexpr It begin () const noexcept { return begin_; }
+	constexpr It end () const noexcept { return end_; }
 
 	// Input iterator
 	bool empty () const noexcept { return begin_ == end_; }
@@ -38,16 +50,20 @@ public:
 
 	// Random access iterator
 	DifferenceType size () const noexcept { return std::distance (begin_, end_); }
-	Range pop_front (DifferenceType n) const noexcept { return {shift (begin_, n), end_}; }
-	Range pop_back (DifferenceType n) const noexcept { return {begin_, shift (end_, -n)}; }
+	Range pop_front (DifferenceType n) const noexcept {
+		return {Iterator::advance (begin_, n), end_};
+	}
+	Range pop_back (DifferenceType n) const noexcept {
+		return {begin_, Iterator::advance (end_, -n)};
+	}
 	ReferenceType operator[] (std::size_t n) const noexcept { return begin_[n]; }
-	bool contains (Iterator it) const noexcept { return begin_ <= it && it < end_; }
-	DifferenceType offset_of (Iterator it) const noexcept { return std::distance (begin_, it); }
+	bool contains (It it) const noexcept { return begin_ <= it && it < end_; }
+	DifferenceType offset_of (It it) const noexcept { return std::distance (begin_, it); }
 
 	// "nicer" api (python like slice ; but at(size ()) return end ())
-	Iterator at (DifferenceType n) const noexcept {
+	It at (DifferenceType n) const noexcept {
 		auto index = n < 0 ? n + size () : n;
-		return shift (begin_, index);
+		return Iterator::advance (begin_, index);
 	}
 	Range slice (DifferenceType from, DifferenceType to) const noexcept {
 		return {at (from), at (to)};
@@ -56,22 +72,22 @@ public:
 	template <typename Container> Container to_container () const { return Container (begin_, end_); }
 
 private:
-	static Iterator shift (Iterator it, DifferenceType n) noexcept {
-		std::advance (it, n);
-		return it;
-	}
-
-	Iterator begin_;
-	Iterator end_;
+	It begin_;
+	It end_;
 };
 
-// Factory functions for containers (enabled if Container defines the proper iterators)
-template <typename Container, typename Iterator = typename Container::iterator>
-Range<Iterator> range (Container & container) {
-	return {container.begin (), container.end ()};
+// Factory function from pair of iterators (enabled if it defines a category).
+template <typename It, typename = Iterator::GetCategory<It>> Range<It> range (It first, It last) {
+	return {first, last};
 }
-template <typename Container, typename Iterator = typename Container::const_iterator>
-Range<Iterator> range (const Container & container) {
-	return {container.begin (), container.end ()};
+
+// Factory functions for containers (enabled if Container defines the proper iterators)
+template <typename Container, typename It = typename Container::iterator>
+auto range (Container & container) {
+	return Range<It>{container.begin (), container.end ()};
+}
+template <typename Container, typename It = typename Container::const_iterator>
+auto range (const Container & container) {
+	return Range<It>{container.begin (), container.end ()};
 }
 }

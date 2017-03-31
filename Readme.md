@@ -23,6 +23,7 @@ TODO:
 - add test for integer range
 - expand std::algorithm version with ranges ? no tests though. keep wrapper namespace ?
 - add combinators (range expressions)
+- split range in basic mode (no fancy apply stuff), and a full featured range
 
 License
 -------

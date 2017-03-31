@@ -1,10 +1,12 @@
 #pragma once
 
+// Redefines functions in <algorithm> to accept range arguments each time there was an iterator pair.
+
 #include <algorithm>
 #include <duck/range.h>
 
 namespace duck {
-namespace wrapper { // Wraps STL stuff.
+namespace wrapper {
 
 	// non modifying sequence operations
 
