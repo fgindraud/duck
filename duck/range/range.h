@@ -37,7 +37,7 @@ namespace Range {
 		using IteratorCategory = Iterator::GetCategory<It>;
 
 		// Basic constructor
-		constexpr explicit Range (Base<It> base) noexcept : Base<It> (base) {}
+		constexpr Range (Base<It> base) noexcept : Base<It> (base) {}
 
 		// TODO from template it is convertible
 		// from container if it/const_it
@@ -45,38 +45,36 @@ namespace Range {
 		template <typename Container, typename = std::enable_if_t<
 		                                  std::is_convertible<typename Container::iterator, It>::value>>
 		Range (Container & container) : Range (container.begin (), container.end ()) {}
-		template<typename Container, typename = std::enable_if_t<std::is_convertible<typename Container::iterator, It>::value>>
-			Range (Container & container) : Range (container.begin (), container.end ()) {}
+		template <typename Container, typename = std::enable_if_t<std::is_convertible<
+		                                  typename Container::const_iterator, It>::value>>
+		Range (const Container & container) : Range (container.begin (), container.end ()) {}
 
-		// Input iterator
-		bool empty () const noexcept { return begin () == end (); }
-		ReferenceType front () const noexcept { return *begin (); }
-		Range pop_front () const noexcept { return {std::next (begin ()), end ()}; }
+		// modify and return *this ref for chaining.
+		// Input/forward iterator
+		bool empty () const { return empty (*this); }
+		ReferenceType front () const { return front (*this); }
+		Range pop_front () const { return pop_front (*this); }
 
 		// Bidirectional iterator
-		Range pop_back () const noexcept { return {begin (), std::prev (end ())}; }
-		ReferenceType back () const noexcept { return *std::prev (end ()); }
+		ReferenceType back () const { return back (*this); }
+		Range pop_back () const { return pop_back (*this); }
 
 		// Random access iterator
-		DifferenceType size () const noexcept { return std::distance (begin (), end ()); }
-		Range pop_front (DifferenceType n) const noexcept {
-			return {Iterator::advance (begin (), n), end ()};
-		}
-		Range pop_back (DifferenceType n) const noexcept {
-			return {begin (), Iterator::advance (end (), -n)};
-		}
-		ReferenceType operator[] (std::size_t n) const noexcept { return begin ()[n]; }
-		bool contains (It it) const noexcept { return begin () <= it && it < end (); }
-		DifferenceType offset_of (It it) const noexcept { return std::distance (begin (), it); }
+		DifferenceType size () const { return size (*this); }
+		ReferenceType operator[] (std::size_t n) const { return value_at (*this, n); }
+		Range pop_front (std::size_t n) const { return pop_front (*this, n) }
+		Range pop_back (DifferenceType n) const { return pop_back (*this, n); }
+
+		// TODO additional API 
+		bool contains (It it) const { return begin () <= it && it < end (); }
+		DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
 
 		// "nicer" api (python like slice ; but at(size ()) return end ())
-		It at (DifferenceType n) const noexcept {
+		It at (DifferenceType n) const {
 			auto index = n < 0 ? n + size () : n;
 			return Iterator::advance (begin (), index);
 		}
-		Range slice (DifferenceType from, DifferenceType to) const noexcept {
-			return {at (from), at (to)};
-		}
+		Range slice (DifferenceType from, DifferenceType to) const { return {at (from), at (to)}; }
 
 		template <typename Container> Container to_container () const {
 			return Container (begin (), end ());
