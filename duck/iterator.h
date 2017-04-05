@@ -21,11 +21,5 @@ namespace Iterator {
 	// Enable ifs
 	template <typename CategoryTag, typename It>
 	using EnableIfHasCategory = std::enable_if_t<HasCategory<CategoryTag, It>::value>;
-
-	// Advance by copy
-	template <typename Iterator, typename Distance> Iterator advance (Iterator it, Distance n) {
-		std::advance (it, n);
-		return it;
-	}
 }
 }

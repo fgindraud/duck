@@ -5,7 +5,6 @@
 #include <duck/iterator.h>
 #include <duck/range/base.h>
 #include <iterator>
-#include <type_traits>
 
 namespace duck {
 
@@ -21,11 +20,7 @@ namespace Range {
 		 * This applies for invalidation, and which operations can be used.
 		 * Some operations may work inefficiently for low capability iterators (like size ()).
 		 *
-		 * Beware with input iterators, as some read-only operations (like size()) might iterate on
-		 * them.
-		 * This will "invalidate all iterator copies", which can be bad and is difficult to check.
-		 * It is better to use this class starting at forward iterators.
-		 * Output only iterator are even more dangerous (size() might be UB).
+		 * Less than forward iterators are not supported properly FIXME.
 		 *
 		 * TODO more slices (to_end, from_start).
 		 * TODO checked operations ?
@@ -36,45 +31,41 @@ namespace Range {
 		using DifferenceType = Iterator::GetDifferenceType<It>;
 		using IteratorCategory = Iterator::GetCategory<It>;
 
-		// Basic constructor
-		constexpr Range (Base<It> base) noexcept : Base<It> (base) {}
+		// Basic constructors
+		constexpr Range (Base<It> base) noexcept : Base<It> (std::move (base)) {}
 
-		// TODO from template it is convertible
-		// from container if it/const_it
-		Range (It begin, It end) : Base<It> (begin, end) {}
-		template <typename Container, typename = std::enable_if_t<
-		                                  std::is_convertible<typename Container::iterator, It>::value>>
-		Range (Container & container) : Range (container.begin (), container.end ()) {}
-		template <typename Container, typename = std::enable_if_t<std::is_convertible<
-		                                  typename Container::const_iterator, It>::value>>
-		Range (const Container & container) : Range (container.begin (), container.end ()) {}
+		// TODO may add constructors from container like things, to enable auto conversion to range.
 
-		// modify and return *this ref for chaining.
+		using Base<It>::begin;
+		using Base<It>::end;
+
 		// Input/forward iterator
-		bool empty () const { return empty (*this); }
-		ReferenceType front () const { return front (*this); }
-		Range pop_front () const { return pop_front (*this); }
+		bool empty () const { return begin () == end (); }
+		ReferenceType front () const { return *begin (); }
+		Range pop_front () const { return Base<It>{std::next (begin (), end ())}; }
 
 		// Bidirectional iterator
-		ReferenceType back () const { return back (*this); }
-		Range pop_back () const { return pop_back (*this); }
+		ReferenceType back () const { return *std::prev (end ()); }
+		Range pop_back () const { return Base<It>{begin (), std::prev (end ())}; }
 
 		// Random access iterator
-		DifferenceType size () const { return size (*this); }
-		ReferenceType operator[] (std::size_t n) const { return value_at (*this, n); }
-		Range pop_front (std::size_t n) const { return pop_front (*this, n) }
-		Range pop_back (DifferenceType n) const { return pop_back (*this, n); }
+		DifferenceType size () const { return std::distance (begin (), end ()); }
+		ReferenceType operator[] (DifferenceType n) const { return begin ()[n]; }
+		Range pop_front (DifferenceType n) const { return Base<It>{std::next (begin (), n), end ()}; }
+		Range pop_back (DifferenceType n) const { return Base<It>{begin (), std::prev (end (), n)}; }
 
-		// TODO additional API 
+		// TODO additional API
 		bool contains (It it) const { return begin () <= it && it < end (); }
 		DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
 
 		// "nicer" api (python like slice ; but at(size ()) return end ())
 		It at (DifferenceType n) const {
 			auto index = n < 0 ? n + size () : n;
-			return Iterator::advance (begin (), index);
+			return std::next (begin (), index);
 		}
-		Range slice (DifferenceType from, DifferenceType to) const { return {at (from), at (to)}; }
+		Range slice (DifferenceType from, DifferenceType to) const {
+			return Base<It>{at (from), at (to)};
+		}
 
 		template <typename Container> Container to_container () const {
 			return Container (begin (), end ());
@@ -82,20 +73,9 @@ namespace Range {
 	};
 }
 
-// forward to Range constructor TODO
-
-// Factory function from pair of iterators (enabled if it defines a category).
-template <typename It, typename = Iterator::GetCategory<It>> auto range (It first, It last) {
-	return {first, last};
-}
-
-// Factory functions for containers (enabled if Container defines the proper iterators)
-template <typename Container, typename It = typename Container::iterator>
-auto range (Container & container) {
-	return Range<It>{container.begin (), container.end ()};
-}
-template <typename Container, typename It = typename Container::const_iterator>
-auto range (const Container & container) {
-	return Range<It>{container.begin (), container.end ()};
+template <typename... Args>
+auto range (Args &&... args) -> Range::Range<
+    Range::GetIterator<decltype (Range::make_base (std::forward<Args> (args)...))>> {
+	return {Range::make_base (std::forward<Args> (args)...)};
 }
 }

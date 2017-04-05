@@ -14,6 +14,7 @@ namespace Iterator {
 	template <typename Int> class Integer {
 		// Immutable random iterator on integers.
 		// Is explicit to allow integer ranges to have a contains() method for ints.
+		// TODO replace with iterator helper class
 	public:
 		using iterator_category = std::random_access_iterator_tag;
 		using value_type = Int;
@@ -88,23 +89,20 @@ namespace Iterator {
 
 namespace Range {
 	// Factory functions for integral types.
-	template <typename Int, typename = std::enable_if_t<std::is_integral<Int>::value>>
-	auto range (Int from, Int to) {
-		using IntIt = Iterator::Integer<Int>;
-		return Base<IntIt>{from, to};
+	template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
+	Base<Iterator::Integer<Int>> make_base (Int from, Int to) {
+		return {from, to};
 	}
-	template <typename Int, typename = std::enable_if_t<std::is_integral<Int>::value>>
-	auto range (Int to) {
-		return range (Int{0}, to);
+	template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
+	Base<Iterator::Integer<Int>> make_base (Int to) {
+		return {Int{0}, to};
 	}
 
-	// TODO return base !
-
-	// Index factory for containers (enabled if they define a size_type).
-	template <typename Container, typename = typename Container::size_type>
-	auto index_range (const Container & container) {
-		return range (container.size ());
-	}
+	// Index factory for containers (enabled if they define a size_type). TODO reenable
+	// template <typename Container, typename = typename Container::size_type>
+	// auto index_range (const Container & container) {
+	//	return range (container.size ());
+	//}
 
 	// Some specific operations for integer ranges.
 	// TODO * scalar, + other range ?

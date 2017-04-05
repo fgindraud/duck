@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <duck/range/range.h>
+#include <duck/range/integer.h>
 #include <list>
 #include <string>
 #include <vector>
@@ -51,3 +52,4 @@ TEST_CASE ("between vector, list, string") {
 	auto s2 = duck::range (l).to_container<std::string> ();
 	CHECK (s2 == "hello");
 }
+

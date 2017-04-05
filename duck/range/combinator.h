@@ -13,6 +13,8 @@
 namespace duck {
 
 	// TODO always manipulate base
+	// TODO use iterator helper classes
+	// TODO iterator helper classes : define a selector
 
 // Factory function to reverse a range.
 template <typename It,
