@@ -2,7 +2,7 @@
 
 // Range base class.
 
-#include <duck/iterator.h>
+#include <duck/iterator/traits.h>
 #include <utility>
 
 namespace duck {

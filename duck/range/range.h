@@ -2,7 +2,7 @@
 
 // Top level range object with full functionnality
 
-#include <duck/iterator.h>
+#include <duck/iterator/traits.h>
 #include <duck/range/base.h>
 #include <iterator>
 

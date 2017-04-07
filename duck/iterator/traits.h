@@ -1,6 +1,6 @@
 #pragma once
 
-// Iterator utils
+// Iterator traits (compile time information).
 
 #include <iterator>
 #include <type_traits>
@@ -19,7 +19,8 @@ namespace Iterator {
 	using HasCategory = std::is_base_of<CategoryTag, GetCategory<It>>;
 
 	// Enable ifs
-	template <typename CategoryTag, typename It>
-	using EnableIfHasCategory = std::enable_if_t<HasCategory<CategoryTag, It>::value>;
+	template <typename CategoryTag, typename It, typename ReturnType = void>
+	using EnableIfHasCategory =
+	    typename std::enable_if<HasCategory<CategoryTag, It>::value, ReturnType>::type;
 }
 }
