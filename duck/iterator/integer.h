@@ -3,7 +3,6 @@
 // Defines IntegerIterator (iterates on integral number spaces).
 // Allows to generate an integer range with all range features.
 
-#include <duck/range/base.h>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -85,26 +84,5 @@ namespace Iterator {
 	template <typename Int, typename T> inline Integer<Int> operator+ (T && t, Integer<Int> it) {
 		return it + std::forward<T> (t);
 	}
-}
-
-namespace Range {
-	// Factory functions for integral types.
-	template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
-	Base<Iterator::Integer<Int>> make_base (Int from, Int to) {
-		return {from, to};
-	}
-	template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
-	Base<Iterator::Integer<Int>> make_base (Int to) {
-		return {Int{0}, to};
-	}
-
-	// Index factory for containers (enabled if they define a size_type). TODO reenable
-	// template <typename Container, typename = typename Container::size_type>
-	// auto index_range (const Container & container) {
-	//	return range (container.size ());
-	//}
-
-	// Some specific operations for integer ranges.
-	// TODO * scalar, + other range ?
 }
 }

@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <duck/range/range.h>
-#include <duck/range/integer.h>
 #include <list>
 #include <string>
 #include <vector>
@@ -44,12 +43,21 @@ TEST_CASE ("filled vector") {
 }
 
 TEST_CASE ("between vector, list, string") {
-	// Test exchange between list, string, and others. List has more costly and restricted api (bidir only ops).
+	// Test exchange between list, string, and others. List has more costly and restricted api (bidir
+	// only ops).
 	std::string s ("hello world");
-	auto v = duck::range (s).to_container<std::vector<char>>();
-	CHECK (std::equal (v.begin (), v.end (), s.begin(), s.end ()));
+	auto v = duck::range (s).to_container<std::vector<char>> ();
+	CHECK (std::equal (v.begin (), v.end (), s.begin (), s.end ()));
 	auto l = duck::range (v).pop_back (6).to_container<std::list<char>> ();
 	auto s2 = duck::range (l).to_container<std::string> ();
 	CHECK (s2 == "hello");
 }
 
+TEST_CASE ("integer range") {
+	auto r = duck::range (10);
+	CHECK (r.size() == 10);
+	auto v = r.slice (4, -4).to_container<std::vector<int>> ();
+	CHECK (v.size () == 2);
+	CHECK (v[0] == 4);
+	CHECK (v[1] == 5);
+}

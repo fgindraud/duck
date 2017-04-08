@@ -2,12 +2,11 @@
 
 // Top level range object with full functionnality
 
+#include <duck/iterator/integer.h>
 #include <duck/iterator/traits.h>
 #include <duck/range/base.h>
-#include <iterator>
 
 namespace duck {
-
 namespace Range {
 	template <typename It> class Range : public Base<It> {
 		/* Represents a matching pair of iterators.
@@ -72,10 +71,41 @@ namespace Range {
 		}
 	};
 }
+// Factory functions
 
-template <typename... Args>
-auto range (Args &&... args) -> Range::Range<
-    Range::GetIterator<decltype (Range::make_base (std::forward<Args> (args)...))>> {
-	return {Range::make_base (std::forward<Args> (args)...)};
+// From iterator pair (if it is considered an iterator by STL).
+template <typename It, typename = Iterator::GetCategory<It>>
+Range::Range<It> range (It begin, It end) {
+	return Range::Base<It>{std::move (begin), std::move (end)};
+}
+
+// From container (enabled if it supports a begin() function).
+template <typename Container, typename It = Iterator::GetContainerIteratorType<Container &>>
+Range::Range<It> range (Container & container) {
+	using std::begin;
+	using std::end;
+	return range (begin (container), end (container));
+}
+template <typename Container, typename It = Iterator::GetContainerIteratorType<const Container &>>
+Range::Range<It> range (const Container & container) {
+	using std::begin;
+	using std::end;
+	return range (begin (container), end (container));
+}
+
+// From integers.
+template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
+Range::Range<Iterator::Integer<Int>> range (Int from, Int to) {
+	return range (Iterator::Integer<Int>{from}, Iterator::Integer<Int>{to});
+}
+template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
+Range::Range<Iterator::Integer<Int>> range (Int to) {
+	return range (Int{0}, to);
+}
+
+// Other factory functions
+template <typename Container, typename SizeType = decltype (std::declval<Container> ().size ())>
+Range::Range<Iterator::Integer<SizeType>> index_range (const Container & container) {
+	return range (container.size ());
 }
 }

@@ -24,28 +24,5 @@ namespace Range {
 		It begin_;
 		It end_;
 	};
-
-	// Retrieve iterator type
-	template<typename T> struct GetIteratorImpl;
-	template<typename T> using GetIterator = typename GetIteratorImpl<T>::Type;
-	template<typename It> struct GetIteratorImpl<Base<It>> { using Type = It; };
-
-	// Factories for base.
-
-	// From iterator pair (if it is considered an iterator by STL).
-	template <typename It, typename = Iterator::GetCategory<It>>
-	Base<It> make_base (It begin, It end) {
-		return {std::move (begin), std::move (end)};
-	}
-
-	// From container (if it accepts std::begin).
-	template <typename Container>
-	auto make_base (Container & container) -> Base<decltype (std::begin (container))> {
-		return {std::begin (container), std::end (container)};
-	}
-	template <typename Container>
-	auto make_base (const Container & container) -> Base<decltype (std::begin (container))> {
-		return {std::begin (container), std::end (container)};
-	}
 }
 }
