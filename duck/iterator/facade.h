@@ -6,7 +6,6 @@
 // Lacking element access
 // Other problem, traits definition...
 
-#include <duck/iterator/traits.h>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -15,217 +14,105 @@ namespace duck {
 namespace Iterator {
 
 	namespace Detail {
-		template <typename TypeA, typename TypeB, typename ReturnType = void>
-		using EnableIfDifferent =
-		    typename std::enable_if<!std::is_same<TypeA, TypeB>::value, ReturnType>::type;
+		template <typename T, typename Self> constexpr bool non_self () {
+			using DecayedT = typename std::decay<T>::type;
+			return !std::is_same<Self, DecayedT>::value && !std::is_base_of<Self, DecayedT>::value;
+		}
 	}
 
-	class Access {
-		/* Iterators with private/protected impl methods must declare this class as friend.
-		 * Calls to impl methods go through this class to bypass access restrictions.
-		 * In addition, defines prototypes for the methods.
-		 */
+	template <typename Impl> class Facade : public Impl {
+		// Iterator facade.
+		//
+		// Requirements on Impl by iterator category:
+		// - output: Impl::next(), Impl::deref()
+		// - input: + Impl::equal(it)
+		// - forward: + Impl::Impl(const Impl&) [copy]
+		// - bidirectional: + Impl::prev()
+		// - random access: + Impl::advance(n), Impl::distance (it)
+		//
+		// TODO gen next/prev if advance, equal if distance ?
 	public:
-		// Increments/decrements the iterator
-		template <typename It> static void next (It & it) { it.next (); }
-		template <typename It> static void prev (It & it) { it.prev (); }
+		// TODO generate typedefs (use sfinae):
+		// - typedef to Impl::thing if it exists
+		// - or try extracting it from methods
+		// - or default...
+		using value_type = typename Impl::value_type;
+		using difference_type = typename Impl::difference_type;
+		using reference = typename Impl::reference;
+		using pointer = typename Impl::pointer;
+		// TODO what for category !
 
-		// Test for equality with something
-		template <typename It, typename Other> static bool equal (const It & it, const Other & other) {
-			return it.equal (other);
+		// Constructors: defaulted, will be enabled if the matching one is available in Impl
+		Facade () = default;
+		Facade (const Facade &) = default;
+		Facade (Facade &&) = default;
+		Facade & operator= (const Facade &) = default;
+		Facade & operator= (Facade &&) = default;
+		~Facade () = default;
+
+		// Forwarding constructor (special disambiguation for 1 argument case)
+		template <typename T, typename = typename std::enable_if<Detail::non_self<T, Facade> ()>>
+		Facade (T && t) : Impl (std::forward<T> (t)) {}
+		template <typename T, typename... Args>
+		Facade (T && t, Args &&... args) : Impl (std::forward<T> (t), std::forward<Args> (args)...) {}
+
+		// Input / output
+
+		Facade & operator++ () {
+			Impl::next ();
+			return *this;
 		}
 
-		// Shift the iterator, and distance
-		template <typename It> static void advance (It & it, GetDifferenceType<It> n) {
-			it.advance (n);
-		}
-		template <typename It> static GetDifferenceType<It> distance (const It & from, const It & to) {
-			return from.distance (to);
-		}
-	};
+		reference operator* () const { return Impl::deref (); }
+		pointer operator-> () const { return &(*(*this)); }
 
-	template <typename ValueType, typename DifferenceType = std::ptrdiff_t,
-	          typename ReferenceType = ValueType &, typename Pointer = ValueType *>
-	class MakeTraits {
-	public:
-		using value_type = ValueType;
-		using difference_type = DifferenceType;
-		using reference = ReferenceType;
-		using pointer = Pointer;
-	};
+		bool operator== (const Facade & other) const { return Impl::equal (other); }
+		bool operator!= (const Facade & other) const { return !(*this == other); }
 
-	// Value access categories (input / output)
+		// Forward
 
-	template <typename DerivedIt> class Input { public: };
-
-	// Traversal categories
-
-	template <typename DerivedIt, typename Traits> class SinglePass {
-		/* Single pass traversal category.
-		 * Cannot be copied, only moved.
-		 * Represents an iterator with a non trivial state behind it.
-		 *
-		 * Requires: next, equal
-		 */
-	public:
-		using value_type = typename Traits::value_type;
-		using difference_type = typename Traits::difference_type;
-		using reference = typename Traits::reference;
-		using pointer = typename Traits::pointer;
-
-		// Movable, non copyable
-		SinglePass () = default;
-		SinglePass (const SinglePass &) = delete;
-		SinglePass & operator= (const SinglePass &) = delete;
-		SinglePass (SinglePass &&) = default;
-		SinglePass & operator= (SinglePass &&) = default;
-
-		// In place increment
-		DerivedIt & operator++ () {
-			auto & self = static_cast<DerivedIt &> (*this);
-			Access::next (self);
-			return self;
-		}
-
-		// Equality test
-		template <typename Other> bool operator== (const Other & other) const {
-			return Access::equal (static_cast<const DerivedIt &> (*this), other);
-		}
-		template <typename Other> bool operator!= (const Other & other) const {
-			return !(*this == other);
-		}
-
-		// Symmetric ops
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, DerivedIt>>
-		friend bool operator== (const Other & other, const DerivedIt & it) {
-			return it == other;
-		}
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, DerivedIt>>
-		friend bool operator!= (const Other & other, const DerivedIt & it) {
-			return it != other;
-		}
-	};
-
-	template <typename DerivedIt, typename Traits>
-	class Forward : public SinglePass<DerivedIt, Traits> {
-		// Forward iterator from STL (minus access info).
-	public:
-		using value_type = typename Traits::value_type;
-		using difference_type = typename Traits::difference_type;
-		using reference = typename Traits::reference;
-		using pointer = typename Traits::pointer;
-		using iterator_category = std::forward_iterator_tag;
-
-		// Enable copy (use default constr from SinglePass, ok because sizeof(SinglePass)==0).
-		Forward () = default;
-		Forward (const Forward &) : SinglePass<DerivedIt, Traits> () {}
-		Forward & operator= (const Forward &) { return *this; }
-		Forward (Forward &&) = default;
-		Forward & operator= (Forward &&) = default;
-
-		// Post increment
-		DerivedIt operator++ (int) {
-			DerivedIt tmp (static_cast<const DerivedIt &> (*this));
+		Facade operator++ (int) {
+			Facade tmp (*this);
 			++*this;
 			return tmp;
 		}
-	};
 
-	template <typename DerivedIt, typename Traits>
-	class Bidirectional : public Forward<DerivedIt, Traits> {
-		/* Bidirectional iterator from STL (minus access info).
-		 *
-		 * Requires: prev
-		 */
-	public:
-		using value_type = typename Traits::value_type;
-		using difference_type = typename Traits::difference_type;
-		using reference = typename Traits::reference;
-		using pointer = typename Traits::pointer;
-		using iterator_category = std::bidirectional_iterator_tag;
+		// Bidir
 
-		// Constructors defaulted
-
-		// Decrements
-		DerivedIt & operator-- () {
-			auto & self = static_cast<DerivedIt &> (*this);
-			Access::prev (self);
-			return self;
+		Facade & operator-- () {
+			Impl::prev ();
+			return *this;
 		}
-		DerivedIt operator-- (int) {
-			DerivedIt tmp (static_cast<const DerivedIt &> (*this));
+		Facade operator-- (int) {
+			Facade tmp (*this);
 			--*this;
 			return tmp;
 		}
-	};
 
-	template <typename DerivedIt, typename Traits>
-	class RandomAccess : public Bidirectional<DerivedIt, Traits> {
-		/* Random access iterator from STL (minus access info).
-		 *
-		 * Requires: advance, distance
-		 */
-	public:
-		using value_type = typename Traits::value_type;
-		using difference_type = typename Traits::difference_type;
-		using reference = typename Traits::reference;
-		using pointer = typename Traits::pointer;
-		using iterator_category = std::random_access_iterator_tag;
+		// Random access
 
-		// Constructors defaulted
-
-		DerivedIt & operator+= (difference_type n) {
-			auto & self = static_cast<DerivedIt &> (*this);
-			Access::advance (self, n);
-			return self;
+		Facade & operator+= (difference_type n) {
+			Impl::advance (n);
+			return *this;
 		}
-		DerivedIt operator+ (difference_type n) const {
-			DerivedIt tmp (static_cast<const DerivedIt &> (*this));
+		Facade operator+ (difference_type n) const {
+			Facade tmp (*this);
 			tmp += n;
 			return tmp;
 		}
-		friend DerivedIt operator+ (difference_type n, const DerivedIt & it) { return it + n; }
+		friend Facade operator+ (difference_type n, const Facade & it) { return it + n; }
 
-		DerivedIt & operator-= (difference_type n) { return *this += (-n); }
-		DerivedIt operator- (difference_type n) const { return *this + (-n); }
+		Facade & operator-= (difference_type n) { return *this += (-n); }
+		Facade operator- (difference_type n) const { return *this + (-n); }
 
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, difference_type>>
-		difference_type operator- (const Other & other) const {
-			auto & self = static_cast<const DerivedIt &> (*this);
-			return Access::distance (self, other);
-		}
+		difference_type operator- (const Facade & other) const { return Impl::distance (other); }
 
-		// operator [] TODO
+		reference operator[] (difference_type n) const { return *(*this + n); }
 
-		template <typename Other> bool operator< (const Other & other) const {
-			return (*this - other) < 0;
-		}
-		template <typename Other> bool operator> (const Other & other) const {
-			return (*this - other) > 0;
-		}
-		template <typename Other> bool operator<= (const Other & other) const {
-			return (*this - other) <= 0;
-		}
-		template <typename Other> bool operator>= (const Other & other) const {
-			return (*this - other) >= 0;
-		}
-
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, DerivedIt>>
-		friend bool operator< (const Other & other, const DerivedIt & it) {
-			return it > other;
-		}
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, DerivedIt>>
-		friend bool operator> (const Other & other, const DerivedIt & it) {
-			return it < other;
-		}
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, DerivedIt>>
-		friend bool operator<= (const Other & other, const DerivedIt & it) {
-			return it >= other;
-		}
-		template <typename Other, typename = Detail::EnableIfDifferent<Other, DerivedIt>>
-		friend bool operator>= (const Other & other, const DerivedIt & it) {
-			return it <= other;
-		}
+		bool operator< (const Facade & other) const { return (*this - other) < 0; }
+		bool operator> (const Facade & other) const { return (*this - other) > 0; }
+		bool operator<= (const Facade & other) const { return (*this - other) <= 0; }
+		bool operator>= (const Facade & other) const { return (*this - other) >= 0; }
 	};
 }
 }
