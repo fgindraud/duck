@@ -2,6 +2,9 @@
 
 // Iterator traits (compile time information).
 
+// TODO add an sfinae AccessType { using Type = ... } to checkers
+// TODO variadic type getter : test one element after another.
+
 #include <iterator>
 #include <type_traits>
 
@@ -29,43 +32,44 @@ namespace Iterator {
 	// [!] Do not apply std::iterator_traits beforehand (will not work on raw T*).
 	template <typename It> class HasValueType {
 	private:
-		template <typename T, typename = typename T::value_type> static constexpr bool test (int) {
-			return true;
-		}
-		template <typename T> static constexpr bool test (...) { return false; }
+		template <typename T>
+		static auto test (T) -> decltype (std::declval<typename T::value_type> (), std::true_type{});
+		static auto test (...) -> decltype (std::false_type{});
+
+		template <typename T, bool has_value_type> struct GetImpl {};
+		template <typename T> struct GetImpl<T, true> { using Type = typename T::value_type; };
 
 	public:
-		enum { value = test<It> (int()) };
+		enum { value = decltype (test (std::declval<It> ()))::value };
+		using Get = GetImpl<It, value>;
 	};
 	template <typename It> class HasDifferenceType {
 	private:
-		template <typename T, typename = typename T::difference_type> static constexpr bool test (int) {
-			return true;
-		}
-		template <typename T> static constexpr bool test (...) { return false; }
+		template <typename T>
+		static auto test (T)
+		    -> decltype (std::declval<typename T::difference_type> (), std::true_type{});
+		static auto test (...) -> decltype (std::false_type{});
 
 	public:
-		enum { value = test<It> (int()) };
+		enum { value = decltype (test (std::declval<It> ()))::value };
 	};
 	template <typename It> class HasReferenceType {
 	private:
-		template <typename T, typename = typename T::reference> static constexpr bool test (int) {
-			return true;
-		}
-		template <typename T> static constexpr bool test (...) { return false; }
+		template <typename T>
+		static auto test (T) -> decltype (std::declval<typename T::reference> (), std::true_type{});
+		static auto test (...) -> decltype (std::false_type{});
 
 	public:
-		enum { value = test<It> (int()) };
+		enum { value = decltype (test (std::declval<It> ()))::value };
 	};
 	template <typename It> class HasPointerType {
 	private:
-		template <typename T, typename = typename T::pointer> static constexpr bool test (int) {
-			return true;
-		}
-		template <typename T> static constexpr bool test (...) { return false; }
+		template <typename T>
+		static auto test (T) -> decltype (std::declval<typename T::pointer> (), std::true_type{});
+		static auto test (...) -> decltype (std::false_type{});
 
 	public:
-		enum { value = test<It> (int()) };
+		enum { value = decltype (test (std::declval<It> ()))::value };
 	};
 
 	/* ------------------------------  Container iterator ---------------------------- */
@@ -74,30 +78,26 @@ namespace Iterator {
 	template <typename Container> class ContainerHasStdIterator {
 	private:
 		template <typename T>
-		static constexpr decltype (
-		    std::begin (std::declval<typename std::add_lvalue_reference<T>::type> ()), bool())
-		test (int) {
-			return true;
-		}
-		template <typename T> static constexpr bool test (...) { return false; }
+		static auto test (T)
+		    -> decltype (std::begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
+		                 std::true_type{});
+		static auto test (...) -> decltype (std::false_type{});
 
 	public:
-		enum { value = test<Container> (int()) };
+		enum { value = decltype (test (std::declval<Container> ()))::value };
 	};
 
 	// SFINAE Test if it supports begin() (ADL one)
 	template <typename Container> class ContainerHasUserIterator {
 	private:
 		template <typename T>
-		static constexpr decltype (begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
-		                           bool())
-		test (int) {
-			return true;
-		}
-		template <typename T> static constexpr bool test (...) { return false; }
+		static auto test (T)
+		    -> decltype (begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
+		                 std::true_type{});
+		static auto test (...) -> decltype (std::false_type{});
 
 	public:
-		enum { value = test<Container> (int()) };
+		enum { value = decltype (test (std::declval<Container> ()))::value };
 	};
 
 	template <typename Container> class ContainerHasIterator {
