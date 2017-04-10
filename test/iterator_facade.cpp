@@ -2,15 +2,70 @@
 #include "doctest.h"
 
 #include <duck/iterator/facade.h>
-#include <iostream>
+#include <type_traits>
 
-class IntItImpl {
-public:
-	using value_type = int;
-	using difference_type = int;
+struct Dummy {};
+
+struct TypedefIterator {
+	using value_type = Dummy;
 	using reference = const value_type &;
 	using pointer = const value_type *;
+	using difference_type = Dummy;
+};
+struct NoTypedefIterator {
+	Dummy i;
+	const Dummy & deref () const { return i; }
+};
+struct NoTypedefRandomIterator : public NoTypedefIterator {
+	int distance (NoTypedefRandomIterator) { return int(); }
+};
 
+TEST_CASE ("iterator typedef traits") {
+	using namespace duck::Iterator::Detail;
+
+	// Reference
+	using ReferenceOfTypedefIteratorIsConstDummyRef =
+	    std::is_same<GetFacadeReferenceType<TypedefIterator>, const Dummy &>;
+	CHECK (ReferenceOfTypedefIteratorIsConstDummyRef::value);
+	using ReferenceOfNoTypedefIteratorIsConstDummyRef =
+	    std::is_same<GetFacadeReferenceType<NoTypedefIterator>, const Dummy &>;
+	CHECK (ReferenceOfNoTypedefIteratorIsConstDummyRef::value);
+
+	// ValueType
+	using ValueTypeOfTypedefIteratorIsDummy =
+	    std::is_same<GetFacadeValueType<TypedefIterator>, Dummy>;
+	CHECK (ValueTypeOfTypedefIteratorIsDummy::value);
+	using ValueTypeOfNoTypedefIteratorIsDummy =
+	    std::is_same<GetFacadeValueType<NoTypedefIterator>, Dummy>;
+	CHECK (ValueTypeOfNoTypedefIteratorIsDummy::value);
+
+	// Pointer
+	using PointerOfTypedefIteratorIsConstDummyRef =
+	    std::is_same<GetFacadePointerType<TypedefIterator>, const Dummy *>;
+	CHECK (PointerOfTypedefIteratorIsConstDummyRef::value);
+	using PointerOfNoTypedefIteratorIsConstDummyRef =
+	    std::is_same<GetFacadePointerType<NoTypedefIterator>, const Dummy *>;
+	CHECK (PointerOfNoTypedefIteratorIsConstDummyRef::value);
+
+	// DifferenceType
+	using DifferenceTypeOfTypedefIteratorIsDummy =
+	    std::is_same<GetFacadeDifferenceType<TypedefIterator>, Dummy>;
+	CHECK (DifferenceTypeOfTypedefIteratorIsDummy::value);
+	using DifferenceTypeOfNoTypedefIteratorIsPtrdiff =
+	    std::is_same<GetFacadeDifferenceType<NoTypedefIterator>, std::ptrdiff_t>;
+	CHECK (DifferenceTypeOfNoTypedefIteratorIsPtrdiff::value);
+	using DifferenceTypeOfNoTypedefRandomIteratorIsInt =
+	    std::is_same<GetFacadeDifferenceType<NoTypedefRandomIterator>, int>;
+	CHECK (DifferenceTypeOfNoTypedefRandomIteratorIsInt::value);
+
+	// HasDistance
+	CHECK_FALSE (HasDistanceMethod<TypedefIterator>::value);
+	CHECK_FALSE (HasDistanceMethod<NoTypedefIterator>::value);
+	CHECK (HasDistanceMethod<NoTypedefRandomIterator>::value);
+	CHECK_FALSE (HasDistanceMethod<int>::value);
+}
+
+class IntItImpl {
 protected:
 	IntItImpl (int i = 0) : i_ (i) {}
 	void next () { advance (1); }

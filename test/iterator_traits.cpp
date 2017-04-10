@@ -78,16 +78,20 @@ using BadIterator = DummyIterator;
 TEST_CASE ("iterator typedefs traits") {
 	using namespace duck::Iterator;
 
-	// Tests
+	// Testing the typedef presence.
 	CHECK (HasValueType<GoodIterator>::value);
 	CHECK_FALSE (HasValueType<BadIterator>::value);
-	
+	CHECK_FALSE (HasValueType<int>::value);
+
 	CHECK (HasDifferenceType<GoodIterator>::value);
 	CHECK_FALSE (HasDifferenceType<BadIterator>::value);
-	
+	CHECK_FALSE (HasDifferenceType<int>::value);
+
 	CHECK (HasReferenceType<GoodIterator>::value);
 	CHECK_FALSE (HasReferenceType<BadIterator>::value);
-	
+	CHECK_FALSE (HasReferenceType<int>::value);
+
 	CHECK (HasPointerType<GoodIterator>::value);
 	CHECK_FALSE (HasPointerType<BadIterator>::value);
+	CHECK_FALSE (HasPointerType<int>::value);
 }

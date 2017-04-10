@@ -25,7 +25,8 @@ namespace Iterator {
 
 	/* -------------------------------  Iterator typedef ----------------------------- */
 
-	// SFINAE test if member is defined
+	// SFINAE test if member is defined.
+	// [!] Do not apply std::iterator_traits beforehand (will not work on raw T*).
 	template <typename It> class HasValueType {
 	private:
 		template <typename T, typename = typename T::value_type> static constexpr bool test (int) {
