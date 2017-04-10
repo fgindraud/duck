@@ -58,6 +58,7 @@ namespace Range {
 		DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
 
 		// "nicer" api (python like slice ; but at(size ()) return end ())
+		// TODO improve...
 		It at (DifferenceType n) const {
 			auto index = n < 0 ? n + size () : n;
 			return std::next (begin (), index);
@@ -65,6 +66,8 @@ namespace Range {
 		Range slice (DifferenceType from, DifferenceType to) const {
 			return Base<It>{at (from), at (to)};
 		}
+		Range slice_to (DifferenceType to) const { return Base<It>{begin (), at (to)}; }
+		Range slice_from (DifferenceType from) const { return Base<It>{at (from), end ()}; }
 
 		template <typename Container> Container to_container () const {
 			return Container (begin (), end ());

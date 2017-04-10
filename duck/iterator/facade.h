@@ -2,9 +2,9 @@
 
 // Iterator builder classes
 
-// TODO Partially finished
-// Lacking element access
-// Other problem, traits definition...
+// FIXME Work with protected method ?
+// TODO nicer way to sfinae ? vvv
+// http://stackoverflow.com/questions/22111719/checking-for-existence-of-c-member-function-possibly-protected
 
 #include <duck/iterator/traits.h>
 #include <iterator>
@@ -20,10 +20,11 @@ namespace Iterator {
 			using DecayedT = typename std::decay<T>::type;
 			return !std::is_same<Self, DecayedT>::value && !std::is_base_of<Self, DecayedT>::value;
 		}
-		
+
 		// Test if distance method exists
 		template <typename ItImpl> class HasDistanceMethod {
 		private:
+			// FIXME can add the access trick, and sfinae it with enable_if<is_class<T>>
 			template <typename T>
 			static constexpr decltype (std::declval<T> ().distance (std::declval<T> ()), bool())
 			test (int) {
@@ -41,7 +42,13 @@ namespace Iterator {
 			using Type = typename ItImpl::reference;
 		};
 		template <typename ItImpl> struct GetFacadeReferenceTypeImpl<ItImpl, false> {
-			using Type = decltype (std::declval<ItImpl> ().deref ());
+		private:
+			struct Access : public ItImpl {
+				using ItImpl::deref; // Make deref public if protected
+			};
+
+		public:
+			using Type = decltype (std::declval<Access> ().deref ());
 		};
 		template <typename ItImpl>
 		using GetFacadeReferenceType =

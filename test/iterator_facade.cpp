@@ -13,10 +13,14 @@ struct TypedefIterator {
 	using difference_type = Dummy;
 };
 struct NoTypedefIterator {
+private:
 	Dummy i;
+
+protected:
 	const Dummy & deref () const { return i; }
 };
 struct NoTypedefRandomIterator : public NoTypedefIterator {
+protected:
 	int distance (NoTypedefRandomIterator) { return int(); }
 };
 
