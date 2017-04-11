@@ -4,8 +4,8 @@ Duck cpp utils library
 [![Build Status](https://travis-ci.org/lereldarion/duck.svg?branch=master)](https://travis-ci.org/lereldarion/duck)
 [![Duck License](https://img.shields.io/github/license/mashape/apistatus.svg)]()
 
-Small collections of C++14 header only useful classes.
-Currently under namespace `duck`.
+Small collections of C++11 header only useful classes.
+Placed under namespace `duck`.
 
 Setup
 -----
@@ -21,9 +21,10 @@ TODO:
 - add license stuff and small doc in files.
 - add nocompile tests for range
 - add test for integer range
-- expand std::algorithm version with ranges ? no tests though. keep wrapper namespace ?
-- add combinators (range expressions)
-- split range in basic mode (no fancy apply stuff), and a full featured range
+- expand std::algorithm version with ranges ?
+- restore combinators
+- better formatter
+- ensure everything is indeed c++11 (might require c++14 in some places)
 
 License
 -------

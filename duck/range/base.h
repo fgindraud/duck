@@ -3,6 +3,7 @@
 // Range base class.
 
 #include <duck/iterator/traits.h>
+#include <iterator>
 #include <utility>
 
 namespace duck {
@@ -24,5 +25,9 @@ namespace Range {
 		It begin_;
 		It end_;
 	};
+
+	template <typename It> auto size (Base<It> r) -> decltype (std::distance (r.begin (), r.end ())) {
+		return std::distance (r.begin (), r.end ());
+	}
 }
 }

@@ -2,8 +2,6 @@
 
 // Overloads of <algorithm> functions to accept range arguments instead of iterator pairs.
 
-// TODO keep passing Range by value, add std::move on .begin/.end ?
-
 #include <algorithm>
 #include <duck/range/base.h>
 
