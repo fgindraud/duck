@@ -4,6 +4,52 @@
 #include <duck/iterator/traits.h>
 #include <type_traits>
 
+/* --------------------------------- Iterator typedefs ----------------------------- */
+
+struct GoodIterator {
+	using value_type = int;
+	using reference = value_type &;
+	using pointer = value_type *;
+	using difference_type = std::ptrdiff_t;
+	using iterator_category = std::random_access_iterator_tag;
+};
+struct BadIterator {};
+
+// SFINAE context test
+template <typename T, typename = duck::Iterator::GetReferenceType<T>> static bool test_has_ref (T) {
+	return true;
+}
+static bool test_has_ref (...) {
+	return false;
+}
+
+TEST_CASE ("iterator typedefs traits") {
+	using namespace duck::Iterator;
+
+	// Testing the typedef presence.
+	CHECK (MaybeValueType<GoodIterator>::value);
+	CHECK_FALSE (MaybeValueType<BadIterator>::value);
+	CHECK_FALSE (MaybeValueType<int>::value);
+
+	CHECK (MaybeDifferenceType<GoodIterator>::value);
+	CHECK_FALSE (MaybeDifferenceType<BadIterator>::value);
+	CHECK_FALSE (MaybeDifferenceType<int>::value);
+
+	CHECK (MaybeReferenceType<GoodIterator>::value);
+	CHECK_FALSE (MaybeReferenceType<BadIterator>::value);
+	CHECK_FALSE (MaybeReferenceType<int>::value);
+
+	CHECK (MaybePointerType<GoodIterator>::value);
+	CHECK_FALSE (MaybePointerType<BadIterator>::value);
+	CHECK_FALSE (MaybePointerType<int>::value);
+
+	// Testing the SFINAE capability (reference only)
+	CHECK (test_has_ref (GoodIterator{}));
+	CHECK_FALSE (test_has_ref (BadIterator{}));
+}
+
+/* ------------------------------ Container iterator type -------------------------- */
+
 struct DummyIterator {};
 struct DummyConstIterator {};
 
@@ -38,20 +84,20 @@ TEST_CASE ("container iterator traits") {
 	using namespace duck::Iterator;
 
 	// Traits with begin method
-	CHECK (ContainerHasStdIterator<ContainerWithBeginMethod>::value);
-	CHECK (ContainerHasStdIterator<const ContainerWithBeginMethod>::value);
-	CHECK_FALSE (ContainerHasUserIterator<ContainerWithBeginMethod>::value);
-	CHECK_FALSE (ContainerHasUserIterator<const ContainerWithBeginMethod>::value);
-	CHECK (ContainerHasIterator<ContainerWithBeginMethod>::value);
-	CHECK (ContainerHasIterator<const ContainerWithBeginMethod>::value);
+	CHECK (MaybeContainerHasStdIterator<ContainerWithBeginMethod>::value);
+	CHECK (MaybeContainerHasStdIterator<const ContainerWithBeginMethod>::value);
+	CHECK_FALSE (MaybeContainerHasUserIterator<ContainerWithBeginMethod>::value);
+	CHECK_FALSE (MaybeContainerHasUserIterator<const ContainerWithBeginMethod>::value);
+	CHECK (MaybeContainerHasIterator<ContainerWithBeginMethod>::value);
+	CHECK (MaybeContainerHasIterator<const ContainerWithBeginMethod>::value);
 
 	// Traits with begin function
-	CHECK_FALSE (ContainerHasStdIterator<MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK_FALSE (ContainerHasStdIterator<const MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (ContainerHasUserIterator<MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (ContainerHasUserIterator<const MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (ContainerHasIterator<MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (ContainerHasIterator<const MyNamespace::ContainerWithBeginFunc>::value);
+	CHECK_FALSE (MaybeContainerHasStdIterator<MyNamespace::ContainerWithBeginFunc>::value);
+	CHECK_FALSE (MaybeContainerHasStdIterator<const MyNamespace::ContainerWithBeginFunc>::value);
+	CHECK (MaybeContainerHasUserIterator<MyNamespace::ContainerWithBeginFunc>::value);
+	CHECK (MaybeContainerHasUserIterator<const MyNamespace::ContainerWithBeginFunc>::value);
+	CHECK (MaybeContainerHasIterator<MyNamespace::ContainerWithBeginFunc>::value);
+	CHECK (MaybeContainerHasIterator<const MyNamespace::ContainerWithBeginFunc>::value);
 
 	// Iterator type (begin method)
 	using IteratorOfBeginMethod_Is_DummyIterator =
@@ -71,54 +117,12 @@ TEST_CASE ("container iterator traits") {
 	CHECK (IteratorOfConstBeginFunc_Is_DummyConstIterator::value);
 
 	// Fails on wrong input
-	CHECK_FALSE (ContainerHasIterator<int>::value);
-	CHECK_FALSE (ContainerHasIterator<float>::value);
-	CHECK_FALSE (ContainerHasIterator<DummyIterator>::value);
+	CHECK_FALSE (MaybeContainerHasIterator<int>::value);
+	CHECK_FALSE (MaybeContainerHasIterator<float>::value);
+	CHECK_FALSE (MaybeContainerHasIterator<DummyIterator>::value);
 
 	// Test SFINAE capability (global iterator only)
 	CHECK (test_has_it (ContainerWithBeginMethod{}));
 	CHECK (test_has_it (MyNamespace::ContainerWithBeginFunc{}));
 	CHECK_FALSE (test_has_it (int{}));
-}
-
-struct GoodIterator {
-	using value_type = int;
-	using reference = value_type &;
-	using pointer = value_type *;
-	using difference_type = std::ptrdiff_t;
-	using iterator_category = std::random_access_iterator_tag;
-};
-using BadIterator = DummyIterator;
-
-// SFINAE context test
-template <typename T, typename = duck::Iterator::GetReferenceType<T>> static bool test_has_ref (T) {
-	return true;
-}
-static bool test_has_ref (...) {
-	return false;
-}
-
-TEST_CASE ("iterator typedefs traits") {
-	using namespace duck::Iterator;
-
-	// Testing the typedef presence.
-	CHECK (HasValueType<GoodIterator>::value);
-	CHECK_FALSE (HasValueType<BadIterator>::value);
-	CHECK_FALSE (HasValueType<int>::value);
-
-	CHECK (HasDifferenceType<GoodIterator>::value);
-	CHECK_FALSE (HasDifferenceType<BadIterator>::value);
-	CHECK_FALSE (HasDifferenceType<int>::value);
-
-	CHECK (HasReferenceType<GoodIterator>::value);
-	CHECK_FALSE (HasReferenceType<BadIterator>::value);
-	CHECK_FALSE (HasReferenceType<int>::value);
-
-	CHECK (HasPointerType<GoodIterator>::value);
-	CHECK_FALSE (HasPointerType<BadIterator>::value);
-	CHECK_FALSE (HasPointerType<int>::value);
-
-	// Testing the SFINAE capability (reference only)
-	CHECK (test_has_ref (GoodIterator{}));
-	CHECK_FALSE (test_has_ref (BadIterator{}));
 }

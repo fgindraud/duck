@@ -2,7 +2,7 @@
 
 // Iterator traits (compile time information).
 
-#include <duck/type_traits.h>
+#include <duck/maybe_type.h>
 #include <iterator>
 #include <type_traits>
 
@@ -23,11 +23,11 @@ namespace Iterator {
 
 	// Maybe types testing if some typedefs exists.
 	// [!] Do not apply std::iterator_traits beforehand (will not work on raw T*).
-	template <typename It> class HasValueType {
+	template <typename It> class MaybeValueType {
 	private:
 		template <typename T>
 		static auto test (T) -> decltype (std::declval<typename T::value_type> (), std::true_type{});
-		static auto test (...) -> decltype (std::false_type{});
+		static auto test (...) -> std::false_type;
 
 		template <typename T, bool has_value_type> struct MaybeTypeImpl {};
 		template <typename T> struct MaybeTypeImpl<T, true> { using Type = typename T::value_type; };
@@ -36,12 +36,12 @@ namespace Iterator {
 		enum { value = decltype (test (std::declval<It> ()))::value };
 		using MaybeType = MaybeTypeImpl<It, value>;
 	};
-	template <typename It> class HasDifferenceType {
+	template <typename It> class MaybeDifferenceType {
 	private:
 		template <typename T>
 		static auto test (T)
 		    -> decltype (std::declval<typename T::difference_type> (), std::true_type{});
-		static auto test (...) -> decltype (std::false_type{});
+		static auto test (...) -> std::false_type;
 
 		template <typename T, bool has_difference_type> struct MaybeTypeImpl {};
 		template <typename T> struct MaybeTypeImpl<T, true> {
@@ -52,11 +52,11 @@ namespace Iterator {
 		enum { value = decltype (test (std::declval<It> ()))::value };
 		using MaybeType = MaybeTypeImpl<It, value>;
 	};
-	template <typename It> class HasReferenceType {
+	template <typename It> class MaybeReferenceType {
 	private:
 		template <typename T>
 		static auto test (T) -> decltype (std::declval<typename T::reference> (), std::true_type{});
-		static auto test (...) -> decltype (std::false_type{});
+		static auto test (...) -> std::false_type;
 
 		template <typename T, bool has_reference_type> struct MaybeTypeImpl {};
 		template <typename T> struct MaybeTypeImpl<T, true> { using Type = typename T::reference; };
@@ -65,11 +65,11 @@ namespace Iterator {
 		enum { value = decltype (test (std::declval<It> ()))::value };
 		using MaybeType = MaybeTypeImpl<It, value>;
 	};
-	template <typename It> class HasPointerType {
+	template <typename It> class MaybePointerType {
 	private:
 		template <typename T>
 		static auto test (T) -> decltype (std::declval<typename T::pointer> (), std::true_type{});
-		static auto test (...) -> decltype (std::false_type{});
+		static auto test (...) -> std::false_type;
 
 		template <typename T, bool has_pointer_type> struct MaybeTypeImpl {};
 		template <typename T> struct MaybeTypeImpl<T, true> { using Type = typename T::pointer; };
@@ -81,24 +81,24 @@ namespace Iterator {
 
 	// Add SFINAE capable typedefs (use std::iterator_traits).
 	template <typename It>
-	using GetValueType = typename HasValueType<std::iterator_traits<It>>::MaybeType::Type;
+	using GetValueType = Maybe::Unpack<MaybeValueType<std::iterator_traits<It>>>;
 	template <typename It>
-	using GetDifferenceType = typename HasDifferenceType<std::iterator_traits<It>>::MaybeType::Type;
+	using GetDifferenceType = Maybe::Unpack<MaybeDifferenceType<std::iterator_traits<It>>>;
 	template <typename It>
-	using GetReferenceType = typename HasReferenceType<std::iterator_traits<It>>::MaybeType::Type;
+	using GetReferenceType = Maybe::Unpack<MaybeReferenceType<std::iterator_traits<It>>>;
 	template <typename It>
-	using GetPointerType = typename HasPointerType<std::iterator_traits<It>>::MaybeType::Type;
+	using GetPointerType = Maybe::Unpack<MaybePointerType<std::iterator_traits<It>>>;
 
 	/* ------------------------------  Container iterator ---------------------------- */
 
 	// Maybe-type testing if std::begin works on Container (returns iterator type)
-	template <typename Container> class ContainerHasStdIterator {
+	template <typename Container> class MaybeContainerHasStdIterator {
 	private:
 		template <typename T>
 		static auto test (T)
 		    -> decltype (std::begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
 		                 std::true_type{});
-		static auto test (...) -> decltype (std::false_type{});
+		static auto test (...) -> std::false_type;
 
 		template <typename T, bool has_std_it_type> struct MaybeTypeImpl {};
 		template <typename T> struct MaybeTypeImpl<T, true> {
@@ -112,13 +112,13 @@ namespace Iterator {
 	};
 
 	// Maybe-type testing if a user begin() works on Container (returns iterator type)
-	template <typename Container> class ContainerHasUserIterator {
+	template <typename Container> class MaybeContainerHasUserIterator {
 	private:
 		template <typename T>
 		static auto test (T)
 		    -> decltype (begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
 		                 std::true_type{});
-		static auto test (...) -> decltype (std::false_type{});
+		static auto test (...) -> std::false_type;
 
 		template <typename T, bool has_std_it_type> struct MaybeTypeImpl {};
 		template <typename T> struct MaybeTypeImpl<T, true> {
@@ -132,10 +132,11 @@ namespace Iterator {
 
 	// Maybe-type testing if a user begin() works on Container (returns iterator type)
 	template <typename Container>
-	using ContainerHasIterator = Traits::SelectFirstDefined<ContainerHasStdIterator<Container>,
-	                                                        ContainerHasUserIterator<Container>>;
+	using MaybeContainerHasIterator =
+	    Maybe::SelectFirstDefined<MaybeContainerHasStdIterator<Container>,
+	                              MaybeContainerHasUserIterator<Container>>;
 	// SFINAE-type for iterator type
 	template <typename Container>
-	using GetContainerIteratorType = typename ContainerHasIterator<Container>::MaybeType::Type;
+	using GetContainerIteratorType = Maybe::Unpack<MaybeContainerHasIterator<Container>>;
 }
 }

@@ -3,10 +3,9 @@
 // Iterator builder classes
 
 // FIXME Work with protected method ?
-// TODO nicer way to sfinae ? vvv
-// http://stackoverflow.com/questions/22111719/checking-for-existence-of-c-member-function-possibly-protected
 
 #include <duck/iterator/traits.h>
+#include <duck/maybe_type.h>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -21,80 +20,64 @@ namespace Iterator {
 			return !std::is_same<Self, DecayedT>::value && !std::is_base_of<Self, DecayedT>::value;
 		}
 
-		// Test if distance method exists
-		template <typename ItImpl> class HasDistanceMethod {
+		// Maybe-type for decltype of ItImpl::deref() return value
+		template <typename ItImpl> class MaybeDerefReturnType {
 		private:
-			// FIXME can add the access trick, and sfinae it with enable_if<is_class<T>>
 			template <typename T>
-			static constexpr decltype (std::declval<T> ().distance (std::declval<T> ()), bool())
-			test (int) {
-				return true;
-			}
-			template <typename T> static constexpr bool test (...) { return false; }
+			static auto test (T) -> decltype (std::declval<T> ().deref (), std::true_type{});
+			static auto test (...) -> std::false_type;
 
-		public:
-			enum { value = test<ItImpl> (int()) };
-		};
-
-		// Trait to determine the reference typedef of iterator
-		template <typename ItImpl, bool has_reference_type> struct GetFacadeReferenceTypeImpl {};
-		template <typename ItImpl> struct GetFacadeReferenceTypeImpl<ItImpl, true> {
-			using Type = typename ItImpl::reference;
-		};
-		template <typename ItImpl> struct GetFacadeReferenceTypeImpl<ItImpl, false> {
-		private:
-			struct Access : public ItImpl {
-				using ItImpl::deref; // Make deref public if protected
+			template <typename T, bool has_type> struct MaybeTypeImpl {};
+			template <typename T> struct MaybeTypeImpl<T, true> {
+				using Type = decltype (std::declval<T> ().deref ());
 			};
 
 		public:
-			using Type = decltype (std::declval<Access> ().deref ());
+			enum { value = decltype (test (std::declval<ItImpl> ()))::value };
+			using MaybeType = MaybeTypeImpl<ItImpl, value>;
 		};
-		template <typename ItImpl>
-		using GetFacadeReferenceType =
-		    typename GetFacadeReferenceTypeImpl<ItImpl, HasReferenceType<ItImpl>::value>::Type;
 
-		// Trait to determine the value_type typedef of iterator
-		template <typename ItImpl, bool has_value_type> struct GetFacadeValueTypeImpl {};
-		template <typename ItImpl> struct GetFacadeValueTypeImpl<ItImpl, true> {
-			using Type = typename ItImpl::value_type;
-		};
-		template <typename ItImpl> struct GetFacadeValueTypeImpl<ItImpl, false> {
-			using Type = typename std::decay<GetFacadeReferenceType<ItImpl>>::type;
-		};
-		template <typename ItImpl>
-		using GetFacadeValueType =
-		    typename GetFacadeValueTypeImpl<ItImpl, HasValueType<ItImpl>::value>::Type;
+		// Maybe-type for decltype of ItImpl::distance() return value
+		template <typename ItImpl> class MaybeDistanceReturnType {
+		private:
+			template <typename T>
+			static auto test (T)
+			    -> decltype (std::declval<T> ().distance (std::declval<T> ()), std::true_type{});
+			static auto test (...) -> std::false_type;
 
-		// Trait to determine the pointer typedef of iterator
-		template <typename ItImpl, bool has_pointer_type> struct GetFacadePointerTypeImpl {};
-		template <typename ItImpl> struct GetFacadePointerTypeImpl<ItImpl, true> {
-			using Type = typename ItImpl::pointer;
-		};
-		template <typename ItImpl> struct GetFacadePointerTypeImpl<ItImpl, false> {
-			using Type = typename std::add_pointer<GetFacadeReferenceType<ItImpl>>::type;
-		};
-		template <typename ItImpl>
-		using GetFacadePointerType =
-		    typename GetFacadePointerTypeImpl<ItImpl, HasPointerType<ItImpl>::value>::Type;
+			template <typename T, bool has_type> struct MaybeTypeImpl {};
+			template <typename T> struct MaybeTypeImpl<T, true> {
+				using Type = decltype (std::declval<T> ().distance (std::declval<T> ()));
+			};
 
-		// Trait to determine the difference_type typedef of iterator
-		template <typename ItImpl, bool has_difference_type, bool has_distance_method>
-		struct GetFacadeDifferenceTypeImpl {};
-		template <typename ItImpl, bool has_distance_method>
-		struct GetFacadeDifferenceTypeImpl<ItImpl, true, has_distance_method> {
-			using Type = typename ItImpl::difference_type;
+		public:
+			enum { value = decltype (test (std::declval<ItImpl> ()))::value };
+			using MaybeType = MaybeTypeImpl<ItImpl, value>;
 		};
-		template <typename ItImpl> struct GetFacadeDifferenceTypeImpl<ItImpl, false, true> {
-			using Type = decltype (std::declval<ItImpl> ().distance (std::declval<ItImpl> ()));
-		};
-		template <typename ItImpl> struct GetFacadeDifferenceTypeImpl<ItImpl, false, false> {
-			using Type = std::ptrdiff_t;
-		};
+
+		// Maybe-type for reference of iterator facade
 		template <typename ItImpl>
-		using GetFacadeDifferenceType =
-		    typename GetFacadeDifferenceTypeImpl<ItImpl, HasDifferenceType<ItImpl>::value,
-		                                         HasDistanceMethod<ItImpl>::value>::Type;
+		using MaybeFacadeReferenceType =
+		    Maybe::SelectFirstDefined<MaybeReferenceType<ItImpl>, MaybeDerefReturnType<ItImpl>>;
+
+		// Maybe-type for value_type of iterator facade
+		template <typename ItImpl>
+		using MaybeFacadeValueType =
+		    Maybe::SelectFirstDefined<MaybeValueType<ItImpl>,
+		                              Maybe::Decay<MaybeFacadeReferenceType<ItImpl>>>;
+
+		// Maybe-type for pointer of iterator facade
+		template <typename ItImpl>
+		using MaybeFacadePointerType =
+		    Maybe::SelectFirstDefined<MaybePointerType<ItImpl>,
+		                              Maybe::AddPointer<MaybeFacadeReferenceType<ItImpl>>>;
+
+		// Maybe-type for difference_type of iterator facade
+		template <typename ItImpl>
+		using MaybeFacadeDifferenceType =
+		    Maybe::SelectFirstDefined<MaybeDifferenceType<ItImpl>,
+		                              Detail::MaybeDistanceReturnType<ItImpl>,
+		                              Maybe::DefinedMaybeType<std::ptrdiff_t>>;
 	}
 
 	template <typename Impl> class Facade : public Impl {
@@ -113,13 +96,15 @@ namespace Iterator {
 		// - bidirectional: + Impl::prev()
 		// - random access: + Impl::advance(n), Impl::distance (it)
 		//
+		// Impl methods must be public (I really tried to make it work as protected, but no luck).
+		//
 		// TODO gen next/prev if advance, equal if distance ?
 		// TODO simplify wrapping of a sub-iterator
 	public:
-		using value_type = Detail::GetFacadeValueType<Impl>;
-		using difference_type = Detail::GetFacadeDifferenceType<Impl>;
-		using reference = Detail::GetFacadeReferenceType<Impl>;
-		using pointer = Detail::GetFacadePointerType<Impl>;
+		using value_type = Maybe::Unpack<Detail::MaybeFacadeValueType<Impl>>;
+		using difference_type = Maybe::Unpack<Detail::MaybeFacadeDifferenceType<Impl>>;
+		using reference = Maybe::Unpack<Detail::MaybeFacadeReferenceType<Impl>>;
+		using pointer = Maybe::Unpack<Detail::MaybeFacadePointerType<Impl>>;
 		// TODO what for category !
 
 		// Constructors: defaulted, will be enabled if the matching one is available in Impl

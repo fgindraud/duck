@@ -1,9 +1,9 @@
 #pragma once
 
-// Manipulation of types
+// Manipulation of sfinae types
 
 namespace duck {
-namespace Traits {
+namespace Maybe {
 	/* A SFINAE-type is a struct:
 	 * - {} (empty) if not defined
 	 * - { using Type = ...; } if defined
@@ -12,9 +12,14 @@ namespace Traits {
 	 *  bool value; // is the type defined
 	 *  struct MaybeType {}; // a SFINAE-type
 	 * }
+	 *
+	 * Below are:
+	 * - basic true/false types
+	 * - and an accessor
 	 */
+
 	template <typename T> struct DefinedMaybeType {
-		// A defined maybe-type storing T
+		// A defined maybe-type storing a simple T
 		enum { value = true };
 		struct MaybeType {
 			using Type = T;
@@ -25,6 +30,14 @@ namespace Traits {
 		enum { value = false };
 		struct MaybeType {};
 	};
+
+	// Unpacking typedef (practical, and is SFINAE valid !)
+	template <typename MT> using Unpack = typename MT::MaybeType::Type;
+
+	/* Wrap a simple T as a MaybeType depending on a bool condition.
+	 */
+	template <typename T, bool value> struct ConditionalMaybeType : UndefinedMaybeType {};
+	template <typename T> struct ConditionalMaybeType<T, true> : DefinedMaybeType<T> {};
 
 	/* SelectFirstDefined<MaybeTypeA, MaybeTypeB> is a maybe-type with:
 	 * - value == true if at least one of the maybe-types was defined
@@ -51,5 +64,33 @@ namespace Traits {
 	template <typename MT, typename... MaybeTypes>
 	struct SelectFirstDefined<MT, MaybeTypes...>
 	    : Detail::SelectFirstDefinedTestFirst<MT::value, MT, MaybeTypes...> {};
+
+	/* std::decay as a MaybeType -> MaybeType operation.
+	 */
+	template <typename MT> struct Decay {
+	private:
+		template <typename T, bool has_type> struct MaybeTypeImpl {};
+		template <typename T> struct MaybeTypeImpl<T, true> {
+			using Type = typename std::decay<Unpack<T>>::type;
+		};
+
+	public:
+		enum { value = MT::value };
+		using MaybeType = MaybeTypeImpl<MT, MT::value>;
+	};
+
+	/* std::add_pointer as a MaybeType -> MaybeType operation.
+	 */
+	template <typename MT> struct AddPointer {
+	private:
+		template <typename T, bool has_type> struct MaybeTypeImpl {};
+		template <typename T> struct MaybeTypeImpl<T, true> {
+			using Type = typename std::add_pointer<Unpack<T>>::type;
+		};
+
+	public:
+		enum { value = MT::value };
+		using MaybeType = MaybeTypeImpl<MT, MT::value>;
+	};
 }
 }

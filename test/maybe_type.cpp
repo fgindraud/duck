@@ -1,14 +1,14 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/type_traits.h>
+#include <duck/maybe_type.h>
 #include <type_traits>
 
 template <typename SelectedMaybeType, typename T>
-using SelectedMatches = std::is_same<typename SelectedMaybeType::MaybeType::Type, T>;
+using SelectedMatches = std::is_same<duck::Maybe::Unpack<SelectedMaybeType>, T>;
 
 // SFINAE context test
-template <typename T, typename = typename T::MaybeType::Type> static bool test_has_type (T) {
+template <typename T, typename = duck::Maybe::Unpack<T>> static bool test_has_type (T) {
 	return true;
 }
 static bool test_has_type (...) {
@@ -16,7 +16,7 @@ static bool test_has_type (...) {
 }
 
 TEST_CASE ("type getter selector") {
-	using namespace duck::Traits;
+	using namespace duck::Maybe;
 
 	// Selection with no defined element
 	using Undef_Undef_SelectedAs = SelectFirstDefined<UndefinedMaybeType, UndefinedMaybeType>;

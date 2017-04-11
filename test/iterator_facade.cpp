@@ -2,6 +2,7 @@
 #include "doctest.h"
 
 #include <duck/iterator/facade.h>
+#include <duck/maybe_type.h>
 #include <type_traits>
 
 struct Dummy {};
@@ -16,61 +17,67 @@ struct NoTypedefIterator {
 private:
 	Dummy i;
 
-protected:
+public:
 	const Dummy & deref () const { return i; }
 };
 struct NoTypedefRandomIterator : public NoTypedefIterator {
-protected:
 	int distance (NoTypedefRandomIterator) { return int(); }
 };
 
 TEST_CASE ("iterator typedef traits") {
+	using namespace duck::Maybe;
 	using namespace duck::Iterator::Detail;
 
 	// Reference
 	using ReferenceOfTypedefIteratorIsConstDummyRef =
-	    std::is_same<GetFacadeReferenceType<TypedefIterator>, const Dummy &>;
+	    std::is_same<Unpack<MaybeFacadeReferenceType<TypedefIterator>>, const Dummy &>;
 	CHECK (ReferenceOfTypedefIteratorIsConstDummyRef::value);
 	using ReferenceOfNoTypedefIteratorIsConstDummyRef =
-	    std::is_same<GetFacadeReferenceType<NoTypedefIterator>, const Dummy &>;
+	    std::is_same<Unpack<MaybeFacadeReferenceType<NoTypedefIterator>>, const Dummy &>;
 	CHECK (ReferenceOfNoTypedefIteratorIsConstDummyRef::value);
 
 	// ValueType
 	using ValueTypeOfTypedefIteratorIsDummy =
-	    std::is_same<GetFacadeValueType<TypedefIterator>, Dummy>;
+	    std::is_same<Unpack<MaybeFacadeValueType<TypedefIterator>>, Dummy>;
 	CHECK (ValueTypeOfTypedefIteratorIsDummy::value);
 	using ValueTypeOfNoTypedefIteratorIsDummy =
-	    std::is_same<GetFacadeValueType<NoTypedefIterator>, Dummy>;
+	    std::is_same<Unpack<MaybeFacadeValueType<NoTypedefIterator>>, Dummy>;
 	CHECK (ValueTypeOfNoTypedefIteratorIsDummy::value);
 
 	// Pointer
 	using PointerOfTypedefIteratorIsConstDummyRef =
-	    std::is_same<GetFacadePointerType<TypedefIterator>, const Dummy *>;
+	    std::is_same<Unpack<MaybeFacadePointerType<TypedefIterator>>, const Dummy *>;
 	CHECK (PointerOfTypedefIteratorIsConstDummyRef::value);
 	using PointerOfNoTypedefIteratorIsConstDummyRef =
-	    std::is_same<GetFacadePointerType<NoTypedefIterator>, const Dummy *>;
+	    std::is_same<Unpack<MaybeFacadePointerType<NoTypedefIterator>>, const Dummy *>;
 	CHECK (PointerOfNoTypedefIteratorIsConstDummyRef::value);
 
 	// DifferenceType
 	using DifferenceTypeOfTypedefIteratorIsDummy =
-	    std::is_same<GetFacadeDifferenceType<TypedefIterator>, Dummy>;
+	    std::is_same<Unpack<MaybeFacadeDifferenceType<TypedefIterator>>, Dummy>;
 	CHECK (DifferenceTypeOfTypedefIteratorIsDummy::value);
 	using DifferenceTypeOfNoTypedefIteratorIsPtrdiff =
-	    std::is_same<GetFacadeDifferenceType<NoTypedefIterator>, std::ptrdiff_t>;
+	    std::is_same<Unpack<MaybeFacadeDifferenceType<NoTypedefIterator>>, std::ptrdiff_t>;
 	CHECK (DifferenceTypeOfNoTypedefIteratorIsPtrdiff::value);
 	using DifferenceTypeOfNoTypedefRandomIteratorIsInt =
-	    std::is_same<GetFacadeDifferenceType<NoTypedefRandomIterator>, int>;
+	    std::is_same<Unpack<MaybeFacadeDifferenceType<NoTypedefRandomIterator>>, int>;
 	CHECK (DifferenceTypeOfNoTypedefRandomIteratorIsInt::value);
 
-	// HasDistance
-	CHECK_FALSE (HasDistanceMethod<TypedefIterator>::value);
-	CHECK_FALSE (HasDistanceMethod<NoTypedefIterator>::value);
-	CHECK (HasDistanceMethod<NoTypedefRandomIterator>::value);
-	CHECK_FALSE (HasDistanceMethod<int>::value);
+	// MaybeDistance
+	CHECK_FALSE (MaybeDistanceReturnType<TypedefIterator>::value);
+	CHECK_FALSE (MaybeDistanceReturnType<NoTypedefIterator>::value);
+	CHECK (MaybeDistanceReturnType<NoTypedefRandomIterator>::value);
+	CHECK_FALSE (MaybeDistanceReturnType<int>::value);
+
+	// MaybeDeref
+	CHECK_FALSE (MaybeDerefReturnType<TypedefIterator>::value);
+	CHECK (MaybeDerefReturnType<NoTypedefIterator>::value);
+	CHECK (MaybeDerefReturnType<NoTypedefRandomIterator>::value);
+	CHECK_FALSE (MaybeDerefReturnType<int>::value);
 }
 
 class IntItImpl {
-protected:
+public:
 	IntItImpl (int i = 0) : i_ (i) {}
 	void next () { advance (1); }
 	void prev () { advance (-1); }
