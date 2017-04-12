@@ -3,7 +3,6 @@
 // Formatter objects for strings.
 
 // -> Use formatter elements directly to override formatting
-// + placeholders : gen a function (printf like with the right arguments)
 // + dynamicity : polymorphic formatter class
 // left/right padding (formatter, len, char)
 
@@ -17,8 +16,12 @@
 #include <utility>
 
 namespace duck {
+
 namespace Format {
 	/* Formatter base classes.
+	 * A "formatter" is a class that stringify some data.
+	 * It can be simple (one piece of data) or composite (think of format strings + args).
+	 * A formatter can be "executed": its content is written as chars to something.
 	 *
 	 * "Tag" is a type tag used to recognize a formatter class.
 	 * All formatter classes must inherit from it to be recognized by <<, format(), ...
@@ -46,20 +49,68 @@ namespace Format {
 			return s;
 		}
 
-	private:
+	protected:
 		constexpr const Derived & self () const { return static_cast<const Derived &> (*this); }
 	};
 
-	/* Element formatters.
+	/* In addition to regular formatter, a formatter can have placeholders.
+	 * The PlaceHolder type represents a placeholder.
+	 * It is not a valid formatter (no size/write method).
+	 * Thus a formatter with placeholders cannot be executed.
+	 *
+	 * It must first be "instantiated" by removing the placeholders.
+	 * Instantiation is done by operator()(...), which accepts as many arguments as placeholders.
+	 * It returns a new formatter with placeholders substituted.
+	 * PlaceHolder values can be given to instantiation for a partial instantiation.
+	 * operator()(...) accepts any value that format() would accept.
+	 *
+	 * Inheriting from SimpleBase<Derived> adds definition to indicate a non-placeholder element.
+	 * Composite elements must manually manage
+	 * TODO doc nb_placeholder
+	 *
+	 * A PlaceHolder value named "placeholder" can be used in format() to have a short syntax.
+	 * For correct lookup of operator()(...), PlaceHolder is defined after format() overloads (below).
 	 */
 
-	struct Null : public Base<Null> {
-		// Empty formatter
+	template <typename Derived> struct SimpleBase : Base<Derived> {
+		// Placeholder support for simple element: no placeholder, no substitution.
+		static constexpr std::size_t nb_placeholder () { return 0; }
+		Derived operator() () const { return this->self (); }
+	};
+
+	/* Null formatter, and format() free function.
+	 *
+	 * A format() function with lots of overloads can be used to build formatters easily.
+	 * It deduces types and avoids explicitely calling constructors.
+	 * To force a specific deduction, a constructor can still be called explicitely.
+	 *
+	 * format() returns a Null formatter (empty string)
+	 * format(T):
+	 * - tries to create a formatter from T with lots of overloads
+	 * - return T (bypass) if T is a formatter
+	 *
+	 * The null formatter is useful to start a chain of formatter like:
+	 * auto formatter = format() << "blah" << 42 << ...;
+	 *
+	 * Format can be extended to your own types.
+	 * The overload must be in the global namespace or the same namespace as the overload type.
+	 * Placing it in namespace duck{} will NOT work (fails the name lookup).
+	 */
+	template <typename F, typename = typename std::enable_if<IsFormatter<F>::value>::type>
+	F format (F f) {
+		return f;
+	}
+
+	struct Null : public SimpleBase<Null> {
 		constexpr std::size_t size () const { return 0; }
 		template <typename OutputIt> constexpr OutputIt write (OutputIt it) const { return it; }
 	};
+	inline constexpr Null format () { return {}; }
 
-	template <std::size_t N> class StaticCharArray : public Base<StaticCharArray<N>> {
+	/* Simple formatters.
+	 * Builds a formatter for common cases (strings, integrals, etc).
+	 */
+	template <std::size_t N> class StaticCharArray : public SimpleBase<StaticCharArray<N>> {
 		// Reference to static char array (remove end '\0')
 	public:
 		constexpr StaticCharArray (const char (&str)[N]) : str_ (str) {}
@@ -71,8 +122,11 @@ namespace Format {
 	private:
 		const char (&str_)[N];
 	};
+	template <std::size_t N> constexpr StaticCharArray<N> format (const char (&str)[N]) {
+		return {str};
+	}
 
-	class StringRef : public Base<StringRef> {
+	class StringRef : public SimpleBase<StringRef> {
 		// Reference to std::string
 	public:
 		StringRef (const std::string & str) : str_ (str) {}
@@ -84,8 +138,9 @@ namespace Format {
 	private:
 		const std::string & str_;
 	};
+	inline StringRef format (const std::string & str) { return {str}; }
 
-	class CStringRef : public Base<CStringRef> {
+	class CStringRef : public SimpleBase<CStringRef> {
 		// Reference to c-string (const char *)
 	public:
 		CStringRef (const char * str, std::size_t len) : str_ (str), len_ (len) {}
@@ -99,8 +154,9 @@ namespace Format {
 		const char * str_;
 		std::size_t len_;
 	};
+	inline CStringRef format (const char * str) { return {str}; }
 
-	template <typename Int> class DecimalInteger : public Base<DecimalInteger<Int>> {
+	template <typename Int> class DecimalInteger : public SimpleBase<DecimalInteger<Int>> {
 		// Prints an integer in decimal base
 	public:
 		DecimalInteger (Int i) : i_ (i) {}
@@ -142,74 +198,60 @@ namespace Format {
 		static constexpr int max_digits = std::numeric_limits<Int>::digits10 + 1;
 		Int i_;
 	};
+	template <typename T, typename = typename std::enable_if<std::is_integral<T>::value>::type>
+	Format::DecimalInteger<T> format (T t) {
+		return {t};
+	}
 
-	// Pair (sequence of 2 formatters)
+	/* Composite formatter that represents a sequence of two formatters.
+	 * Will apply Left then Right.
+	 * The sub-formatters are stored by copy.
+	 *
+	 * We also define format(a, b), and operator<< (a, b).
+	 */
 	template <typename Left, typename Right> class Pair : public Base<Pair<Left, Right>> {
 	public:
-		Pair (Left left, Right right) : left_ (left), right_ (right) {}
+		Pair (Left left, Right right) : left_ (std::move (left)), right_ (std::move (right)) {}
 
 		constexpr std::size_t size () const { return left_.size () + right_.size (); }
 		template <typename OutputIt> constexpr OutputIt write (OutputIt it) const {
 			return right_.write (left_.write (it));
 		}
 
+		// Non standard placeholder support, must redirect arguments
+		static constexpr std::size_t nb_placeholder () {
+			return Left::nb_placeholder () + Right::nb_placeholder ();
+		}
+		// TODO
+
 	private:
 		Left left_;
 		Right right_;
 	};
-}
-/* Format free function.
- * This function is a factory that creates formatter classes.
- * Defines lots of overloads for many cases.
- */
-
-// If argument is already a formatter, format() is a no-op
-template <typename F, typename = typename std::enable_if<Format::IsFormatter<F>::value>::type>
-F format (F f) {
-	return f;
-}
-
-// Base case, generates empty format (allow "format () << stuff")
-inline constexpr Format::Null format () {
-	return {};
-}
-
-// Overloads for single elements
-template <std::size_t N> constexpr Format::StaticCharArray<N> format (const char (&str)[N]) {
-	return {str};
-}
-inline Format::StringRef format (const std::string & str) {
-	return {str};
-}
-inline Format::CStringRef format (const char * str) {
-	return {str};
-}
-template <typename T, typename = typename std::enable_if<std::is_integral<T>::value>::type>
-Format::DecimalInteger<T> format (T t) {
-	return {t};
-}
-
-/* Sequencing of formatter.
- *
- * First, define format(a, b).
- * Takes anything but applies format() to each element before passing them to Pair{}.
- * This ensures formatters are generated (if already formatter, bypass).
- *
- * Also define operator<<, restricted to a formatter on the left.
- * Put in namespace Format to let ADL find it (required !).
- *
- * TODO format(<more than 2 args, variadic>) ?
- */
-template <typename Left, typename Right>
-constexpr auto format (Left && left, Right && right)
-    -> Format::Pair<decltype (format (std::forward<Left> (left))),
-                    decltype (format (std::forward<Right> (right)))> {
-	return {format (std::forward<Left> (left)), format (std::forward<Right> (right))};
-}
-namespace Format {
+	template <typename Left, typename Right>
+	constexpr auto format (Left && left, Right && right)
+	    -> Pair<decltype (format (std::forward<Left> (left))),
+	            decltype (format (std::forward<Right> (right)))> {
+		return {format (std::forward<Left> (left)), format (std::forward<Right> (right))};
+	}
 	template <typename F, typename T, typename = typename std::enable_if<IsFormatter<F>::value>::type>
 	auto operator<< (F && f, T && t) -> decltype (format (std::forward<F> (f), std::forward<T> (t))) {
 		return format (std::forward<F> (f), std::forward<T> (t));
 	}
+
+	// TODO Polymorphic restricted formatter
+	class Polymorphic : public Base<Polymorphic> {};
+
+	// Delayed placeholder definition
+	struct PlaceHolder : public Tag {
+		static constexpr std::size_t nb_placeholder () { return 1; }
+		template <typename F> auto operator() (F && f) -> decltype (format (std::forward<F> (f))) {
+			return format (std::forward<F> (f));
+		}
+	};
+	static constexpr PlaceHolder placeholder{};
 }
+
+using Format::format;
+using Format::placeholder;
 }

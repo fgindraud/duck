@@ -2,8 +2,6 @@
 
 // Iterator builder classes
 
-// FIXME Work with protected method ?
-
 #include <duck/iterator/traits.h>
 #include <duck/maybe_type.h>
 #include <iterator>
