@@ -4,20 +4,14 @@
 
 #include <duck/iterator/traits.h>
 #include <duck/maybe_type.h>
+#include <duck/type_traits.h>
 #include <iterator>
-#include <type_traits>
 #include <utility>
 
 namespace duck {
 namespace Iterator {
 
 	namespace Detail {
-		// Test to not override the moe/copy constructors in a universal ref overload.
-		template <typename T, typename Self> constexpr bool non_self () {
-			using DecayedT = typename std::decay<T>::type;
-			return !std::is_same<Self, DecayedT>::value && !std::is_base_of<Self, DecayedT>::value;
-		}
-
 		// Maybe-type for decltype of ItImpl::deref() return value
 		template <typename ItImpl> class MaybeDerefReturnType {
 		private:
@@ -114,7 +108,7 @@ namespace Iterator {
 		~Facade () = default;
 
 		// Forwarding constructor (special disambiguation for 1 argument case)
-		template <typename T, typename = typename std::enable_if<Detail::non_self<T, Facade> ()>>
+		template <typename T, typename = typename std::enable_if<Traits::NonSelf<T, Facade>::value>>
 		Facade (T && t) : Impl (std::forward<T> (t)) {}
 		template <typename T, typename... Args>
 		Facade (T && t, Args &&... args) : Impl (std::forward<T> (t), std::forward<Args> (args)...) {}

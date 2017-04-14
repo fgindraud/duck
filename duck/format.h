@@ -8,12 +8,15 @@
 
 // TODO longterm: optimize (remove nulls ?)
 
-#include <algorithm>
-#include <cstring>
-#include <limits>
-#include <string>
-#include <type_traits>
-#include <utility>
+#include <algorithm> // std::copy
+#include <cstring>   // printing char* (strlen)
+#include <duck/type_traits.h>
+#include <iosfwd>   // std::ostream declaration
+#include <iterator> // std::ostreambuf_iterator for ostream<< output
+#include <limits>   // printing ints
+#include <memory>   // unique_ptr for Polymorphic
+#include <string>   // printing string
+#include <utility>  // forward / move
 
 namespace duck {
 
@@ -52,6 +55,12 @@ namespace Format {
 	protected:
 		constexpr const Derived & self () const { return static_cast<const Derived &> (*this); }
 	};
+
+	template <typename F, typename = typename std::enable_if<IsFormatter<F>::value>::type>
+	std::ostream & operator<< (std::ostream & os, const F & formatter) {
+		formatter.write (std::ostreambuf_iterator<char> (os));
+		return os;
+	}
 
 	/* In addition to regular formatter, a formatter can have placeholders.
 	 * The PlaceHolder type represents a placeholder.
@@ -113,7 +122,7 @@ namespace Format {
 	template <std::size_t N> class StaticCharArray : public SimpleBase<StaticCharArray<N>> {
 		// Reference to static char array (remove end '\0')
 	public:
-		constexpr StaticCharArray (const char (&str)[N]) : str_ (str) {}
+		explicit constexpr StaticCharArray (const char (&str)[N]) : str_ (str) {}
 		constexpr std::size_t size () const { return N - 1; }
 		template <typename OutputIt> constexpr OutputIt write (OutputIt it) const {
 			return std::copy (std::begin (str_), std::end (str_) - 1, it);
@@ -123,13 +132,13 @@ namespace Format {
 		const char (&str_)[N];
 	};
 	template <std::size_t N> constexpr StaticCharArray<N> format (const char (&str)[N]) {
-		return {str};
+		return StaticCharArray<N>{str};
 	}
 
 	class StringRef : public SimpleBase<StringRef> {
 		// Reference to std::string
 	public:
-		StringRef (const std::string & str) : str_ (str) {}
+		explicit StringRef (const std::string & str) : str_ (str) {}
 		std::size_t size () const { return str_.size (); }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy (std::begin (str_), std::end (str_), it);
@@ -138,13 +147,13 @@ namespace Format {
 	private:
 		const std::string & str_;
 	};
-	inline StringRef format (const std::string & str) { return {str}; }
+	inline StringRef format (const std::string & str) { return StringRef{str}; }
 
 	class CStringRef : public SimpleBase<CStringRef> {
 		// Reference to c-string (const char *)
 	public:
 		CStringRef (const char * str, std::size_t len) : str_ (str), len_ (len) {}
-		CStringRef (const char * str) : CStringRef (str, std::strlen (str)) {}
+		explicit CStringRef (const char * str) : CStringRef (str, std::strlen (str)) {}
 		std::size_t size () const { return len_; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy_n (str_, len_, it);
@@ -154,12 +163,12 @@ namespace Format {
 		const char * str_;
 		std::size_t len_;
 	};
-	inline CStringRef format (const char * str) { return {str}; }
+	inline CStringRef format (const char * str) { return CStringRef{str}; }
 
 	template <typename Int> class DecimalInteger : public SimpleBase<DecimalInteger<Int>> {
 		// Prints an integer in decimal base
 	public:
-		DecimalInteger (Int i) : i_ (i) {}
+		explicit DecimalInteger (Int i) : i_ (i) {}
 		std::size_t size () const {
 			Int i = i_;
 			if (i == 0)
@@ -199,8 +208,8 @@ namespace Format {
 		Int i_;
 	};
 	template <typename T, typename = typename std::enable_if<std::is_integral<T>::value>::type>
-	Format::DecimalInteger<T> format (T t) {
-		return {t};
+	DecimalInteger<T> format (T t) {
+		return DecimalInteger<T>{t};
 	}
 
 	/* Composite formatter that represents a sequence of two formatters.
@@ -239,9 +248,6 @@ namespace Format {
 		return format (std::forward<F> (f), std::forward<T> (t));
 	}
 
-	// TODO Polymorphic restricted formatter
-	class Polymorphic : public Base<Polymorphic> {};
-
 	// Delayed placeholder definition
 	struct PlaceHolder : public Tag {
 		static constexpr std::size_t nb_placeholder () { return 1; }
@@ -250,6 +256,65 @@ namespace Format {
 		}
 	};
 	static constexpr PlaceHolder placeholder{};
+
+	/* Polymorphic formatter.
+	 * Stores a runtime variable formatter type (allow to store heterogeneous formatters in a vector).
+	 *
+	 * Use the runtime concept system (use a template generated virtual wrapper class hierarchy).
+	 * Thus this class, and other formatter class stays inheritance-free.
+	 * This class has value semantics (copy/move, etc).
+	 *
+	 * However, write() is not template anymore (impossible with virtual functions).
+	 * write() is provided for common useful types:
+	 * - char* : raw access
+	 * - std::string::iterator : to allow to_string()
+	 * - ostreambuf_iterator<char> : to support operator<< (std::ostream)
+	 *
+	 * Currently, polymorphic formatters do not support placeholder substitution...
+	 * TODO partial support ?
+	 */
+	class Dynamic : public Base<Dynamic> {
+	public:
+		Dynamic () = default;
+		Dynamic (const Dynamic & p) : model_ (p.model_->clone ()) {}
+		Dynamic (Dynamic &&) = default;
+		Dynamic & operator= (const Dynamic & p) { return *this = Dynamic (p); }
+		Dynamic & operator= (Dynamic &&) = default;
+		~Dynamic () = default;
+
+		template <typename F,
+		          typename = typename std::enable_if<Traits::NonSelf<F, Dynamic>::value>::type>
+		explicit Dynamic (F && formatter) : model_ (new Model<F> (std::forward<F> (formatter))) {}
+
+		// Wrappers
+		std::size_t size () const { return model_->size (); }
+		template <typename OutputIt> OutputIt write (OutputIt it) const { return model_->write (it); }
+
+	private:
+		struct Interface {
+			virtual ~Interface () = default;
+			virtual Interface * clone () const = 0;
+			virtual std::size_t size () const = 0;
+			virtual char * write (char *) const = 0;
+			virtual std::string::iterator write (std::string::iterator) const = 0;
+			virtual std::ostreambuf_iterator<char> write (std::ostreambuf_iterator<char>) const = 0;
+		};
+		template <typename F> struct Model final : public Interface {
+			F formatter_;
+			Model (const F & f) : formatter_ (f) {}
+			Model (F && f) : formatter_ (std::move (f)) {}
+			Model * clone () const override { return new Model (*this); }
+			std::size_t size () const override { return formatter_.size (); }
+			char * write (char * p) const override { return formatter_.write (p); }
+			std::string::iterator write (std::string::iterator it) const override {
+				return formatter_.write (it);
+			}
+			std::ostreambuf_iterator<char> write (std::ostreambuf_iterator<char> it) const override {
+				return formatter_.write (it);
+			}
+		};
+		std::unique_ptr<Interface> model_{};
+	};
 }
 
 using Format::format;

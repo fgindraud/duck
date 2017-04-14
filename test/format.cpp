@@ -2,9 +2,12 @@
 #include "doctest.h"
 
 #include <duck/format.h>
-#include <limits>
+#include <iterator> // wierd stream iterators
+#include <limits>   // test with limits<T>::max for integers
+#include <sstream>  // stringstream
 #include <string>
-#include <type_traits>
+#include <type_traits> // type checking
+#include <vector>      // vector of polymorphic
 
 namespace MyNamespace {
 struct blah {};
@@ -22,6 +25,17 @@ TEST_CASE ("basic operations") {
 	using BlahHelloStrIsString = std::is_same<decltype (blah_hello_str), std::string>;
 	CHECK (BlahHelloStrIsString::value);
 	CHECK (blah_hello_str == "blah hello");
+
+	// test blah hello output with other iterators
+	std::ostringstream os;
+	os << blah_hello; // std::ostreambuf_iterator
+	CHECK (os.str () == "blah hello");
+	std::ostringstream os2;
+	blah_hello.write (std::ostream_iterator<char> (os2));
+	CHECK (os2.str () == "blah hello");
+	std::string os3;
+	blah_hello.write (std::back_inserter (os3));
+	CHECK (os3 == "blah hello");
 
 	// Decimal ints
 	CHECK (duck::format (0).size () == 1);
@@ -59,4 +73,15 @@ TEST_CASE ("placeholders system") {
 	auto formatter = duck::format () << "Je m'appelle " << duck::placeholder << " et j'ai "
 	                                 << duck::placeholder << " ans !\n";
 	CHECK (formatter.nb_placeholder () == 2);
+}
+
+TEST_CASE ("polymorphic formatter objects") {
+	std::vector<duck::Format::Dynamic> formatters;
+	std::string name = "Gaston";
+	formatters.emplace_back (duck::format () << 3 << " + " << 4 << " = " << (3 + 4) << " !");
+	formatters.emplace_back (duck::format () << "Bonjour " << name);
+	CHECK (formatters[1].to_string () == "Bonjour Gaston");
+	std::ostringstream os;
+	os << formatters[0];
+	CHECK (os.str () == "3 + 4 = 7 !");
 }
