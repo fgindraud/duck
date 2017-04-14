@@ -39,6 +39,11 @@ namespace Format {
 	 *   - format the element in It output iterator
 	 *   - must increment it exactly size() times
 	 *   - return the increment iterator
+	 *
+	 * Internally, formatters define a compile-time tree structure of formatter classes.
+	 * Leaves of the tree are simple elements that holds some value and can stringify them.
+	 * Pair<Left, Right> is the only composite element, and allow to form the tree.
+	 * It does nothing else than propoagting api calls to the right leaves.
 	 */
 	struct Tag {};
 	template <typename T> using IsFormatter = std::is_base_of<Tag, T>;
@@ -74,17 +79,34 @@ namespace Format {
 	 * operator()(...) accepts any value that format() would accept.
 	 *
 	 * Inheriting from SimpleBase<Derived> adds definition to indicate a non-placeholder element.
-	 * Composite elements must manually manage
-	 * TODO doc nb_placeholder
-	 *
+	 * Composite elements like Pair must manage placeholders manually.
 	 * A PlaceHolder value named "placeholder" can be used in format() to have a short syntax.
 	 * For correct lookup of operator()(...), PlaceHolder is defined after format() overloads (below).
+	 *
+	 * Technical doc
+	 * TODO will change
+	 * The current system for placeholder is compile-time only (so no substitution for Dynamic).
+	 * Each formatter defines nb_placeholder (): number of placeholders in the subtree.
+	 * It also defines an operator(Args...) (sizeof... Args == nb_placeholder) that does the subst.
+	 * Substitution is done recursively (lots of copies !).
+	 * An internal (but public) function substitute<index, Args...> is used to do the recursion.
+	 * index indicates the current offset in the argument pack that the subtree should consider.
+	 *
+	 * A previous implementation tried to split the arg pack between sub-formatters in pair.
+	 * It was just too complicated, so it was drop.
+	 * Hopefully with the current one we can also support placeholders that lookup specific indexes.
+	 * (as all arguments are forwarded).
+	 * FIXME what about multiple move from ? ....
+	 * Do everything by const & and copy ?
 	 */
 
 	template <typename Derived> struct SimpleBase : Base<Derived> {
-		// Placeholder support for simple element: no placeholder, no substitution.
+		// Placeholder support for simple element: no placeholder, always return self
 		static constexpr std::size_t nb_placeholder () { return 0; }
 		Derived operator() () const { return this->self (); }
+		template <int index, typename... Args> Derived substitute (Args &&...) const {
+			return this->self ();
+		}
 	};
 
 	/* Null formatter, and format() free function.
@@ -217,6 +239,10 @@ namespace Format {
 	 * The sub-formatters are stored by copy.
 	 *
 	 * We also define format(a, b), and operator<< (a, b).
+	 *
+	 * TODO forwarding constructor
+	 * FIXME c++11: decltype () for substitution operations
+	 * TODO restricts argument count of operator() (enable if)
 	 */
 	template <typename Left, typename Right> class Pair : public Base<Pair<Left, Right>> {
 	public:
@@ -231,7 +257,14 @@ namespace Format {
 		static constexpr std::size_t nb_placeholder () {
 			return Left::nb_placeholder () + Right::nb_placeholder ();
 		}
-		// TODO
+		template <typename... Args> auto operator() (Args &&... args) const {
+			return substitute<0, Args...> (std::forward<Args> (args)...);
+		}
+		template <int index, typename... Args> auto substitute (Args &&... args) const {
+			return format (left_.substitute<index, Args...> (std::forward<Args> (args)...),
+			               right_.substitute<index + Left::nb_placeholder (), Args...> (
+			                   std::forward<Args> (args)...));
+		}
 
 	private:
 		Left left_;
@@ -249,10 +282,27 @@ namespace Format {
 	}
 
 	// Delayed placeholder definition
+	namespace Detail {
+		template <int index> struct ForwardNthArg {
+			template <typename First, typename... Others>
+			static auto forward (First &&, Others &&... args) {
+				return ForwardNthArg<index - 1>::forward (std::forward<Others> (args)...);
+			}
+		};
+		template <> struct ForwardNthArg<0> {
+			template <typename First, typename... Others> static auto forward (First && f, Others &&...) {
+				return std::forward<First> (f);
+			}
+		};
+	}
 	struct PlaceHolder : public Tag {
 		static constexpr std::size_t nb_placeholder () { return 1; }
-		template <typename F> auto operator() (F && f) -> decltype (format (std::forward<F> (f))) {
+		template <typename F>
+		auto operator() (F && f) const -> decltype (format (std::forward<F> (f))) {
 			return format (std::forward<F> (f));
+		}
+		template <int index, typename... Args> auto substitute (Args &&... args) const {
+			return operator() (Detail::ForwardNthArg<index>::forward (std::forward<Args> (args)...));
 		}
 	};
 	static constexpr PlaceHolder placeholder{};

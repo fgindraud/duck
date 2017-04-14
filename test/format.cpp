@@ -70,9 +70,11 @@ TEST_CASE ("placeholders system") {
 	CHECK (placeholder_instance.nb_placeholder () == 1);
 
 	// Multi placeholder
-	auto formatter = duck::format () << "Je m'appelle " << duck::placeholder << " et j'ai "
-	                                 << duck::placeholder << " ans !\n";
+	auto formatter = duck::format () << "var " << duck::placeholder << " = " << duck::placeholder;
 	CHECK (formatter.nb_placeholder () == 2);
+	auto subst = formatter ("i", 42);
+	CHECK (subst.nb_placeholder () == 0);
+	CHECK (subst.to_string () == "var i = 42");
 }
 
 TEST_CASE ("polymorphic formatter objects") {
