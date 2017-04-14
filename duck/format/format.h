@@ -2,12 +2,6 @@
 
 // Formatter objects for strings.
 
-// -> Use formatter elements directly to override formatting
-// + dynamicity : polymorphic formatter class
-// left/right padding (formatter, len, char)
-
-// TODO longterm: optimize (remove nulls ?)
-
 #include <algorithm> // std::copy
 #include <cstring>   // printing char* (strlen)
 #include <duck/type_traits.h>

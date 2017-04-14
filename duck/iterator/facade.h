@@ -73,25 +73,28 @@ namespace Iterator {
 	}
 
 	template <typename Impl> class Facade : public Impl {
-		// Iterator facade.
-		//
-		// Typedefs can be provided by Impl, or deduced from calls:
-		// - reference: return type of Impl::deref()
-		// - value_type: std::decay of reference
-		// - pointer: add_pointer to reference
-		// - difference_type: return type of std distance, or std::ptrdiff_t
-		//
-		// Requirements on Impl by iterator category:
-		// - output: Impl::next(), Impl::deref()
-		// - input: + Impl::equal(it)
-		// - forward: + Impl::Impl(const Impl&) [copy]
-		// - bidirectional: + Impl::prev()
-		// - random access: + Impl::advance(n), Impl::distance (it)
-		//
-		// Impl methods must be public (I really tried to make it work as protected, but no luck).
-		//
-		// TODO gen next/prev if advance, equal if distance ?
-		// TODO simplify wrapping of a sub-iterator
+		/* Iterator facade.
+		 *
+		 * Typedefs can be provided by Impl, or deduced from calls:
+		 * - reference: return type of Impl::deref()
+		 * - value_type: std::decay of reference
+		 * - pointer: add_pointer to reference
+		 * - difference_type: return type of std distance, or std::ptrdiff_t
+		 *
+		 * Requirements on Impl by iterator category:
+		 * - output: Impl::next(), Impl::deref()
+		 * - input: + Impl::equal(it)
+		 * - forward: + Impl::Impl(const Impl&) [copy]
+		 * - bidirectional: + Impl::prev()
+		 * - random access: + Impl::advance(n), Impl::distance (it)
+		 *
+		 * Impl methods must be accessible from the facade.
+		 * They can be protected, but only if ALL type typedefs are provided by Impl.
+		 * If some of them are not provided, methods must be public.
+		 * (internally, the typedef deduction requires public access to methods).
+		 *
+		 * TODO simplify wrapping of a sub-iterator
+		 */
 	public:
 		using value_type = Maybe::Unpack<Detail::MaybeFacadeValueType<Impl>>;
 		using difference_type = Maybe::Unpack<Detail::MaybeFacadeDifferenceType<Impl>>;
@@ -120,8 +123,8 @@ namespace Iterator {
 			return *this;
 		}
 
-		reference operator* () const { return Impl::deref (); }
-		pointer operator-> () const { return &(*(*this)); }
+		reference operator* () { return Impl::deref (); }
+		pointer operator-> () { return &(*(*this)); }
 
 		bool operator== (const Facade & other) const { return Impl::equal (other); }
 		bool operator!= (const Facade & other) const { return !(*this == other); }

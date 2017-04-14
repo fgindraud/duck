@@ -1,4 +1,4 @@
-#include <duck/format.h>
+#include <duck/format/format.h>
 
 struct blah {};
 

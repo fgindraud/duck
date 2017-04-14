@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/format.h>
+#include <duck/format/format.h>
 #include <iterator> // wierd stream iterators
 #include <limits>   // test with limits<T>::max for integers
 #include <sstream>  // stringstream

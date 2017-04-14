@@ -13,13 +13,7 @@ namespace Traits {
 	 * Enable if with NonSelf<T, Self>::value to prevent this.
 	 */
 	template <typename T, typename Self> struct NonSelf {
-	private:
-		using DecayedT = typename std::decay<T>::type;
-
-	public:
-		enum {
-			value = !std::is_same<Self, DecayedT>::value && !std::is_base_of<Self, DecayedT>::value
-		};
+		enum { value = !std::is_base_of<Self, typename std::decay<T>::type>::value };
 	};
 }
 }
