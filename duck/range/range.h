@@ -73,42 +73,43 @@ namespace Range {
 			return Container (begin (), end ());
 		}
 	};
-}
-// Factory functions
 
-// From iterator pair (if it is considered an iterator by STL).
-template <typename It, typename = Iterator::GetCategory<It>>
-Range::Range<It> range (It begin, It end) {
-	return Range::Base<It>{std::move (begin), std::move (end)};
-}
+	// Factory functions
 
-// From container (enabled if it supports a begin() function).
-template <typename Container, typename It = Iterator::GetContainerIteratorType<Container &>>
-Range::Range<It> range (Container & container) {
-	using std::begin;
-	using std::end;
-	return range (begin (container), end (container));
-}
-template <typename Container, typename It = Iterator::GetContainerIteratorType<const Container &>>
-Range::Range<It> range (const Container & container) {
-	using std::begin;
-	using std::end;
-	return range (begin (container), end (container));
-}
+	// From iterator pair (if it is considered an iterator by STL).
+	template <typename It, typename = Iterator::GetCategory<It>> Range<It> range (It begin, It end) {
+		return Base<It>{std::move (begin), std::move (end)};
+	}
 
-// From integers.
-template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
-Range::Range<Iterator::Integer<Int>> range (Int from, Int to) {
-	return range (Iterator::Integer<Int>{from}, Iterator::Integer<Int>{to});
-}
-template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
-Range::Range<Iterator::Integer<Int>> range (Int to) {
-	return range (Int{0}, to);
-}
+	// From container (enabled if it supports a begin() function).
+	template <typename Container, typename It = Iterator::GetContainerIteratorType<Container>>
+	Range<It> range (Container & container) {
+		using std::begin;
+		using std::end;
+		return range (begin (container), end (container));
+	}
+	template <typename Container, typename It = Iterator::GetContainerIteratorType<const Container>>
+	Range<It> range (const Container & container) {
+		using std::begin;
+		using std::end;
+		return range (begin (container), end (container));
+	}
 
-// Other factory functions
-template <typename Container, typename SizeType = decltype (std::declval<Container> ().size ())>
-Range::Range<Iterator::Integer<SizeType>> index_range (const Container & container) {
-	return range (container.size ());
+	// From integers.
+	template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
+	Range<Iterator::Integer<Int>> range (Int from, Int to) {
+		return range (Iterator::Integer<Int>{from}, Iterator::Integer<Int>{to});
+	}
+	template <typename Int, typename = typename std::enable_if<std::is_integral<Int>::value>::type>
+	Range<Iterator::Integer<Int>> range (Int to) {
+		return range (Int{0}, to);
+	}
+
+	// Other factory functions
+	template <typename Container, typename SizeType = decltype (std::declval<Container> ().size ())>
+	Range<Iterator::Integer<SizeType>> index_range (const Container & container) {
+		return range (container.size ());
+	}
 }
+using Range::range;
 }
