@@ -255,8 +255,8 @@ namespace Format {
 			return substitute<0, Args...> (std::forward<Args> (args)...);
 		}
 		template <int index, typename... Args> auto substitute (Args &&... args) const {
-			return format (left_.substitute<index, Args...> (std::forward<Args> (args)...),
-			               right_.substitute<index + Left::nb_placeholder (), Args...> (
+			return format (left_.template substitute<index, Args...> (std::forward<Args> (args)...),
+			               right_.template substitute<index + Left::nb_placeholder (), Args...> (
 			                   std::forward<Args> (args)...));
 		}
 
