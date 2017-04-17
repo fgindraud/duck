@@ -32,7 +32,12 @@ namespace Format {
 	constexpr SingleChar format_element (char c, AdlTag) { return SingleChar (c); }
 
 	template <std::size_t N> class StaticCharArray : public ElementBase<StaticCharArray<N>> {
-		// Reference to static char array (remove end '\0')
+		/* Reference to static char array (remove end '\0')
+		 * Warning, const char(&)[N] decays to const char* very easily.
+		 * duck::format ("blah") works.
+		 * auto & s = "blah"; duck::format (s) too.
+		 * auto s = "blah"; duck::format (s) is CStringRef.
+		 */
 	public:
 		explicit constexpr StaticCharArray (const char (&str)[N]) : str_ (str) {}
 		constexpr std::size_t size () const { return N - 1; }
@@ -46,6 +51,29 @@ namespace Format {
 	template <std::size_t N>
 	constexpr StaticCharArray<N> format_element (const char (&str)[N], AdlTag) {
 		return StaticCharArray<N>{str};
+	}
+
+	class CStringRef : public ElementBase<CStringRef> {
+		/* Reference to c-string (const char *).
+		 * The format_element is template only to let StaticCharArray have priority.
+		 * (without template, it is a better match, as template the first is selected)
+		 */
+	public:
+		constexpr CStringRef (const char * str, std::size_t len) : str_ (str), len_ (len) {}
+		explicit CStringRef (const char * str) : CStringRef (str, std::strlen (str)) {}
+		constexpr std::size_t size () const { return len_; }
+		template <typename OutputIt> OutputIt write (OutputIt it) const {
+			return std::copy_n (str_, len_, it);
+		}
+
+	private:
+		const char * str_;
+		std::size_t len_;
+	};
+	template <typename T,
+	          typename = typename std::enable_if<std::is_convertible<T, const char *>::value>::type>
+	inline CStringRef format_element (T str, AdlTag) {
+		return CStringRef{str};
 	}
 
 	class StringRef : public ElementBase<StringRef> {
@@ -62,21 +90,20 @@ namespace Format {
 	};
 	inline StringRef format_element (const std::string & str, AdlTag) { return StringRef{str}; }
 
-	class CStringRef : public ElementBase<CStringRef> {
-		// Reference to c-string (const char *)
+	class Bool : public ElementBase<Bool> {
+		// Prints a bool value
 	public:
-		constexpr CStringRef (const char * str, std::size_t len) : str_ (str), len_ (len) {}
-		explicit CStringRef (const char * str) : CStringRef (str, std::strlen (str)) {}
-		constexpr std::size_t size () const { return len_; }
+		explicit constexpr Bool (bool b) : b_ (b) {}
+		constexpr std::size_t size () const { return b_ ? 4 : 5; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
-			return std::copy_n (str_, len_, it);
+			return b_ ? format_element ("true", AdlTag{}).write (it)
+			          : format_element ("false", AdlTag{}).write (it);
 		}
 
 	private:
-		const char * str_;
-		std::size_t len_;
+		bool b_;
 	};
-	inline CStringRef format_element (const char * str, AdlTag) { return CStringRef{str}; }
+	constexpr Bool format_element (bool b, AdlTag) { return Bool (b); }
 
 	template <typename Int> class DecimalInteger : public ElementBase<DecimalInteger<Int>> {
 		// Prints an integer in decimal base

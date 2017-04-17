@@ -220,23 +220,23 @@ namespace Format {
 		return format_element (std::forward<T> (t), AdlTag{});
 	}
 
-	template <typename First>
+	template <typename First, typename... Others>
+	constexpr auto format (First && first, Others &&... others)
+	    -> Pair<FormatterTypeFor<First>, decltype (format (std::forward<Others> (others)...))> {
+		return {format_element (std::forward<First> (first), AdlTag{}),
+		        format (std::forward<Others> (others)...)};
+	}
+
+	template <typename First,
+	          typename = typename std::enable_if<!std::is_same<First, Null>::value>::type>
 	constexpr auto format (First && first, Null) -> FormatterTypeFor<First> {
 		return format_element (std::forward<First> (first), AdlTag{});
 	}
 
-	template <typename Second, typename... Others>
-	constexpr auto format (Null, Second && second, Others &&... others)
-	    -> decltype (format (std::forward<Second> (second), std::forward<Others> (others)...)) {
-		return format (std::forward<Second> (second), std::forward<Others> (others)...);
-	}
-
-	template <typename First, typename Second, typename... Others>
-	constexpr auto format (First && first, Second && second, Others &&... others)
-	    -> Pair<FormatterTypeFor<First>,
-	            decltype (format (std::forward<Second> (second), std::forward<Others> (others)...))> {
-		return {format_element (std::forward<First> (first), AdlTag{}),
-		        format (std::forward<Second> (second), std::forward<Others> (others)...)};
+	template <typename... Others>
+	constexpr auto format (Null, Others &&... others)
+	    -> decltype (format (std::forward<Others> (others)...)) {
+		return format (std::forward<Others> (others)...);
 	}
 
 	template <typename F, typename T, typename = typename std::enable_if<IsFormatter<F>::value>::type>
