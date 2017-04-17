@@ -5,32 +5,62 @@ language: c++
 notifications:
    email: false
 
+# To be referenced later
 addons:
    apt:
       sources: &sources
-           - ubuntu-toolchain-r-test
+           - george-edison55-precise-backports # Cmake
+           - ubuntu-toolchain-r-test # Gcc versions
+           - llvm-toolchain-precise
+           - llvm-toolchain-precise-3.5
+           - llvm-toolchain-precise-3.6
+           - llvm-toolchain-precise-3.7
+           - llvm-toolchain-precise-3.8
            - llvm-toolchain-precise-3.9
 
 matrix:
    include:
-      # Maybe add more compiler versions...
-      # Clang build probably includes recent g++ to have basic libs up to date..
+      #      # GCC 4.8
+      #      - env: COMPILER=g++-4.8
+      #        os: linux
+      #        compiler: gcc
+      #        addons:
+      #           apt:
+      #              packages: ["cmake", "cmake-data", "g++-4.8", "libc6-dbg"]
+      #              sources: *sources
+      #      # GCC 4.9
+      #      - env: COMPILER=g++-4.9
+      #        os: linux
+      #        compiler: gcc
+      #        addons:
+      #           apt:
+      #              packages: ["cmake", "cmake-data", "g++-4.9", "libc6-dbg"]
+      #              sources: *sources
+      # GCC 5
       - env: COMPILER=g++-5
         os: linux
-        dist: trusty
         compiler: gcc
         addons:
            apt:
-              packages: ["g++-5", "libc6-dbg"]
+              packages: ["cmake", "cmake-data", "g++-5", "libc6-dbg"]
               sources: *sources
+      # GCC 6
+      - env: COMPILER=g++-6
+        os: linux
+        compiler: gcc
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # Clang 3.9 (include g++-6 to have recent libs)
       - env: COMPILER=clang++-3.9
         os: linux
-        dist: trusty
         compiler: clang
         addons:
            apt:
-              packages: ["clang-3.9", "g++-6", "libc6-dbg"]
+              packages: ["cmake", "cmake-data", "clang-3.9", "g++-6", "libc6-dbg"]
               sources: *sources
+      # OS X Clang
       - env: COMPILER=clang++
         os: osx
         compiler: clang
@@ -39,6 +69,4 @@ install:
    - export CXX="${COMPILER}"
 
 script:
-   - cmake -DCMAKE_BUILD_TYPE=Debug .
-   - make VERBOSE=1
-   - make test
+   - cmake -DCMAKE_BUILD_TYPE=Debug . && make VERBOSE=1 && make test

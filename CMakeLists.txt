@@ -22,12 +22,13 @@ install (FILES
 
 ### Lib ###
 
-# List of C++ features that we use
+# List of C++ features that we use (should map to c++11)
 set (wanted_features
 	cxx_alias_templates
 	cxx_alignof
 	cxx_auto_type
 	cxx_constexpr
+	cxx_decltype
 	cxx_default_function_template_args
 	cxx_defaulted_functions
 	cxx_delegating_constructors
@@ -38,8 +39,6 @@ set (wanted_features
 	cxx_nullptr
 	cxx_override
 	cxx_range_for
-	#cxx_relaxed_constexpr
-	cxx_return_type_deduction
 	cxx_rvalue_references
 	cxx_static_assert
 	cxx_variadic_templates
