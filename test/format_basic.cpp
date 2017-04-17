@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/format/format.h>
+#include <duck/format/basic.h>
 #include <iterator> // wierd stream iterators
 #include <limits>   // test with limits<T>::max for integers
 #include <sstream>  // stringstream
@@ -11,7 +11,7 @@
 
 namespace MyNamespace {
 struct blah {};
-auto format (blah) {
+auto format_element (blah, duck::Format::AdlTag) -> decltype (duck::format ("blah")) {
 	return duck::format ("blah");
 }
 }
@@ -25,6 +25,12 @@ TEST_CASE ("basic operations") {
 	using BlahHelloStrIsString = std::is_same<decltype (blah_hello_str), std::string>;
 	CHECK (BlahHelloStrIsString::value);
 	CHECK (blah_hello_str == "blah hello");
+
+	// Test collapsing of Nulls
+	auto should_be_just_string_ref = duck::format () << duck::format (blah, duck::format ())
+	                                                 << duck::format ();
+	using IsStringRef = std::is_same<decltype (should_be_just_string_ref), duck::Format::StringRef>;
+	CHECK (IsStringRef::value);
 
 	// test blah hello output with other iterators
 	std::ostringstream os;
@@ -78,10 +84,13 @@ TEST_CASE ("placeholders system") {
 }
 
 TEST_CASE ("polymorphic formatter objects") {
+	// Construction
 	std::vector<duck::Format::Dynamic> formatters;
 	std::string name = "Gaston";
 	formatters.emplace_back (duck::format () << 3 << " + " << 4 << " = " << (3 + 4) << " !");
 	formatters.emplace_back (duck::format () << "Bonjour " << name);
+
+	// Polymorphic access
 	CHECK (formatters[1].to_string () == "Bonjour Gaston");
 	std::ostringstream os;
 	os << formatters[0];

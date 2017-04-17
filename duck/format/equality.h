@@ -2,7 +2,7 @@
 
 // Non allocating comparison with strings
 
-#include <duck/format/format.h>
+#include <duck/format/core.h>
 #include <duck/iterator/facade.h>
 
 namespace duck {
@@ -65,6 +65,6 @@ namespace Format {
 		return formatter.write (Detail::make_comparison_iterator (t));
 	}
 
-	//TODO clean... this is awkward
+	//TODO clean...
 }
 }

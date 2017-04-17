@@ -38,7 +38,7 @@ set (wanted_features
 	cxx_nullptr
 	cxx_override
 	cxx_range_for
-	cxx_relaxed_constexpr
+	#cxx_relaxed_constexpr
 	cxx_return_type_deduction
 	cxx_rvalue_references
 	cxx_static_assert

@@ -24,7 +24,7 @@ TODO:
 - expand std::algorithm version with ranges ?
 - restore combinators
 - better formatter
-- ensure everything is indeed c++11 (might require c++14 in some places)
+- make it c++11 compatible (+check with travis)
 
 License
 -------

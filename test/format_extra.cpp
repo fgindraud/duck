@@ -2,6 +2,7 @@
 #include "doctest.h"
 
 #include <duck/format/equality.h>
+#include <duck/format/basic.h>
 #include <string>
 
 TEST_CASE ("equality") {
