@@ -160,8 +160,7 @@ namespace Format {
 	/* Pair, represents a sequence of two formatters (Left then Right).
 	 * This is used to create composite formatters as a template class hierarchy.
 	 * Left and Right are stored by copy.
-	 * TODO forwarding constructor
-	 * TODO restricts argument count of operator() (enable if)
+	 * TODO restricts argument count of operator() (enable if) ?
 	 */
 	template <typename Left, typename Right> class Pair : public Base<Pair<Left, Right>> {
 	private:
@@ -169,12 +168,17 @@ namespace Format {
 		Right right_;
 
 	public:
-		Pair (Left left, Right right) : left_ (std::move (left)), right_ (std::move (right)) {}
+		template <typename L, typename R>
+		constexpr Pair (L && left, R && right)
+		    : left_ (std::forward<L> (left)), right_ (std::forward<R> (right)) {}
 
 		constexpr std::size_t size () const { return left_.size () + right_.size (); }
 		template <typename OutputIt> constexpr OutputIt write (OutputIt it) const {
 			return right_.write (left_.write (it));
 		}
+
+		constexpr const Left & left () const { return left_; }
+		constexpr const Right & right () const { return right_; }
 
 		// Non standard placeholder support, must redirect arguments
 		static constexpr std::size_t nb_placeholder () {
@@ -210,7 +214,7 @@ namespace Format {
 	 *
 	 * Overloads of format below try to remove Null formatters when they can.
 	 */
-	inline constexpr Null format () { return {}; }
+	constexpr Null format () { return {}; }
 
 	template <typename T> constexpr auto format (T && t) -> FormatterTypeFor<T> {
 		return format_element (std::forward<T> (t), AdlTag{});
@@ -228,7 +232,7 @@ namespace Format {
 	}
 
 	template <typename First, typename Second, typename... Others>
-	auto format (First && first, Second && second, Others &&... others)
+	constexpr auto format (First && first, Second && second, Others &&... others)
 	    -> Pair<FormatterTypeFor<First>,
 	            decltype (format (std::forward<Second> (second), std::forward<Others> (others)...))> {
 		return {format_element (std::forward<First> (first), AdlTag{}),
@@ -236,7 +240,8 @@ namespace Format {
 	}
 
 	template <typename F, typename T, typename = typename std::enable_if<IsFormatter<F>::value>::type>
-	auto operator<< (F && f, T && t) -> decltype (format (std::forward<F> (f), std::forward<T> (t))) {
+	constexpr auto operator<< (F && f, T && t)
+	    -> decltype (format (std::forward<F> (f), std::forward<T> (t))) {
 		return format (std::forward<F> (f), std::forward<T> (t));
 	}
 
