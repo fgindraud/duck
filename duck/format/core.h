@@ -181,18 +181,18 @@ namespace Format {
 			return Left::nb_placeholder () + Right::nb_placeholder ();
 		}
 		template <int index, typename... Args>
-		auto substitute (Args &&... args) const -> decltype (
-		    format (left_.template substitute<index, Args...> (std::forward<Args> (args)...),
-		            right_.template substitute<index + Left::nb_placeholder (), Args...> (
-		                std::forward<Args> (args)...))) {
-			return format (left_.template substitute<index, Args...> (std::forward<Args> (args)...),
-			               right_.template substitute<index + Left::nb_placeholder (), Args...> (
+		auto substitute (Args &&... args) const
+		    -> decltype (format (left_.template substitute<index> (std::forward<Args> (args)...),
+		                         right_.template substitute<index + Left::nb_placeholder ()> (
+		                             std::forward<Args> (args)...))) {
+			return format (left_.template substitute<index> (std::forward<Args> (args)...),
+			               right_.template substitute<index + Left::nb_placeholder ()> (
 			                   std::forward<Args> (args)...));
 		}
 		template <typename... Args>
 		auto operator() (Args &&... args) const
-		    -> decltype (substitute<0, Args...> (std::forward<Args> (args)...)) {
-			return this->template substitute<0, Args...> (std::forward<Args> (args)...);
+		    -> decltype (substitute<0> (std::forward<Args> (args)...)) {
+			return substitute<0> (std::forward<Args> (args)...);
 		}
 	};
 
