@@ -62,6 +62,7 @@ TEST_CASE ("basic operations") {
 	CHECK ((duck::format () << MyNamespace::blah{}).to_string () == "blah");
 }
 
+#if 0
 TEST_CASE ("placeholders system") {
 	// Single placeholder
 	auto single_placeholder = duck::placeholder;
@@ -82,6 +83,7 @@ TEST_CASE ("placeholders system") {
 	CHECK (subst.nb_placeholder () == 0);
 	CHECK (subst.to_string () == "var i = 42");
 }
+#endif
 
 TEST_CASE ("polymorphic formatter objects") {
 	// Construction
