@@ -42,6 +42,7 @@ TEST_CASE ("Null formatter") {
 	// Test collapsing of Pair
 	CHECK (is_null_formatter (duck::format ()));
 	CHECK (is_null_formatter (duck::format (Null{}, Null{})));
+	CHECK (is_null_formatter (duck::format (Null{}, Null{}, Null{}, Null{})));
 	CHECK (is_null_formatter (Null{} << Null{}));
 	CHECK (is_null_formatter ((Null{} << Null{}) << (Null{} << Null{})));
 }
@@ -260,8 +261,8 @@ TEST_CASE ("inside namespace char formatter") {
 	CHECK (to_string_by_stream_it (char_pair) == "ab");
 
 	// Testing operator<< and Null collapsing
-	CONSTEXPR_FORMAT auto char_pair_2 = duck::format () << NS::Blah ('p') << NS::Blah ('o')
-	                                                    << duck::format ();
+	CONSTEXPR_FORMAT auto char_pair_2 = duck::format ()
+	                                    << NS::Blah ('p') << NS::Blah ('o') << duck::format ();
 	using IsPairOfCharFormatter2 =
 	    std::is_same<decltype (char_pair_2),
 	                 const duck::Format::Pair<NS::BlahFormatter, NS::BlahFormatter>>;
@@ -319,8 +320,6 @@ TEST_CASE ("polymorphic formatters") {
 	CHECK (formatters[1].to_string () == "no1");
 	CHECK (to_string_by_stream (formatters[1]) == "no1");
 
-	// Assignment
-	// FIXME fails to recurse lookup decltype(format(...)) in format def.
-	// formatters[0] = duck::Format::Dynamic (duck::format ('o', 'o', 'p'));
-	//	CHECK (formatters[0].to_string () == "oops");
+	formatters[0] = duck::Format::Dynamic (duck::format ('o', 'o', 'p', 's'));
+	CHECK (formatters[0].to_string () == "oops");
 }

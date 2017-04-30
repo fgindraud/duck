@@ -211,37 +211,55 @@ namespace Format {
 	 * The sequence is represented by the Pair composition class.
 	 *
 	 * An overload of operator<< allows composition of formatters with the << syntax.
-	 *
-	 * Overloads of format below try to remove Null formatters when they can.
+	 * FormatTypeFor<Args...>::Type represents the return type of format(Args...).
+	 * format(...) and operator<< try to remove unecessary Null elements.
 	 */
+	template <typename... Args> struct FormatTypeForImpl;
+	template <typename... Args> using FormatTypeFor = typename FormatTypeForImpl<Args...>::Type;
+
+	// Null
+	template <> struct FormatTypeForImpl<> { using Type = Null; };
 	constexpr Null format () { return {}; }
 
-	template <typename T> constexpr auto format (T && t) -> FormatterTypeFor<T> {
+	// Single element
+	template <typename T> struct FormatTypeForImpl<T> { using Type = FormatterTypeFor<T>; };
+	template <typename T> constexpr FormatterTypeFor<T> format (T && t) {
 		return format_element (std::forward<T> (t), AdlTag{});
 	}
 
-	template <typename First, typename... Others>
-	constexpr auto format (First && first, Others &&... others)
-	    -> Pair<FormatterTypeFor<First>, decltype (format (std::forward<Others> (others)...))> {
-		return {format_element (std::forward<First> (first), AdlTag{}),
-		        format (std::forward<Others> (others)...)};
+	// Null, Null -> Null
+	template <> struct FormatTypeForImpl<Null, Null> { using Type = Null; };
+	constexpr Null format (Null, Null) { return {}; }
+
+	// First, Null -> First
+	template <typename First> struct FormatTypeForImpl<First, Null> {
+		using Type = FormatTypeFor<First>;
+	};
+	template <typename First> constexpr FormatTypeFor<First, Null> format (First && first, Null) {
+		return format (std::forward<First> (first));
 	}
 
-	template <typename First,
-	          typename = typename std::enable_if<!std::is_same<First, Null>::value>::type>
-	constexpr auto format (First && first, Null) -> FormatterTypeFor<First> {
-		return format_element (std::forward<First> (first), AdlTag{});
-	}
-
+	// Null, Others... -> Others...
+	template <typename... Others> struct FormatTypeForImpl<Null, Others...> {
+		using Type = FormatTypeFor<Others...>;
+	};
 	template <typename... Others>
-	constexpr auto format (Null, Others &&... others)
-	    -> decltype (format (std::forward<Others> (others)...)) {
+	constexpr FormatTypeFor<Null, Others...> format (Null, Others &&... others) {
 		return format (std::forward<Others> (others)...);
 	}
 
+	// First, Others... -> Pair<First, Others...>
+	template <typename First, typename... Others> struct FormatTypeForImpl<First, Others...> {
+		using Type = Pair<FormatTypeFor<First>, FormatTypeFor<Others...>>;
+	};
+	template <typename First, typename... Others>
+	constexpr FormatTypeFor<First, Others...> format (First && first, Others &&... others) {
+		return {format (std::forward<First> (first)), format (std::forward<Others> (others)...)};
+	}
+
+	// operator<<
 	template <typename F, typename T, typename = typename std::enable_if<IsFormatter<F>::value>::type>
-	constexpr auto operator<< (F && f, T && t)
-	    -> decltype (format (std::forward<F> (f), std::forward<T> (t))) {
+	constexpr FormatTypeFor<F, T> operator<< (F && f, T && t) {
 		return format (std::forward<F> (f), std::forward<T> (t));
 	}
 

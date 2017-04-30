@@ -56,7 +56,7 @@ namespace Format {
 	class CStringRef : public ElementBase<CStringRef> {
 		/* Reference to c-string (const char *).
 		 * The format_element is template only to let StaticCharArray have priority.
-		 * (without template, it is a better match, as template the first is selected)
+		 * (without template, it is a better match than StaticCharArray and is always selected).
 		 */
 	public:
 		constexpr CStringRef (const char * str, std::size_t len) : str_ (str), len_ (len) {}
@@ -72,7 +72,7 @@ namespace Format {
 	};
 	template <typename T,
 	          typename = typename std::enable_if<std::is_convertible<T, const char *>::value>::type>
-	inline CStringRef format_element (T str, AdlTag) {
+	CStringRef format_element (T str, AdlTag) {
 		return CStringRef{str};
 	}
 
