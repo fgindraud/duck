@@ -53,6 +53,8 @@ TEST_CASE ("bool") {
 }
 
 TEST_CASE ("decimal int") {
+	CHECK (is_type<duck::Format::DecimalInteger<int>> (duck::format (int ())));
+
 	CHECK (duck::format (0).size () == 1);
 	CHECK (duck::format (0).to_string () == "0");
 
