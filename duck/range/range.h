@@ -2,8 +2,10 @@
 
 // Top level range object with full functionnality
 
+#include <iterator>
+#include <type_traits>
+
 #include <duck/iterator/integer.h>
-#include <duck/iterator/traits.h>
 #include <duck/range/base.h>
 
 namespace duck {
@@ -18,30 +20,27 @@ namespace Range {
 		 * This class has the same properties has the underlying iterator type.
 		 * This applies for invalidation, and which operations can be used.
 		 * Some operations may work inefficiently for low capability iterators (like size ()).
-		 *
-		 * Less than forward iterators are not supported properly FIXME.
+		 * Beware with less than forward iterators (risk of iterating on them in size()).
 		 *
 		 * TODO more slices (to_end, from_start).
 		 * TODO checked operations ?
 		 */
 	public:
-		using ValueType = Iterator::GetValueType<It>;
-		using ReferenceType = Iterator::GetReferenceType<It>;
-		using DifferenceType = Iterator::GetDifferenceType<It>;
-		using IteratorCategory = Iterator::GetCategory<It>;
+		using ValueType = typename std::iterator_traits<It>::value_type;
+		using ReferenceType = typename std::iterator_traits<It>::reference;
+		using DifferenceType = typename std::iterator_traits<It>::difference_type;
+		using IteratorCategory = typename std::iterator_traits<It>::iterator_category;
 
 		// Basic constructors
-		constexpr Range (Base<It> base) noexcept : Base<It> (std::move (base)) {}
-
-		// TODO may add constructors from container like things, to enable auto conversion to range.
+		constexpr Range (Base<It> base) noexcept : Base<It> (base) {}
 
 		using Base<It>::begin;
 		using Base<It>::end;
 
 		// Input/forward iterator
-		bool empty () const { return begin () == end (); }
-		ReferenceType front () const { return *begin (); }
-		Range pop_front () const { return Base<It>{std::next (begin (), end ())}; }
+		constexpr bool empty () const { return begin () == end (); }
+		constexpr ReferenceType front () const { return *begin (); }
+		Range pop_front () const { return Base<It>{std::next (begin ()), end ()}; }
 
 		// Bidirectional iterator
 		ReferenceType back () const { return *std::prev (end ()); }
@@ -53,8 +52,8 @@ namespace Range {
 		Range pop_front (DifferenceType n) const { return Base<It>{std::next (begin (), n), end ()}; }
 		Range pop_back (DifferenceType n) const { return Base<It>{begin (), std::prev (end (), n)}; }
 
-		// TODO additional API
-		bool contains (It it) const { return begin () <= it && it < end (); }
+		// Interval-like API
+		constexpr bool contains (It it) const { return begin () <= it && it < end (); }
 		DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
 
 		// "nicer" api (python like slice ; but at(size ()) return end ())
@@ -77,19 +76,22 @@ namespace Range {
 	// Factory functions
 
 	// From iterator pair (if it is considered an iterator by STL).
-	template <typename It, typename = Iterator::GetCategory<It>> Range<It> range (It begin, It end) {
-		return Base<It>{std::move (begin), std::move (end)};
+	template <typename It, typename = typename std::iterator_traits<It>::iterator_category>
+	Range<It> range (It begin, It end) {
+		return Base<It>{begin, end};
 	}
 
-	// From container (enabled if it supports a begin() function).
-	template <typename Container, typename It = Iterator::GetContainerIteratorType<Container>>
-	Range<It> range (Container & container) {
+	// From container (enabled if it supports a begin() function and is lvalue).
+	namespace Detail {
+		// Utility function to extract the type returned by begin(), in the right context.
 		using std::begin;
-		using std::end;
-		return range (begin (container), end (container));
+		template <typename T> auto call_begin (const T & t) -> decltype (begin (t));
+		template <typename T> auto call_begin (T & t) -> decltype (begin (t));
 	}
-	template <typename Container, typename It = Iterator::GetContainerIteratorType<const Container>>
-	Range<It> range (const Container & container) {
+	template <typename Container,
+	          typename It = decltype (Detail::call_begin (std::declval<Container> ())),
+	          typename = typename std::enable_if<std::is_lvalue_reference<Container>::value>::type>
+	Range<It> range (Container && container) {
 		using std::begin;
 		using std::end;
 		return range (begin (container), end (container));

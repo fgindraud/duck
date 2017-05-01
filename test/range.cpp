@@ -5,7 +5,27 @@
 #include <duck/range/range.h>
 #include <list>
 #include <string>
+#include <type_traits>
 #include <vector>
+
+TEST_CASE ("type deduction") {
+	std::vector<int> mut{1, 2, 3, 4};
+	auto r_mut = duck::range (mut);
+	using MutRange_Is_MutableIt =
+	    std::is_same<duck::Range::Range<std::vector<int>::iterator>, decltype (r_mut)>;
+	CHECK (MutRange_Is_MutableIt::value);
+
+	const std::vector<int> konst{1, 2, 3, 4};
+	auto r_konst = duck::range (konst);
+	using KonstRange_Is_ConstIt =
+	    std::is_same<duck::Range::Range<std::vector<int>::const_iterator>, decltype (r_konst)>;
+	CHECK (KonstRange_Is_ConstIt::value);
+
+	auto r_int = duck::range (int(42));
+	using IntRange_Is_IntIt =
+	    std::is_same<duck::Range::Range<duck::Iterator::Integer<int>>, decltype (r_int)>;
+	CHECK (IntRange_Is_IntIt::value);
+}
 
 TEST_CASE ("empty vector") {
 	std::vector<int> empty_vect;

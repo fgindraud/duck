@@ -91,52 +91,12 @@ namespace Iterator {
 
 	/* ------------------------------  Container iterator ---------------------------- */
 
-	// Maybe-type testing if std::begin works on Container (returns iterator type)
-	template <typename Container> class MaybeContainerHasStdIterator {
-	private:
-		template <typename T>
-		static auto test (T)
-		    -> decltype (std::begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
-		                 std::true_type{});
-		static auto test (...) -> std::false_type;
-
-		template <typename T, bool has_std_it_type> struct MaybeTypeImpl {};
-		template <typename T> struct MaybeTypeImpl<T, true> {
-			using Type =
-			    decltype (std::begin (std::declval<typename std::add_lvalue_reference<T>::type> ()));
-		};
-
-	public:
-		enum { value = decltype (test (std::declval<Container> ()))::value };
-		using MaybeType = MaybeTypeImpl<Container, value>;
-	};
-
-	// Maybe-type testing if a user begin() works on Container (returns iterator type)
-	template <typename Container> class MaybeContainerHasUserIterator {
-	private:
-		template <typename T>
-		static auto test (T)
-		    -> decltype (begin (std::declval<typename std::add_lvalue_reference<T>::type> ()),
-		                 std::true_type{});
-		static auto test (...) -> std::false_type;
-
-		template <typename T, bool has_std_it_type> struct MaybeTypeImpl {};
-		template <typename T> struct MaybeTypeImpl<T, true> {
-			using Type = decltype (begin (std::declval<typename std::add_lvalue_reference<T>::type> ()));
-		};
-
-	public:
-		enum { value = decltype (test (std::declval<Container> ()))::value };
-		using MaybeType = MaybeTypeImpl<Container, value>;
-	};
-
-	// Maybe-type testing if a user begin() works on Container (returns iterator type)
-	template <typename Container>
-	using MaybeContainerHasIterator =
-	    Maybe::SelectFirstDefined<MaybeContainerHasStdIterator<Container>,
-	                              MaybeContainerHasUserIterator<Container>>;
 	// SFINAE-type for iterator type
+	namespace Detail {
+		using std::begin;
+		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
+	}
 	template <typename Container>
-	using GetContainerIteratorType = Maybe::Unpack<MaybeContainerHasIterator<Container>>;
+	using GetContainerIteratorType = decltype (Detail::call_begin (std::declval<Container> ()));
 }
 }

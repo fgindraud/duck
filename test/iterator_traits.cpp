@@ -83,43 +83,22 @@ static bool test_has_it (...) {
 TEST_CASE ("container iterator traits") {
 	using namespace duck::Iterator;
 
-	// Traits with begin method
-	CHECK (MaybeContainerHasStdIterator<ContainerWithBeginMethod>::value);
-	CHECK (MaybeContainerHasStdIterator<const ContainerWithBeginMethod>::value);
-	CHECK_FALSE (MaybeContainerHasUserIterator<ContainerWithBeginMethod>::value);
-	CHECK_FALSE (MaybeContainerHasUserIterator<const ContainerWithBeginMethod>::value);
-	CHECK (MaybeContainerHasIterator<ContainerWithBeginMethod>::value);
-	CHECK (MaybeContainerHasIterator<const ContainerWithBeginMethod>::value);
-
-	// Traits with begin function
-	CHECK_FALSE (MaybeContainerHasStdIterator<MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK_FALSE (MaybeContainerHasStdIterator<const MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (MaybeContainerHasUserIterator<MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (MaybeContainerHasUserIterator<const MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (MaybeContainerHasIterator<MyNamespace::ContainerWithBeginFunc>::value);
-	CHECK (MaybeContainerHasIterator<const MyNamespace::ContainerWithBeginFunc>::value);
-
 	// Iterator type (begin method)
 	using IteratorOfBeginMethod_Is_DummyIterator =
-	    std::is_same<GetContainerIteratorType<ContainerWithBeginMethod>, DummyIterator>;
+	    std::is_same<GetContainerIteratorType<ContainerWithBeginMethod &>, DummyIterator>;
 	CHECK (IteratorOfBeginMethod_Is_DummyIterator::value);
 	using IteratorOfConstBeginMethod_Is_DummyConstIterator =
-	    std::is_same<GetContainerIteratorType<const ContainerWithBeginMethod>, DummyConstIterator>;
+	    std::is_same<GetContainerIteratorType<const ContainerWithBeginMethod &>, DummyConstIterator>;
 	CHECK (IteratorOfConstBeginMethod_Is_DummyConstIterator::value);
 
 	// Iterator type (begin function)
 	using IteratorOfBeginFunc_Is_DummyIterator =
-	    std::is_same<GetContainerIteratorType<MyNamespace::ContainerWithBeginFunc>, DummyIterator>;
+	    std::is_same<GetContainerIteratorType<MyNamespace::ContainerWithBeginFunc &>, DummyIterator>;
 	CHECK (IteratorOfBeginFunc_Is_DummyIterator::value);
 	using IteratorOfConstBeginFunc_Is_DummyConstIterator =
-	    std::is_same<GetContainerIteratorType<const MyNamespace::ContainerWithBeginFunc>,
+	    std::is_same<GetContainerIteratorType<const MyNamespace::ContainerWithBeginFunc &>,
 	                 DummyConstIterator>;
 	CHECK (IteratorOfConstBeginFunc_Is_DummyConstIterator::value);
-
-	// Fails on wrong input
-	CHECK_FALSE (MaybeContainerHasIterator<int>::value);
-	CHECK_FALSE (MaybeContainerHasIterator<float>::value);
-	CHECK_FALSE (MaybeContainerHasIterator<DummyIterator>::value);
 
 	// Test SFINAE capability (global iterator only)
 	CHECK (test_has_it (ContainerWithBeginMethod{}));
