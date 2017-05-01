@@ -17,7 +17,7 @@ namespace Iterator {
 		using reference = value_type; // Not standard compliant
 
 		constexpr Integer () noexcept = default;
-		constexpr Integer (Int n) noexcept : n_{n} {}
+		constexpr Integer (Int n) noexcept : n_ (n) {}
 
 		// Input / output
 		Integer & operator++ () noexcept { return ++n_, *this; }

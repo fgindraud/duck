@@ -7,6 +7,7 @@
 
 #include <duck/iterator/integer.h>
 #include <duck/range/base.h>
+#include <duck/range/combinator.h>
 
 namespace duck {
 namespace Range {
@@ -68,8 +69,16 @@ namespace Range {
 		Range slice_to (DifferenceType to) const { return Base<It>{begin (), at (to)}; }
 		Range slice_from (DifferenceType from) const { return Base<It>{at (from), end ()}; }
 
+		// Build a container from this range
 		template <typename Container> Container to_container () const {
 			return Container (begin (), end ());
+		}
+
+		// Combinators
+		Range<std::reverse_iterator<It>> reverse () const { return reverse_base (*this); }
+		template <typename UnaryPredicate>
+		Range<Iterator::Filter<It, UnaryPredicate>> filter (UnaryPredicate p) const {
+			return filter_base (*this, p);
 		}
 	};
 

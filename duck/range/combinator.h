@@ -10,7 +10,7 @@ namespace duck {
 
 namespace Range {
 	// Reverse a range
-	template <typename It> Base<std::reverse_iterator<It>> reverse (Base<It> r) {
+	template <typename It> Base<std::reverse_iterator<It>> reverse_base (Base<It> r) {
 		return {std::reverse_iterator<It>{r.end ()}, std::reverse_iterator<It>{r.begin ()}};
 	}
 }
@@ -90,7 +90,7 @@ namespace Range {
 	};
 
 	template <typename It, typename UnaryPredicate>
-	Base<Iterator::Filter<It, UnaryPredicate>> filter (Base<It> r, UnaryPredicate p) {
+	Base<Iterator::Filter<It, UnaryPredicate>> filter_base (Base<It> r, UnaryPredicate p) {
 		return {r, p};
 	}
 }
