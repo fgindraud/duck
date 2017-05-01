@@ -2,8 +2,8 @@
 
 // Iterator builder classes
 
-#include <duck/iterator/traits.h>
-#include <duck/maybe_type.h>
+#include <duck/iterator/maybe_traits.h>
+#include <duck/meta/maybe_type.h>
 #include <duck/type_traits.h>
 #include <iterator>
 #include <utility>

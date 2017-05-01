@@ -2,7 +2,7 @@
 #include "doctest.h"
 
 #include <duck/iterator/facade.h>
-#include <duck/maybe_type.h>
+#include <duck/meta/maybe_type.h>
 #include <type_traits>
 
 struct Dummy {};

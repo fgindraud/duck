@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/iterator/traits.h>
+#include <duck/iterator/maybe_traits.h>
 #include <type_traits>
 
 /* --------------------------------- Iterator typedefs ----------------------------- */

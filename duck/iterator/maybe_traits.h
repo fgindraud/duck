@@ -1,8 +1,9 @@
 #pragma once
 
 // Iterator traits (compile time information).
+// FIXME only used in facade, may need cleaning
 
-#include <duck/maybe_type.h>
+#include <duck/meta/maybe_type.h>
 #include <iterator>
 #include <type_traits>
 

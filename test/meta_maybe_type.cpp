@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/maybe_type.h>
+#include <duck/meta/maybe_type.h>
 #include <type_traits>
 
 template <typename SelectedMaybeType, typename T>

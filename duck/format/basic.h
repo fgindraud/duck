@@ -5,9 +5,9 @@
 #include <algorithm> // std::copy
 #include <cstring>   // printing char* (strlen)
 #include <duck/format/core.h>
-#include <duck/type_traits.h>
-#include <limits>  // printing ints
-#include <string>  // printing string
+#include <limits> // printing ints
+#include <string> // printing string
+#include <type_traits>
 #include <utility> // forward / move
 
 namespace duck {
