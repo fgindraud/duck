@@ -111,42 +111,17 @@ namespace Format {
 	 * (as all arguments are forwarded).
 	 * FIXME what about multiple move from ? ....
 	 * Do everything by const & and copy ?
+	 *
+	 * TODO reenable operator() later
 	 */
 
 	template <typename Derived> struct ElementBase : Base<Derived> {
 		// Placeholder support for simple element: no placeholder, always return self
 		static constexpr std::size_t nb_placeholder () { return 0; }
-		template <int index, typename... Args> Derived substitute (Args &&...) const {
-			return this->self ();
-		}
-		Derived operator() () const { return this->self (); }
 	};
 
-	namespace Detail {
-		template <int index> struct ForwardNthArg {
-			template <typename First, typename... Others>
-			static auto forward (First &&, Others &&... args)
-			    -> decltype (ForwardNthArg<index - 1>::forward (std::forward<Others> (args)...)) {
-				return ForwardNthArg<index - 1>::forward (std::forward<Others> (args)...);
-			}
-		};
-		template <> struct ForwardNthArg<0> {
-			template <typename First, typename... Others>
-			static auto forward (First && f, Others &&...) -> decltype (std::forward<First> (f)) {
-				return std::forward<First> (f);
-			}
-		};
-	}
 	struct PlaceHolder : public Tag {
 		static constexpr std::size_t nb_placeholder () { return 1; }
-		template <typename F> auto operator() (F && f) const -> FormatterTypeFor<F> {
-			return format_element (std::forward<F> (f), AdlTag{});
-		}
-		template <int index, typename... Args>
-		auto substitute (Args &&... args) const -> FormatterTypeFor<
-		    decltype (Detail::ForwardNthArg<index>::forward (std::forward<Args> (args)...))> {
-			return operator() (Detail::ForwardNthArg<index>::forward (std::forward<Args> (args)...));
-		}
 	};
 	static constexpr PlaceHolder placeholder{};
 
@@ -160,7 +135,7 @@ namespace Format {
 	/* Pair, represents a sequence of two formatters (Left then Right).
 	 * This is used to create composite formatters as a template class hierarchy.
 	 * Left and Right are stored by copy.
-	 * TODO restricts argument count of operator() (enable if) ?
+	 * Empty base optimization is not possible (Left == Right is possible).
 	 */
 	template <typename Left, typename Right> class Pair : public Base<Pair<Left, Right>> {
 	private:
@@ -183,20 +158,6 @@ namespace Format {
 		// Non standard placeholder support, must redirect arguments
 		static constexpr std::size_t nb_placeholder () {
 			return Left::nb_placeholder () + Right::nb_placeholder ();
-		}
-		template <int index, typename... Args>
-		auto substitute (Args &&... args) const
-		    -> decltype (format (left_.template substitute<index> (std::forward<Args> (args)...),
-		                         right_.template substitute<index + Left::nb_placeholder ()> (
-		                             std::forward<Args> (args)...))) {
-			return format (left_.template substitute<index> (std::forward<Args> (args)...),
-			               right_.template substitute<index + Left::nb_placeholder ()> (
-			                   std::forward<Args> (args)...));
-		}
-		template <typename... Args>
-		auto operator() (Args &&... args) const
-		    -> decltype (substitute<0> (std::forward<Args> (args)...)) {
-			return substitute<0> (std::forward<Args> (args)...);
 		}
 	};
 
@@ -262,6 +223,10 @@ namespace Format {
 	constexpr FormatTypeFor<F, T> operator<< (F && f, T && t) {
 		return format (std::forward<F> (f), std::forward<T> (t));
 	}
+
+	/* Placeholder substitution WIP
+	 * TODO finish
+	 */
 
 	/* Polymorphic formatter.
 	 * Stores a runtime variable formatter type (allow to store heterogeneous formatters in a vector).

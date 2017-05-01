@@ -6,7 +6,7 @@
 #include <string>
 #include <type_traits> // type checking
 
-template <typename T, typename F> constexpr bool is_type (const F &) {
+template <typename T, typename F> static constexpr bool is_type (const F &) {
 	return std::is_same<T, F>::value;
 }
 
@@ -53,7 +53,7 @@ TEST_CASE ("bool") {
 }
 
 TEST_CASE ("decimal int") {
-	CHECK (is_type<duck::Format::DecimalInteger<int>> (duck::format (int ())));
+	CHECK (is_type<duck::Format::DecimalInteger<int>> (duck::format (int())));
 
 	CHECK (duck::format (0).size () == 1);
 	CHECK (duck::format (0).to_string () == "0");
