@@ -152,8 +152,10 @@ namespace Format {
 			return right_.write (left_.write (it));
 		}
 
-		constexpr const Left & left () const { return left_; }
-		constexpr const Right & right () const { return right_; }
+		constexpr const Left & left () const & { return left_; }
+		constexpr const Right & right () const & { return right_; }
+		constexpr Left && left () && { return std::move (left_); }
+		constexpr Right && right () && { return std::move (right_); }
 
 		// Non standard placeholder support, must redirect arguments
 		static constexpr std::size_t nb_placeholder () {
