@@ -1,6 +1,6 @@
 #pragma once
 
-// Iterator traits (compile time information).
+// Iterator maybe type traits
 // FIXME only used in facade, may need cleaning
 
 #include <duck/meta/maybe_type.h>
@@ -9,17 +9,6 @@
 
 namespace duck {
 namespace Iterator {
-	// Access info
-	template <typename It> using GetTraits = std::iterator_traits<It>;
-	template <typename It> using GetCategory = typename GetTraits<It>::iterator_category;
-	template <typename CategoryTag, typename It>
-	using HasCategory = std::is_base_of<CategoryTag, GetCategory<It>>;
-
-	// Enable ifs
-	template <typename CategoryTag, typename It, typename ReturnType = void>
-	using EnableIfHasCategory =
-	    typename std::enable_if<HasCategory<CategoryTag, It>::value, ReturnType>::type;
-
 	/* -------------------------------  Iterator typedef ----------------------------- */
 
 	// Maybe types testing if some typedefs exists.
@@ -79,25 +68,5 @@ namespace Iterator {
 		enum { value = decltype (test (std::declval<It> ()))::value };
 		using MaybeType = MaybeTypeImpl<It, value>;
 	};
-
-	// Add SFINAE capable typedefs (use std::iterator_traits).
-	template <typename It>
-	using GetValueType = Maybe::Unpack<MaybeValueType<std::iterator_traits<It>>>;
-	template <typename It>
-	using GetDifferenceType = Maybe::Unpack<MaybeDifferenceType<std::iterator_traits<It>>>;
-	template <typename It>
-	using GetReferenceType = Maybe::Unpack<MaybeReferenceType<std::iterator_traits<It>>>;
-	template <typename It>
-	using GetPointerType = Maybe::Unpack<MaybePointerType<std::iterator_traits<It>>>;
-
-	/* ------------------------------  Container iterator ---------------------------- */
-
-	// SFINAE-type for iterator type
-	namespace Detail {
-		using std::begin;
-		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
-	}
-	template <typename Container>
-	using GetContainerIteratorType = decltype (Detail::call_begin (std::declval<Container> ()));
 }
 }
