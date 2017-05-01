@@ -19,12 +19,9 @@ Status
 Currently completely work in progress.
 TODO:
 - add license stuff and small doc in files.
-- add nocompile tests for range
-- add test for integer range
 - expand std::algorithm version with ranges ?
-- restore combinators
-- better formatter
-- make it c++11 compatible (+check with travis)
+- Continue combinators (fix filter, add transform)
+- Formatter placeholder (static, and dynamic ?)
 
 License
 -------
