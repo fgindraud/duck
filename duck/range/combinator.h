@@ -19,8 +19,6 @@ namespace Iterator {
 		/* Iterate only on elements where UnaryPredicate is true (skip the others).
 		 * UnaryPredicate is EBO-used to keep the iterator small (must be an object type !).
 		 * Result is a forward iterator only.
-		 * FIXME cannot copy assign, as lambda are not copy assignable
-		 * FIXME use pattern of iterators referencing the Range object ??
 		 */
 	public:
 		using iterator_category = RestrictToCategory<It, std::forward_iterator_tag>;
@@ -35,6 +33,17 @@ namespace Iterator {
 		Filter (It current, It end, UnaryPredicate p)
 		    : UnaryPredicate (p), current_ (current), end_ (end) {
 			advance_to_next (); // Start at a selected element.
+		}
+
+		Filter (const Filter &) = default;
+		Filter (Filter &&) = default;
+		Filter & operator= (const Filter & f) {
+			// FIXME This is an okay-ish copy assignement operator.
+			// lambda UnaryPredicate cannot be copied, but doesn't need to be copied
+			// in case of func pointer, this will fail if iterators from different ranges are used.
+			// (do not copy the right func pointer, do not copy end)...
+			current_ = f.current_;
+			return *this;
 		}
 
 		// Access
