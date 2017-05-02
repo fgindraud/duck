@@ -35,6 +35,8 @@ namespace Variant {
 		template <typename T> inline void wrap_destructor (void * p) { static_cast<T *> (p)->~T (); }
 	}
 
+	// FIXME aligned_union not defined until gcc 5....
+#if 0
 	template <typename... Types> class StaticList {
 		// Variant for a static list of types
 	public:
@@ -45,7 +47,9 @@ namespace Variant {
 		}
 
 		template <typename T, typename = typename std::enable_if<Traits::NonSelf<T, StaticList>::value>>
-		explicit StaticList (T && t) : type_ (id_for_type<T> ()) {}
+		explicit StaticList (T && t) : type_ (id_for_type<T> ()) {
+			new (&storage_) typename std::decay<T>::type (std::forward<T> (t));
+		}
 
 		constexpr TypeTag type () const noexcept { return type_; }
 
@@ -55,6 +59,7 @@ namespace Variant {
 		typename std::aligned_union<0, Types...>::type storage_;
 		TypeTag type_;
 	};
+#endif
 
 	template <std::size_t len, std::size_t align> class Dynamic {
 		// Variant with a fixed size, but no type restriction as long as it fits

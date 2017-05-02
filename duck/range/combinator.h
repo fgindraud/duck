@@ -2,7 +2,6 @@
 
 // Defines combinator iterators, and factory functions to use them in ranges.
 
-#include <algorithm>
 #include <duck/iterator/traits.h>
 #include <duck/range/base.h>
 
@@ -20,6 +19,8 @@ namespace Iterator {
 		/* Iterate only on elements where UnaryPredicate is true (skip the others).
 		 * UnaryPredicate is EBO-used to keep the iterator small (must be an object type !).
 		 * Result is a forward iterator only.
+		 * FIXME cannot copy assign, as lambda are not copy assignable
+		 * FIXME use pattern of iterators referencing the Range object ??
 		 */
 	public:
 		using iterator_category = RestrictToCategory<It, std::forward_iterator_tag>;
@@ -60,7 +61,8 @@ namespace Iterator {
 
 	private:
 		void advance_to_next () {
-			current_ = std::find_if (current_, end_, static_cast<UnaryPredicate &> (*this));
+			while (current_ != end_ && !UnaryPredicate::operator() (*current_))
+				current_++;
 		}
 
 		It current_;

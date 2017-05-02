@@ -33,10 +33,8 @@ TEST_CASE ("filled vector") {
 	CHECK (filtered.to_container<std::vector<int>> () == filtered_result);
 
 	// Chained filter
-#if 0
 	auto chained_filter{r.filter ([](int i) { return i < 2; }).filter ([](int i) { return i > 0; })};
 	CHECK (sizeof (chained_filter) == sizeof (r));
 	CHECK (chained_filter.size () == 1);
 	CHECK (chained_filter.front () == 1);
-#endif // FIXME FAILS because lambdas cannot be copy/move assigned...
 }
