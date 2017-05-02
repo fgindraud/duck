@@ -30,16 +30,27 @@ namespace Variant {
 			enum { value = GetTypeId<T, Others...>::value + 1 };
 		};
 
+		// Constexpr max
+		template <typename T> constexpr const T & max (const T & t) { return t; }
+		template <typename T> constexpr const T & max (const T & a, const T & b) {
+			return a < b ? b : a;
+		}
+		template <typename T, typename... Others>
+		constexpr const T & max (const T & a, const T & b, const Others &... others) {
+			return max (a, max (b, others...));
+		}
+
 		// Wrap common functions
 		using WrappedMethod = void (*) (void *);
 		template <typename T> inline void wrap_destructor (void * p) { static_cast<T *> (p)->~T (); }
 	}
 
-	// FIXME aligned_union not defined until gcc 5....
-#if 0
 	template <typename... Types> class StaticList {
 		// Variant for a static list of types
 	public:
+		static constexpr std::size_t alignment () { return Detail::max (alignof (Types)...); }
+		static constexpr std::size_t size () { return Detail::max (sizeof (Types)...); }
+
 		using TypeTag = std::uint8_t; // TODO use bounded int
 		template <int type_id> using TypeForId = typename Detail::GetNthType<type_id, Types...>::Type;
 		template <typename T> static constexpr TypeTag id_for_type () {
@@ -56,15 +67,13 @@ namespace Variant {
 		// TODO support for destructor table, template access, ...
 
 	private:
-		typename std::aligned_union<0, Types...>::type storage_;
+		typename std::aligned_storage<size (), alignment ()>::type storage_;
 		TypeTag type_;
 	};
-#endif
 
 	template <std::size_t len, std::size_t align> class Dynamic {
 		// Variant with a fixed size, but no type restriction as long as it fits
-		//
-		// TODO check access using ptr to destructor ?
+		// TODO improve
 	public:
 		template <typename T, typename = typename std::enable_if<Traits::NonSelf<T, Dynamic>::value>>
 		explicit Dynamic (T && t) : destructor_ (Detail::wrap_destructor<T>) {
@@ -72,6 +81,22 @@ namespace Variant {
 			static_assert (alignof (T) <= align, "T align requirement must fit in reserved storage");
 			new (&storage_) T (std::forward<T> (t));
 		}
+
+		template <typename T> T & as () {
+			if (&Detail::wrap_destructor<T> != destructor_)
+				throw std::bad_cast{};
+			return reinterpret_cast<T &> (storage_);
+		}
+		template <typename T> const T & as () const {
+			if (&Detail::wrap_destructor<T> != destructor_)
+				throw std::bad_cast{};
+			return reinterpret_cast<const T &> (storage_);
+		}
+
+		Dynamic (const Dynamic &) = delete;
+		Dynamic (Dynamic &&) = delete;
+		Dynamic & operator= (const Dynamic &) = delete;
+		Dynamic & operator= (Dynamic &&) = delete;
 
 		~Dynamic () { destructor_ (&storage_); }
 
