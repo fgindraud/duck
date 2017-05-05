@@ -4,6 +4,7 @@
 
 #include <duck/iterator/traits.h>
 #include <duck/range/base.h>
+#include <utility>
 
 namespace duck {
 
@@ -29,9 +30,9 @@ namespace Iterator {
 
 		// Constructors
 		constexpr Filter (It end, UnaryPredicate p) noexcept
-		    : UnaryPredicate (p), current_ (end), end_ (end) {}
+		    : UnaryPredicate (std::move (p)), current_ (end), end_ (std::move (end)) {}
 		Filter (It current, It end, UnaryPredicate p)
-		    : UnaryPredicate (p), current_ (current), end_ (end) {
+		    : UnaryPredicate (std::move (p)), current_ (std::move (current)), end_ (std::move (end)) {
 			advance_to_next (); // Start at a selected element.
 		}
 
@@ -88,7 +89,8 @@ namespace Range {
 
 	public:
 		// Constructors (additional optimized constructor)
-		constexpr Base (Base<It> r, UnaryPredicate p) noexcept : UnaryPredicate (p), base (r) {}
+		constexpr Base (Base<It> r, UnaryPredicate p) noexcept
+		    : UnaryPredicate (std::move (p)), base (std::move (r)) {}
 		constexpr Base (FilterIt begin, FilterIt) noexcept
 		    : UnaryPredicate (begin.predicate ()), base (begin.current (), begin.end ()) {}
 
@@ -102,7 +104,7 @@ namespace Range {
 
 	template <typename It, typename UnaryPredicate>
 	Base<Iterator::Filter<It, UnaryPredicate>> filter_base (Base<It> r, UnaryPredicate p) {
-		return {r, p};
+		return {std::move (r), std::move (p)};
 	}
 }
 

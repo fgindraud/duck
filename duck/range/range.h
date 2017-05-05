@@ -2,12 +2,12 @@
 
 // Top level range object with full functionnality
 
-#include <iterator>
-#include <type_traits>
-
 #include <duck/iterator/integer.h>
 #include <duck/range/base.h>
 #include <duck/range/combinator.h>
+#include <iterator>
+#include <type_traits>
+#include <utility>
 
 namespace duck {
 namespace Range {
@@ -33,7 +33,7 @@ namespace Range {
 		using IteratorCategory = typename std::iterator_traits<It>::iterator_category;
 
 		// Basic constructors
-		constexpr Range (Base<It> base) noexcept : Base<It> (base) {}
+		constexpr Range (Base<It> base) noexcept : Base<It> (std::move (base)) {}
 
 		using Base<It>::begin;
 		using Base<It>::end;
@@ -78,7 +78,7 @@ namespace Range {
 		Range<std::reverse_iterator<It>> reverse () const { return reverse_base (*this); }
 		template <typename UnaryPredicate>
 		Range<Iterator::Filter<It, UnaryPredicate>> filter (UnaryPredicate p) const {
-			return filter_base (*this, p);
+			return filter_base (*this, std::move (p));
 		}
 	};
 
@@ -87,7 +87,7 @@ namespace Range {
 	// From iterator pair (if it is considered an iterator by STL).
 	template <typename It, typename = typename std::iterator_traits<It>::iterator_category>
 	Range<It> range (It begin, It end) {
-		return Base<It>{begin, end};
+		return Base<It>{std::move (begin), std::move (end)};
 	}
 
 	// From container (enabled if it supports a begin() function and is lvalue).

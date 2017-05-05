@@ -2,6 +2,8 @@
 
 // Range base class.
 
+#include <utility>
+
 namespace duck {
 namespace Range {
 	template <typename It> class Base {
@@ -10,7 +12,8 @@ namespace Range {
 		 * For simplicity, has value semantics and should be passed by value.
 		 */
 	public:
-		constexpr Base (It begin, It end) noexcept : begin_ (begin), end_ (end) {}
+		constexpr Base (It begin, It end) noexcept
+		    : begin_ (std::move (begin)), end_ (std::move (end)) {}
 
 		constexpr It begin () const noexcept { return begin_; }
 		constexpr It end () const noexcept { return end_; }
