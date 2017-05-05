@@ -1,0 +1,188 @@
+#pragma once
+
+// Vector with small size optimisation (no allocator support)
+
+#include <cstdint>
+#include <duck/tagged_ptr.h>
+#include <duck/utility.h>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <type_traits>
+
+namespace duck {
+
+template <typename T, typename Allocator = std::allocator<T>>
+class SmallVectorBase : private std::allocator_traits<Allocator>::allocator_type {
+	/* Base of SmallVector, independent from the inline storage size (N).
+	 * This does not have a complete vector API.
+	 * In particular, functions that might shrink the storage (and thus may reuse the inline storage)
+	 * are only defined in SmallVector itself.
+	 * Functions that grow the storage will allocate, so they can be implemented here.
+	 */
+private:
+	using internal_size_type = std::uint32_t;
+	using allocator_traits = std::allocator_traits<Allocator>;
+
+public:
+	using allocator_type = typename allocator_traits::allocator_type;
+	using value_type = T;
+	using size_type = std::size_t;
+	using difference_type = std::ptrdiff_t;
+	using reference = value_type &;
+	using const_reference = const value_type &;
+	using pointer = typename allocator_traits::pointer;
+	using const_pointer = typename allocator_traits::const_pointer;
+	using iterator = pointer;
+	using const_iterator = const_pointer;
+	using reverse_iterator = std::reverse_iterator<iterator>;
+	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+	static_assert (sizeof (size_type) >= sizeof (internal_size_type),
+	               "size_type is smaller than internal_size_type");
+
+	// Basic TODO all destr / constr / assign / operator=
+	~SmallVector () {
+		call_destructors (data (), size_);
+		if (is_allocated ())
+			allocator_traits::deallocate (*this, data (), capacity_);
+	}
+	allocator_type get_allocator () const { return *this; }
+
+	// Element access
+	reference at (size_type pos) { return pos < size_ ? nth (pos) : throw std::out_of_range{"at()"}; }
+	constexpr const_reference at (size_type pos) const {
+		return pos < size_ ? nth (pos) : throw std::out_of_range{"at()"};
+	}
+	reference operator[] (size_type pos) noexcept { return nth (pos); }
+	constexpr const_reference operator[] (size_type pos) const noexcept { return nth (pos); }
+	reference front () noexcept { return nth (0); }
+	constexpr const_reference front () const noexcept { return nth (0); }
+	reference back () noexcept { return nth (size_ - 1); }
+	constexpr const_reference back () const noexcept { return nth (size_ - 1); }
+	T * data () noexcept { return data_.get_ptr (); }
+	constexpr const T * data () const noexcept { return data_.get_ptr (); }
+
+	// Iterators
+	iterator begin () noexcept { return data (); }
+	constexpr const_iterator begin () const noexcept { return data (); }
+	constexpr const_iterator cbegin () const noexcept { return data (); }
+	iterator end () noexcept { return data () + size_; }
+	constexpr const_iterator end () const noexcept { return data () + size_; }
+	constexpr const_iterator cend () const noexcept { return data () + size_; }
+	reverse_iterator rbegin () noexcept { return end (); }
+	constexpr const_reverse_iterator rbegin () const noexcept { return end (); }
+	constexpr const_reverse_iterator crbegin () const noexcept { return end (); }
+	reverse_iterator rend () noexcept { return begin (); }
+	constexpr const_reverse_iterator rend () const noexcept { return begin (); }
+	constexpr const_reverse_iterator crend () const noexcept { return begin (); }
+
+	// Capacity
+	constexpr bool empty () const noexcept { return size_ == 0; }
+	constexpr size_type size () const noexcept { return size_; }
+	constexpr size_type max_size () const noexcept {
+		return min (std::numeric_limits<internal_size_type>::max (),
+		            allocator_traits::max_size (*this));
+	}
+	void reserve (size_type new_cap) {
+		// Reserve just moves data to the exact required capacity
+		if (new_cap > capacity_)
+			move_to_new_allocated_storage (new_cap);
+	}
+	constexpr size_type capacity () const noexcept { return capacity_; }
+
+	// Modifiers TODO insert emplace
+	void clear () noexcept {
+		call_destructors (data (), size_);
+		size_ = 0;
+	}
+	reference push_back (const T & value) { return emplace_back (value); }
+	reference push_back (T && value) { return emplace_back (std::move (value)); }
+	template <typename... Args> reference emplace_back (Args &&... args) {
+		grow_if_needed (1);
+		auto * object = nthp (size_);
+		allocator_traits::construct (*this, object, std::forward<Args> (args)...);
+		++size_;
+		return *object;
+	}
+	void pop_back () noexcept {
+		allocator_traits::destroy (*this, nthp (size_ - 1));
+		--size_;
+	}
+	void resize (size_type count) {
+		reserve (count);
+		for (; size_ > count; --size_)
+			allocator_traits::destroy (*this, nthp (size_ - 1));
+		for (; size_ < count; ++size_)
+			allocator_traits::construct (*this, nthp (size_));
+	}
+	void resize (size_type count, const value_type & value) {
+		reserve (count);
+		for (; size_ > count; --size_)
+			allocator_traits::destroy (*this, nthp (size_ - 1));
+		for (; size_ < count; ++size_)
+			allocator_traits::construct (*this, nthp (size_), value);
+	}
+
+	// SmallVector specific API
+	constexpr bool is_allocated () const noexcept { return data_.get_bit<0> (); }
+
+protected:
+	using TaggedPtrType = TaggedPtr<pointer, 1>;
+
+private:
+	// Internal accessors (marked const for performance)
+	constexpr pointer nthp (internal_size_type index) const noexcept { return data () + index; }
+	constexpr reference nth (internal_size_type index) const noexcept { return *nthp (index); }
+
+	static void call_destructors (pointer p, internal_size_type n) noexcept {
+		// Call destructors on n elements of p
+		for (internal_size_type i = 0; i < n; ++i)
+			allocator_traits::destroy (*this, p + i);
+	}
+	void grow_if_needed (internal_size_type will_insert) {
+		if (size_ + will_insert > capacity_)
+			move_to_new_allocated_storage (capacity_ * 2);
+	}
+	void move_to_new_allocated_storage (internal_size_type new_cap) {
+		// This function creates a new allocated storage and relocates the current data to it.
+		pointer old_storage = data ();
+		pointer new_storage = allocator_traits::allocate (new_cap);
+		for (internal_size_type i = 0; i < size_; ++i) {
+			allocator_traits::construct (*this, new_storage + i, std::move (old_storage[i]));
+			allocator_traits::destroy (*this, old_storage + i);
+		}
+		if (is_allocated ())
+			allocator_traits::deallocate (*this, old_storage, capacity_);
+		data_.set_ptr (new_storage);
+		data_.set_bit<0> (true);
+		capacity_ = new_cap;
+	}
+
+	internal_size_type size_;
+	internal_size_type capacity_;
+	TaggedPtrType data_; // pointer to data, and bit flag "is_allocated"
+};
+
+template <typename T, std::size_t N, typename Allocator = std::allocator<T>>
+class SmallVector : public SmallVectorBase<T, Allocator> {
+private:
+	using Base = SmallVectorBase<T, Allocator>;
+
+public:
+	// Element access: all in SmallVectorBase
+
+	// Iterators: all in SmallVectorBase
+
+	// Capacity
+	void shrink_to_fit ();
+
+	// Modifiers
+	void swap (/* ??? TODO */) noexcept;
+
+private:
+	typename std::aligned_storage<N * sizeof (T),
+	                              max (alignof (T), Base::TaggedPtrType::required_alignment)>::type
+	    inline_storage_;
+};
+}
