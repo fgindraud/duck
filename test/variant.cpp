@@ -8,15 +8,6 @@
 struct blah {};
 
 TEST_CASE ("test") {
-	using namespace duck::Variant;
-	CHECK (Detail::max (1) == 1);
-	CHECK (Detail::max (1, 2) == 2);
-	CHECK (Detail::max (1, 2, 3) == 3);
-	CHECK (Detail::max (1, 2, 3, 4) == 4);
-	CHECK (Detail::max (4, 3, 2, 1) == 4);
-	CHECK (Detail::max (1, 4, 2, 4) == 4);
-	CHECK (Detail::max (4, 4) == 4);
-
 	using MyVariant = duck::Variant::StaticList<bool, int, blah>;
 	CHECK (MyVariant::id_for_type<bool> () == 0);
 	CHECK (MyVariant::id_for_type<int> () == 1);

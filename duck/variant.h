@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <duck/type_traits.h>
+#include <duck/utility.h>
 #include <typeindex>
 #include <utility>
 
@@ -30,16 +31,6 @@ namespace Variant {
 			enum { value = GetTypeId<T, Others...>::value + 1 };
 		};
 
-		// Constexpr max
-		template <typename T> constexpr const T & max (const T & t) { return t; }
-		template <typename T> constexpr const T & max (const T & a, const T & b) {
-			return a < b ? b : a;
-		}
-		template <typename T, typename... Others>
-		constexpr const T & max (const T & a, const T & b, const Others &... others) {
-			return max (a, max (b, others...));
-		}
-
 		// Wrap common functions
 		using WrappedMethod = void (*) (void *);
 		template <typename T> inline void wrap_destructor (void * p) { static_cast<T *> (p)->~T (); }
@@ -48,8 +39,8 @@ namespace Variant {
 	template <typename... Types> class StaticList {
 		// Variant for a static list of types
 	public:
-		static constexpr std::size_t alignment () { return Detail::max (alignof (Types)...); }
-		static constexpr std::size_t size () { return Detail::max (sizeof (Types)...); }
+		static constexpr std::size_t alignment = max (alignof (Types)...);
+		static constexpr std::size_t size = max (sizeof (Types)...);
 
 		using TypeTag = std::uint8_t; // TODO use bounded int
 		template <int type_id> using TypeForId = typename Detail::GetNthType<type_id, Types...>::Type;
@@ -67,7 +58,7 @@ namespace Variant {
 		// TODO support for destructor table, template access, ...
 
 	private:
-		typename std::aligned_storage<size (), alignment ()>::type storage_;
+		typename std::aligned_storage<size, alignment>::type storage_;
 		TypeTag type_;
 	};
 
