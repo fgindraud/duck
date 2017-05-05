@@ -4,7 +4,7 @@
 #include <duck/tagged_ptr.h>
 
 TEST_CASE ("test") {
-	using MyPtr = duck::TaggedPtr<int, 2>;
+	using MyPtr = duck::TaggedPtr<int *, 2>;
 
 	int a;
 	MyPtr p = &a;

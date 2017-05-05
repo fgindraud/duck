@@ -8,15 +8,17 @@
 
 namespace duck {
 
-template <typename T, std::size_t N> class TaggedPtr {
+template <typename PtrType, std::size_t N> class TaggedPtr {
 public:
 	static constexpr std::size_t required_alignement = std::size_t (1) << N;
 
 	constexpr TaggedPtr () noexcept = default;
-	TaggedPtr (T * ptr) noexcept { set_ptr (ptr); }
+	TaggedPtr (PtrType ptr) noexcept { set_ptr (ptr); }
 
-	constexpr T * get_ptr () const noexcept { return reinterpret_cast<T *> (ptr_ & ptr_bits_mask); }
-	void set_ptr (T * ptr) noexcept {
+	constexpr PtrType get_ptr () const noexcept {
+		return reinterpret_cast<PtrType> (ptr_ & ptr_bits_mask);
+	}
+	void set_ptr (PtrType ptr) noexcept {
 		auto repr = reinterpret_cast<Repr> (ptr);
 		assert ((repr & tag_bits_mask) == 0); // Is sufficiently aligned ?
 		ptr_ = (repr & ptr_bits_mask) | (ptr_ & tag_bits_mask);
@@ -41,8 +43,8 @@ public:
 		set_bit (index, value);
 	}
 
-	constexpr operator T * () const noexcept { return get_ptr (); }
-	TaggedPtr & operator= (T * ptr) noexcept {
+	constexpr operator PtrType () const noexcept { return get_ptr (); }
+	TaggedPtr & operator= (PtrType ptr) noexcept {
 		set_ptr (ptr);
 		return *this;
 	}
