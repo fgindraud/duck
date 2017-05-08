@@ -21,10 +21,12 @@ class SmallVectorBase : private std::allocator_traits<Allocator>::allocator_type
 	 * Functions that grow the storage will allocate, so they can be implemented here.
 	 */
 private:
+	// Internal typedefs
 	using internal_size_type = std::uint32_t;
 	using allocator_traits = std::allocator_traits<Allocator>;
 
 public:
+	// STL typedefs
 	using allocator_type = typename allocator_traits::allocator_type;
 	using value_type = T;
 	using size_type = std::size_t;
@@ -42,8 +44,8 @@ public:
 	               "size_type is smaller than internal_size_type");
 
 	// Basic TODO all destr / constr / assign / operator=
-	~SmallVector () {
-		call_destructors (data (), size_);
+	~SmallVectorBase () {
+		clear ();
 		if (is_allocated ())
 			allocator_traits::deallocate (*this, data (), capacity_);
 	}
@@ -60,16 +62,16 @@ public:
 	constexpr const_reference front () const noexcept { return nth (0); }
 	reference back () noexcept { return nth (size_ - 1); }
 	constexpr const_reference back () const noexcept { return nth (size_ - 1); }
-	T * data () noexcept { return data_.get_ptr (); }
-	constexpr const T * data () const noexcept { return data_.get_ptr (); }
+	T * data () noexcept { return nthp (0); }
+	constexpr const T * data () const noexcept { return nthp (0); }
 
 	// Iterators
 	iterator begin () noexcept { return data (); }
-	constexpr const_iterator begin () const noexcept { return data (); }
-	constexpr const_iterator cbegin () const noexcept { return data (); }
+	constexpr const_iterator begin () const noexcept { return nthp (0); }
+	constexpr const_iterator cbegin () const noexcept { return nthp (0); }
 	iterator end () noexcept { return data () + size_; }
-	constexpr const_iterator end () const noexcept { return data () + size_; }
-	constexpr const_iterator cend () const noexcept { return data () + size_; }
+	constexpr const_iterator end () const noexcept { return nthp (size_); }
+	constexpr const_iterator cend () const noexcept { return nthp (size_); }
 	reverse_iterator rbegin () noexcept { return end (); }
 	constexpr const_reverse_iterator rbegin () const noexcept { return end (); }
 	constexpr const_reverse_iterator crbegin () const noexcept { return end (); }
@@ -93,8 +95,8 @@ public:
 
 	// Modifiers TODO insert emplace
 	void clear () noexcept {
-		call_destructors (data (), size_);
-		size_ = 0;
+		for (; size_ > 0; --size_)
+			allocator_traits::destroy (*this, nthp (size_ - 1));
 	}
 	reference push_back (const T & value) { return emplace_back (value); }
 	reference push_back (T && value) { return emplace_back (std::move (value)); }
@@ -125,21 +127,24 @@ public:
 	}
 
 	// SmallVector specific API
-	constexpr bool is_allocated () const noexcept { return data_.get_bit<0> (); }
+	constexpr bool is_allocated () const noexcept { return data_.template get_bit<0> (); }
 
 protected:
-	using TaggedPtrType = TaggedPtr<pointer, 1>;
+	SmallVectorBase (T * inline_storage, size_type initial_capacity,
+	                 const Allocator & allocator) noexcept
+	    : allocator_type (allocator),
+	      size_ (0),
+	      capacity_ (initial_capacity),
+	      data_ (inline_storage) {
+		// Allocated bit is zeroed by default
+	}
 
-private:
 	// Internal accessors (marked const for performance)
-	constexpr pointer nthp (internal_size_type index) const noexcept { return data () + index; }
+	constexpr pointer nthp (internal_size_type index) const noexcept {
+		return data_.get_ptr () + index;
+	}
 	constexpr reference nth (internal_size_type index) const noexcept { return *nthp (index); }
 
-	static void call_destructors (pointer p, internal_size_type n) noexcept {
-		// Call destructors on n elements of p
-		for (internal_size_type i = 0; i < n; ++i)
-			allocator_traits::destroy (*this, p + i);
-	}
 	void grow_if_needed (internal_size_type will_insert) {
 		if (size_ + will_insert > capacity_)
 			move_to_new_allocated_storage (capacity_ * 2);
@@ -147,7 +152,7 @@ private:
 	void move_to_new_allocated_storage (internal_size_type new_cap) {
 		// This function creates a new allocated storage and relocates the current data to it.
 		pointer old_storage = data ();
-		pointer new_storage = allocator_traits::allocate (new_cap);
+		pointer new_storage = allocator_traits::allocate (*this, new_cap);
 		for (internal_size_type i = 0; i < size_; ++i) {
 			allocator_traits::construct (*this, new_storage + i, std::move (old_storage[i]));
 			allocator_traits::destroy (*this, old_storage + i);
@@ -155,13 +160,16 @@ private:
 		if (is_allocated ())
 			allocator_traits::deallocate (*this, old_storage, capacity_);
 		data_.set_ptr (new_storage);
-		data_.set_bit<0> (true);
+		data_.template set_bit<0> (true);
 		capacity_ = new_cap;
 	}
 
 	internal_size_type size_;
 	internal_size_type capacity_;
-	TaggedPtrType data_; // pointer to data, and bit flag "is_allocated"
+	TaggedPtr<pointer, 1> data_; // pointer to data, and bit flag "is_allocated"
+
+public:
+	static constexpr auto required_alignment = decltype (data_)::required_alignment;
 };
 
 template <typename T, std::size_t N, typename Allocator = std::allocator<T>>
@@ -170,6 +178,26 @@ private:
 	using Base = SmallVectorBase<T, Allocator>;
 
 public:
+	using size_type = typename Base::size_type;
+
+	// Basic
+	SmallVector () : SmallVector (Allocator ()) {}
+	explicit SmallVector (const Allocator & allocator) noexcept
+	    : Base (reinterpret_cast<typename Base::pointer> (&inline_storage_), N, allocator) {}
+
+	SmallVector (size_type size, const T & value, const Allocator & allocator = Allocator ())
+	    : SmallVector (allocator) {
+		resize (size, value);
+	}
+	explicit SmallVector (size_type size, const Allocator & allocator = Allocator ())
+	    : SmallVector (allocator) {
+		resize (size);
+	}
+
+	// TODO copy and move constructors
+	template <typename InputIt>
+	SmallVector (InputIt first, InputIt last, const Allocator & allocator = Allocator ());
+
 	// Element access: all in SmallVectorBase
 
 	// Iterators: all in SmallVectorBase
@@ -181,8 +209,7 @@ public:
 	void swap (/* ??? TODO */) noexcept;
 
 private:
-	typename std::aligned_storage<N * sizeof (T),
-	                              max (alignof (T), Base::TaggedPtrType::required_alignment)>::type
+	typename std::aligned_storage<N * sizeof (T), max (alignof (T), Base::required_alignment)>::type
 	    inline_storage_;
 };
 }

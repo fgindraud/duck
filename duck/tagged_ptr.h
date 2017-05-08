@@ -1,7 +1,6 @@
 #pragma once
 
-// A pointer with lower bits used as generic storage.
-// The pointer itself must be aligned to guarantee lower bits are unused.
+// Tagged pointer class
 
 #include <cassert>
 #include <cstdint>
@@ -9,8 +8,12 @@
 namespace duck {
 
 template <typename PtrType, std::size_t N> class TaggedPtr {
+	/* A pointer with lower N bits used as generic storage.
+	 * The pointer itself must be aligned to guarantee lower bits are unused.
+	 * Initially, all N bits are zeroed.
+	 */
 public:
-	static constexpr std::size_t required_alignement = std::size_t (1) << N;
+	static constexpr std::size_t required_alignment = std::size_t (1) << N;
 
 	constexpr TaggedPtr () noexcept = default;
 	TaggedPtr (PtrType ptr) noexcept { set_ptr (ptr); }
