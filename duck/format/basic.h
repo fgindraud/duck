@@ -19,8 +19,8 @@ namespace Format {
 	class SingleChar : public ElementBase<SingleChar> {
 		// Single character (does not support multibyte chararcters !)
 	public:
-		explicit constexpr SingleChar (char c) : c_ (c) {}
-		constexpr std::size_t size () const { return 1; }
+		explicit constexpr SingleChar (char c) noexcept : c_ (c) {}
+		constexpr std::size_t size () const noexcept { return 1; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			*it = c_;
 			return ++it;
@@ -29,7 +29,7 @@ namespace Format {
 	private:
 		char c_;
 	};
-	constexpr SingleChar format_element (char c, AdlTag) { return SingleChar (c); }
+	constexpr SingleChar format_element (char c, AdlTag) noexcept { return SingleChar (c); }
 
 	template <std::size_t N> class StaticCharArray : public ElementBase<StaticCharArray<N>> {
 		/* Reference to static char array (remove end '\0')
@@ -39,8 +39,8 @@ namespace Format {
 		 * auto s = "blah"; duck::format (s) is CStringRef.
 		 */
 	public:
-		explicit constexpr StaticCharArray (const char (&str)[N]) : str_ (str) {}
-		constexpr std::size_t size () const { return N - 1; }
+		explicit constexpr StaticCharArray (const char (&str)[N]) noexcept : str_ (str) {}
+		constexpr std::size_t size () const noexcept { return N - 1; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy (std::begin (str_), std::end (str_) - 1, it);
 		}
@@ -49,7 +49,7 @@ namespace Format {
 		const char (&str_)[N];
 	};
 	template <std::size_t N>
-	constexpr StaticCharArray<N> format_element (const char (&str)[N], AdlTag) {
+	constexpr StaticCharArray<N> format_element (const char (&str)[N], AdlTag) noexcept {
 		return StaticCharArray<N>{str};
 	}
 
@@ -59,9 +59,9 @@ namespace Format {
 		 * (without template, it is a better match than StaticCharArray and is always selected).
 		 */
 	public:
-		constexpr CStringRef (const char * str, std::size_t len) : str_ (str), len_ (len) {}
+		constexpr CStringRef (const char * str, std::size_t len) noexcept : str_ (str), len_ (len) {}
 		explicit CStringRef (const char * str) : CStringRef (str, std::strlen (str)) {}
-		constexpr std::size_t size () const { return len_; }
+		constexpr std::size_t size () const noexcept { return len_; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy_n (str_, len_, it);
 		}
@@ -80,7 +80,7 @@ namespace Format {
 		// Reference to std::string
 	public:
 		explicit StringRef (const std::string & str) : str_ (str) {}
-		std::size_t size () const { return str_.size (); }
+		std::size_t size () const noexcept { return str_.size (); }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy (std::begin (str_), std::end (str_), it);
 		}
@@ -93,8 +93,8 @@ namespace Format {
 	class Bool : public ElementBase<Bool> {
 		// Prints a bool value
 	public:
-		explicit constexpr Bool (bool b) : b_ (b) {}
-		constexpr std::size_t size () const { return b_ ? 4 : 5; }
+		explicit constexpr Bool (bool b) noexcept : b_ (b) {}
+		constexpr std::size_t size () const noexcept { return b_ ? 4 : 5; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return b_ ? format_element ("true", AdlTag{}).write (it)
 			          : format_element ("false", AdlTag{}).write (it);
@@ -103,12 +103,12 @@ namespace Format {
 	private:
 		bool b_;
 	};
-	constexpr Bool format_element (bool b, AdlTag) { return Bool (b); }
+	constexpr Bool format_element (bool b, AdlTag) noexcept { return Bool (b); }
 
 	template <typename Int> class DecimalInteger : public ElementBase<DecimalInteger<Int>> {
 		// Prints an integer in decimal base
 	public:
-		explicit constexpr DecimalInteger (Int i) : i_ (i) {}
+		explicit constexpr DecimalInteger (Int i) noexcept : i_ (i) {}
 		std::size_t size () const {
 			Int i = i_;
 			if (i == 0)
@@ -148,7 +148,7 @@ namespace Format {
 		Int i_;
 	};
 	template <typename T, typename = typename std::enable_if<std::is_integral<T>::value>::type>
-	DecimalInteger<T> format_element (T t, AdlTag) {
+	DecimalInteger<T> format_element (T t, AdlTag) noexcept {
 		return DecimalInteger<T>{t};
 	}
 
@@ -162,7 +162,7 @@ namespace Format {
 	class StringValue : public ElementBase<StringValue> {
 	public:
 		explicit StringValue (std::string str) : str_ (std::move (str)) {}
-		std::size_t size () const { return str_.size (); }
+		std::size_t size () const noexcept { return str_.size (); }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy (str_.begin (), str_.end (), it);
 		}

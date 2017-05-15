@@ -3,11 +3,12 @@
 // Formatting library (core components).
 
 #include <duck/type_traits.h>
-#include <iosfwd>   // std::ostream declaration
-#include <iterator> // std::ostreambuf_iterator for ostream<< output
-#include <memory>   // unique_ptr for Polymorphic
-#include <string>   // to_string / string iterator
-#include <utility>  // forward / move
+#include <iosfwd>    // std::ostream declaration
+#include <iterator>  // std::ostreambuf_iterator for ostream<< output
+#include <memory>    // unique_ptr for Polymorphic
+#include <string>    // to_string / string iterator
+#include <typeindex> // debug
+#include <utility>   // forward / move
 
 namespace duck {
 namespace Format {
@@ -48,7 +49,9 @@ namespace Format {
 		}
 
 	protected:
-		constexpr const Derived & self () const { return static_cast<const Derived &> (*this); }
+		constexpr const Derived & self () const noexcept {
+			return static_cast<const Derived &> (*this);
+		}
 	};
 
 	/* Overload operator<< (std::ostream&) to output a formatter in a std::ostream.
@@ -72,7 +75,7 @@ namespace Format {
 	struct AdlTag {};
 
 	template <typename F, typename = typename std::enable_if<IsFormatter<F>::value>::type>
-	constexpr F format_element (F f, AdlTag) {
+	constexpr F format_element (F f, AdlTag) noexcept {
 		return f;
 	}
 
@@ -117,19 +120,21 @@ namespace Format {
 
 	template <typename Derived> struct ElementBase : Base<Derived> {
 		// Placeholder support for simple element: no placeholder, always return self
-		static constexpr std::size_t nb_placeholder () { return 0; }
+		static constexpr std::size_t nb_placeholder () noexcept { return 0; }
 	};
 
 	struct PlaceHolder : public Tag {
-		static constexpr std::size_t nb_placeholder () { return 1; }
+		static constexpr std::size_t nb_placeholder () noexcept { return 1; }
 	};
 	static constexpr PlaceHolder placeholder{};
 
 	/* Null formatter, equivalent to empty string.
 	 */
 	struct Null : public ElementBase<Null> {
-		constexpr std::size_t size () const { return 0; }
-		template <typename OutputIt> constexpr OutputIt write (OutputIt it) const { return it; }
+		constexpr std::size_t size () const noexcept { return 0; }
+		template <typename OutputIt> constexpr OutputIt write (OutputIt it) const noexcept {
+			return it;
+		}
 	};
 
 	/* Pair, represents a sequence of two formatters (Left then Right).
@@ -182,7 +187,7 @@ namespace Format {
 
 	// Null
 	template <> struct FormatTypeForImpl<> { using Type = Null; };
-	constexpr Null format () { return {}; }
+	constexpr Null format () noexcept { return {}; }
 
 	// Single element
 	template <typename T> struct FormatTypeForImpl<T> { using Type = FormatterTypeFor<T>; };
@@ -192,7 +197,7 @@ namespace Format {
 
 	// Null, Null -> Null
 	template <> struct FormatTypeForImpl<Null, Null> { using Type = Null; };
-	constexpr Null format (Null, Null) { return {}; }
+	constexpr Null format (Null, Null) noexcept { return {}; }
 
 	// First, Null -> First
 	template <typename First> struct FormatTypeForImpl<First, Null> {
@@ -257,11 +262,15 @@ namespace Format {
 
 		template <typename F,
 		          typename = typename std::enable_if<Traits::NonSelf<F, Dynamic>::value>::type>
-		explicit Dynamic (F && formatter) : model_ (new Model<F> (std::forward<F> (formatter))) {}
+		explicit Dynamic (F && formatter)
+		    : model_ (new Model<typename std::decay<F>::type> (std::forward<F> (formatter))) {}
+
+		constexpr bool has_formatter () const noexcept { return bool(model_); }
 
 		// Wrappers
 		std::size_t size () const { return model_->size (); }
 		template <typename OutputIt> OutputIt write (OutputIt it) const { return model_->write (it); }
+		std::type_index type () const { return model_->type (); }
 
 	private:
 		struct Interface {
@@ -271,6 +280,7 @@ namespace Format {
 			virtual char * write (char *) const = 0;
 			virtual std::string::iterator write (std::string::iterator) const = 0;
 			virtual std::ostreambuf_iterator<char> write (std::ostreambuf_iterator<char>) const = 0;
+			virtual std::type_index type () const noexcept = 0;
 		};
 		template <typename F> struct Model final : public Interface {
 			F formatter_;
@@ -285,6 +295,7 @@ namespace Format {
 			std::ostreambuf_iterator<char> write (std::ostreambuf_iterator<char> it) const override {
 				return formatter_.write (it);
 			}
+			std::type_index type () const noexcept override { return typeid (F); }
 		};
 		std::unique_ptr<Interface> model_{};
 	};

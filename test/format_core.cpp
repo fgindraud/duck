@@ -322,4 +322,16 @@ TEST_CASE ("polymorphic formatters") {
 
 	formatters[0] = duck::Format::Dynamic (duck::format ('o', 'o', 'p', 's'));
 	CHECK (formatters[0].to_string () == "oops");
+
+	// Type deduction checks
+	auto null_format = duck::format ();
+	const auto const_null_format = duck::format ();
+	duck::Format::Dynamic dyn_null_from_lvalue {null_format};
+	duck::Format::Dynamic dyn_null_from_const_lvalue {const_null_format};
+	duck::Format::Dynamic dyn_null_from_rvalue {duck::format ()};
+	
+	auto null_format_typeid = std::type_index (typeid (duck::Format::Null));
+	CHECK (dyn_null_from_lvalue.type () == null_format_typeid);
+	CHECK (dyn_null_from_const_lvalue.type () == null_format_typeid);
+	CHECK (dyn_null_from_rvalue.type () == null_format_typeid);
 }
