@@ -265,7 +265,7 @@ namespace Format {
 		explicit Dynamic (F && formatter)
 		    : model_ (new Model<typename std::decay<F>::type> (std::forward<F> (formatter))) {}
 
-		constexpr bool has_formatter () const noexcept { return bool(model_); }
+		bool has_formatter () const noexcept { return bool(model_); }
 
 		// Wrappers
 		std::size_t size () const { return model_->size (); }
