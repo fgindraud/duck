@@ -44,6 +44,10 @@ set (wanted_features
 	cxx_variadic_templates
 	)
 
+# Check demangling support (used in tests)
+include (CheckCXXSymbolExists)
+CHECK_CXX_SYMBOL_EXISTS("abi::__cxa_demangle" "cxxabi.h" DUCK_HAVE_DEMANGLING)
+
 # Header only library target (no compilation, just -I and requirements)
 add_library (lib INTERFACE)
 target_include_directories (lib INTERFACE
