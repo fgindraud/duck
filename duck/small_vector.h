@@ -3,12 +3,11 @@
 // Vector with small size optimisation (no allocator support)
 
 #include <cstdint>
-#include <duck/tagged_ptr.h>
-#include <duck/utility.h>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 namespace duck {
 
@@ -46,8 +45,7 @@ public:
 	// Basic TODO all destr / constr / assign / operator=
 	~SmallVectorBase () {
 		clear ();
-		if (is_allocated ())
-			allocator_traits::deallocate (*this, data (), capacity_);
+		free_storage_if_allocated ();
 	}
 	allocator_type get_allocator () const { return *this; }
 
@@ -127,49 +125,47 @@ public:
 	}
 
 	// SmallVector specific API
-	constexpr bool is_allocated () const noexcept { return data_.template get_bit<0> (); }
+	constexpr bool is_allocated () const noexcept { return data_ != inline_storage_ptr (); }
 
 protected:
-	SmallVectorBase (T * inline_storage, size_type initial_capacity,
-	                 const Allocator & allocator) noexcept
+	// Initialized as empty, with the inline storage.
+	SmallVectorBase (size_type initial_capacity, const Allocator & allocator) noexcept
 	    : allocator_type (allocator),
 	      size_ (0),
 	      capacity_ (initial_capacity),
-	      data_ (inline_storage) {
-		// Allocated bit is zeroed by default
-	}
+	      data_ (inline_storage_ptr ()) {}
 
 	// Internal accessors (marked const for performance)
-	constexpr pointer nthp (internal_size_type index) const noexcept {
-		return data_.get_ptr () + index;
-	}
+	constexpr pointer nthp (internal_size_type index) const noexcept { return data_ + index; }
 	constexpr reference nth (internal_size_type index) const noexcept { return *nthp (index); }
 
+	void free_storage_if_allocated () {
+		if (is_allocated ())
+			allocator_traits::deallocate (*this, data_, capacity_);
+	}
 	void grow_if_needed (internal_size_type will_insert) {
 		if (size_ + will_insert > capacity_)
 			move_to_new_allocated_storage (capacity_ * 2);
 	}
 	void move_to_new_allocated_storage (internal_size_type new_cap) {
 		// This function creates a new allocated storage and relocates the current data to it.
-		pointer old_storage = data ();
 		pointer new_storage = allocator_traits::allocate (*this, new_cap);
 		for (internal_size_type i = 0; i < size_; ++i) {
-			allocator_traits::construct (*this, new_storage + i, std::move (old_storage[i]));
-			allocator_traits::destroy (*this, old_storage + i);
+			allocator_traits::construct (*this, new_storage + i, std::move (data_[i]));
+			allocator_traits::destroy (*this, data_ + i);
 		}
-		if (is_allocated ())
-			allocator_traits::deallocate (*this, old_storage, capacity_);
-		data_.set_ptr (new_storage);
-		data_.template set_bit<0> (true);
+		free_storage_if_allocated ();
+		data_ = new_storage;
 		capacity_ = new_cap;
 	}
 
+	// Access inline storage
+	pointer inline_storage_ptr () noexcept;
+	const_pointer inline_storage_ptr () const noexcept;
+
 	internal_size_type size_;
 	internal_size_type capacity_;
-	TaggedPtr<pointer, 1> data_; // pointer to data, and bit flag "is_allocated"
-
-public:
-	static constexpr auto required_alignment = decltype (data_)::required_alignment;
+	pointer data_;
 };
 
 template <typename T, std::size_t N, typename Allocator = std::allocator<T>>
@@ -182,8 +178,7 @@ public:
 
 	// Basic
 	SmallVector () : SmallVector (Allocator ()) {}
-	explicit SmallVector (const Allocator & allocator) noexcept
-	    : Base (reinterpret_cast<typename Base::pointer> (&inline_storage_), N, allocator) {}
+	explicit SmallVector (const Allocator & allocator) noexcept : Base (N, allocator) {}
 
 	SmallVector (size_type size, const T & value, const Allocator & allocator = Allocator ())
 	    : SmallVector (allocator) {
@@ -208,8 +203,27 @@ public:
 	// Modifiers
 	void swap (/* ??? TODO */) noexcept;
 
+	//
+	typename Base::pointer inline_storage_ptr () noexcept {
+		return reinterpret_cast<typename Base::pointer> (&inline_storage_);
+	}
+	typename Base::const_pointer inline_storage_ptr () const noexcept {
+		return reinterpret_cast<typename Base::const_pointer> (&inline_storage_);
+	}
+
 private:
-	typename std::aligned_storage<N * sizeof (T), max (alignof (T), Base::required_alignment)>::type
-	    inline_storage_;
+	typename std::aligned_storage<N * sizeof (T), alignof (T)>::type inline_storage_;
 };
+
+// Inline storage should be placed at the same address irrelevant of size.
+template <typename T, typename Allocator>
+typename SmallVectorBase<T, Allocator>::pointer
+SmallVectorBase<T, Allocator>::inline_storage_ptr () noexcept {
+	return static_cast<SmallVector<T, 1, Allocator> *> (this)->inline_storage_ptr ();
+}
+template <typename T, typename Allocator>
+typename SmallVectorBase<T, Allocator>::const_pointer
+SmallVectorBase<T, Allocator>::inline_storage_ptr () const noexcept {
+	return static_cast<const SmallVector<T, 1, Allocator> *> (this)->inline_storage_ptr ();
+}
 }
