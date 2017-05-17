@@ -43,33 +43,63 @@ public:
 	static_assert (sizeof (size_type) >= sizeof (internal_size_type),
 	               "size_type is smaller than internal_size_type");
 
-	// Basic TODO all destr / constr / assign / operator=
+	// Basic (no constructor)
+	SmallVectorBase () = delete;
+	SmallVectorBase (const SmallVectorBase &) = delete;
+	SmallVectorBase (SmallVectorBase &&) = delete;
 	~SmallVectorBase () {
 		clear ();
 		free_storage_if_allocated ();
 	}
+
+	SmallVectorBase & operator= (const SmallVectorBase & other) {
+		//FIXME do according to standard (mess with allocator replacement)
+		clear ();
+		if (!same_allocator_as (other)) {
+			free_storage_if_allocated ();
+		}
+		if (allocator_traits::propagate_on_container_copy_assignment::value)
+			Allocator::operator= (other); // FIXME not following the standard
+		return *this;
+	}
+	SmallVectorBase & operator= (SmallVectorBase && other) {
+		// TODO add swap, and noexcept condition
+		if (allocator_traits::propagate_on_container_move_assignment::value)
+			Allocator::operator= (std::move (other));
+		return *this;
+	}
+	SmallVectorBase & operator= (std::initializer_list<T> ilist) {
+		assign (std::move (ilist));
+		return *this;
+	}
+	
 	void assign (size_type count, const T & value) {
 		clear ();
 		copy_construct_until_size_is (count, value);
 	}
-	template <typename InputIt, typename = typename std::iterator_traits<InputIt>::iterator_category>
+	template <typename InputIt,
+	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
 	void assign (InputIt first, InputIt last) {
 		clear ();
-		for (; first != last; ++first)
-			emplace_back (*first);
+		append_sequence (std::move (first), std::move (last), Category{});
 	}
-	void assign (const std::initializer_list<T> ilist) {
-		clear ();
-		reserve (ilist.size ());
-		for (auto it = ilist.begin (); it != ilist.end (); ++it)
-			unchecked_emplace_back (*it);
-	}
+	void assign (const std::initializer_list<T> ilist) { assign (ilist.begin (), ilist.end ()); }
+	
 	allocator_type get_allocator () const { return *this; }
+	bool same_allocator_as (const SmallVectorBase & other) {
+		return static_cast<const Allocator &> (*this) == static_cast<const Allocator &> (other);
+	}
 
 	// Element access
-	reference at (size_type pos) { return pos < size_ ? nth (pos) : throw std::out_of_range{"at()"}; }
-	constexpr const_reference at (size_type pos) const {
-		return pos < size_ ? nth (pos) : throw std::out_of_range{"at()"};
+	reference at (size_type pos) {
+		if (pos >= size_)
+			throw std::out_of_range{"at()"};
+		return nth (pos);
+	}
+	const_reference at (size_type pos) const {
+		if (pos >= size_)
+			throw std::out_of_range{"at()"};
+		return nth (pos);
 	}
 	reference operator[] (size_type pos) noexcept { return nth (pos); }
 	constexpr const_reference operator[] (size_type pos) const noexcept { return nth (pos); }
@@ -140,18 +170,22 @@ public:
 	}
 
 protected:
-	// Initialized as empty, with the inline storage (capacity must be given by SmallVector<T, N>).
-	SmallVectorBase (size_type initial_capacity, const Allocator & allocator) noexcept
+	// Always initialized as empty
+	SmallVectorBase (pointer initial_storage, size_type initial_capacity,
+	                 const Allocator & allocator) noexcept
 	    : allocator_type (allocator),
 	      size_ (0),
 	      capacity_ (initial_capacity),
-	      data_ (inline_storage_ptr ()) {}
+	      data_ (initial_storage) {}
+	// Default to inline_storage (capacity must be given by SmallVector<T, N>)
+	SmallVectorBase (size_type initial_capacity, const Allocator & allocator) noexcept
+	    : SmallVectorBase (inline_storage_ptr (), initial_capacity, allocator) {}
 
 	// Internal accessors (marked const for performance)
 	constexpr pointer nthp (internal_size_type index) const noexcept { return data_ + index; }
 	constexpr reference nth (internal_size_type index) const noexcept { return *nthp (index); }
 
-	// Helpers
+	// Build/delete helpers
 	void delete_backward_until_size_is (internal_size_type target_count) noexcept {
 		while (size_ > target_count)
 			pop_back ();
@@ -166,11 +200,22 @@ protected:
 		while (size_ < target_count)
 			unchecked_emplace_back (value);
 	}
+	template <typename It> void append_sequence (It first, It last, std::input_iterator_tag) {
+		for (; first != last; ++first)
+			emplace_back (*first);
+	}
+	template <typename It> void append_sequence (It first, It last, std::random_access_iterator_tag) {
+		// More efficient if we can compute the size
+		reserve (size () + (last - first));
+		for (; first != last; ++first)
+			unchecked_emplace_back (*first);
+	}
+
+	// Storage helpers
 	void free_storage_if_allocated () {
 		if (is_allocated ())
 			allocator_traits::deallocate (*this, data_, capacity_);
 	}
-
 	void grow_if_needed (internal_size_type will_insert) {
 		if (size_ + will_insert > capacity_)
 			move_to_new_allocated_storage (capacity_ * 2);
@@ -228,16 +273,27 @@ public:
 
 	SmallVector (size_type size, const T & value, const Allocator & allocator = Allocator ())
 	    : SmallVector (allocator) {
-		copy_construct_until_size_is (size, value);
+		this->copy_construct_until_size_is (size, value);
 	}
 	explicit SmallVector (size_type size, const Allocator & allocator = Allocator ())
 	    : SmallVector (allocator) {
-		default_construct_until_size_is (size);
+		this->default_construct_until_size_is (size);
 	}
 
 	// TODO copy and move constructors
-	template <typename InputIt>
-	SmallVector (InputIt first, InputIt last, const Allocator & allocator = Allocator ());
+	template <typename InputIt,
+	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
+	SmallVector (InputIt first, InputIt last, const Allocator & allocator = Allocator ())
+	    : Base (N, allocator) {
+		this->append_sequence (first, last, Category{});
+	}
+
+	SmallVector (SmallVectorBase<T, Allocator> && other);
+
+	SmallVector (std::initializer_list<T> ilist, const Allocator & allocator = Allocator ())
+	    : Base (N, allocator) {
+		*this = std::move (ilist);
+	}
 
 	// Element access: all in SmallVectorBase
 

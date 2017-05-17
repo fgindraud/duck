@@ -106,6 +106,13 @@ TEST_CASE ("shrink_to_fit") {
 	CHECK (v.is_allocated ());
 }
 
+#include <list>
+
+TEST_CASE ("bidir it") {
+	std::list<int> l{1, 2, 3, 4};
+	duck::SmallVector<int, 2> v{l.begin (), l.end ()};
+}
+
 TEST_CASE ("assign") {
 	duck::SmallVector<int, 2> v;
 	v.assign (2, 4);
