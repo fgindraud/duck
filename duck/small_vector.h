@@ -3,11 +3,12 @@
 // Vector with small size optimisation (no allocator support)
 
 #include <cstdint>
+#include <duck/utility.h>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <type_traits>
-#include <utility>
 
 namespace duck {
 
@@ -46,6 +47,22 @@ public:
 	~SmallVectorBase () {
 		clear ();
 		free_storage_if_allocated ();
+	}
+	void assign (size_type count, const T & value) {
+		clear ();
+		copy_construct_until_size_is (count, value);
+	}
+	template <typename InputIt, typename = typename std::iterator_traits<InputIt>::iterator_category>
+	void assign (InputIt first, InputIt last) {
+		clear ();
+		for (; first != last; ++first)
+			emplace_back (*first);
+	}
+	void assign (const std::initializer_list<T> ilist) {
+		clear ();
+		reserve (ilist.size ());
+		for (auto it = ilist.begin (); it != ilist.end (); ++it)
+			unchecked_emplace_back (*it);
 	}
 	allocator_type get_allocator () const { return *this; }
 
@@ -91,44 +108,39 @@ public:
 	}
 	constexpr size_type capacity () const noexcept { return capacity_; }
 
-	// Modifiers TODO insert emplace
-	void clear () noexcept {
-		for (; size_ > 0; --size_)
-			allocator_traits::destroy (*this, nthp (size_ - 1));
-	}
+	// Modifiers TODO insert emplace erase
+	void clear () noexcept { delete_backward_until_size_is (0); }
 	reference push_back (const T & value) { return emplace_back (value); }
 	reference push_back (T && value) { return emplace_back (std::move (value)); }
 	template <typename... Args> reference emplace_back (Args &&... args) {
 		grow_if_needed (1);
-		auto * object = nthp (size_);
-		allocator_traits::construct (*this, object, std::forward<Args> (args)...);
-		++size_;
-		return *object;
+		return unchecked_emplace_back (std::forward<Args> (args)...);
 	}
 	void pop_back () noexcept {
 		allocator_traits::destroy (*this, nthp (size_ - 1));
 		--size_;
 	}
 	void resize (size_type count) {
-		reserve (count);
-		for (; size_ > count; --size_)
-			allocator_traits::destroy (*this, nthp (size_ - 1));
-		for (; size_ < count; ++size_)
-			allocator_traits::construct (*this, nthp (size_));
+		delete_backward_until_size_is (count);
+		default_construct_until_size_is (count);
 	}
 	void resize (size_type count, const value_type & value) {
-		reserve (count);
-		for (; size_ > count; --size_)
-			allocator_traits::destroy (*this, nthp (size_ - 1));
-		for (; size_ < count; ++size_)
-			allocator_traits::construct (*this, nthp (size_), value);
+		delete_backward_until_size_is (count);
+		copy_construct_until_size_is (count, value);
 	}
 
 	// SmallVector specific API
 	constexpr bool is_allocated () const noexcept { return data_ != inline_storage_ptr (); }
+	template <typename... Args> reference unchecked_emplace_back (Args &&... args) {
+		// Does not check for capacity
+		auto * object = nthp (size_);
+		allocator_traits::construct (*this, object, std::forward<Args> (args)...);
+		++size_;
+		return *object;
+	}
 
 protected:
-	// Initialized as empty, with the inline storage.
+	// Initialized as empty, with the inline storage (capacity must be given by SmallVector<T, N>).
 	SmallVectorBase (size_type initial_capacity, const Allocator & allocator) noexcept
 	    : allocator_type (allocator),
 	      size_ (0),
@@ -139,17 +151,32 @@ protected:
 	constexpr pointer nthp (internal_size_type index) const noexcept { return data_ + index; }
 	constexpr reference nth (internal_size_type index) const noexcept { return *nthp (index); }
 
+	// Helpers
+	void delete_backward_until_size_is (internal_size_type target_count) noexcept {
+		while (size_ > target_count)
+			pop_back ();
+	}
+	void default_construct_until_size_is (internal_size_type target_count) {
+		reserve (target_count);
+		while (size_ < target_count)
+			unchecked_emplace_back ();
+	}
+	void copy_construct_until_size_is (internal_size_type target_count, const T & value) {
+		reserve (target_count);
+		while (size_ < target_count)
+			unchecked_emplace_back (value);
+	}
 	void free_storage_if_allocated () {
 		if (is_allocated ())
 			allocator_traits::deallocate (*this, data_, capacity_);
 	}
+
 	void grow_if_needed (internal_size_type will_insert) {
 		if (size_ + will_insert > capacity_)
 			move_to_new_allocated_storage (capacity_ * 2);
 	}
-	void move_to_new_allocated_storage (internal_size_type new_cap) {
-		// This function creates a new allocated storage and relocates the current data to it.
-		pointer new_storage = allocator_traits::allocate (*this, new_cap);
+	void move_to_new_storage (pointer new_storage, internal_size_type new_cap) {
+		// Relocates data to a new storage (no checks).
 		for (internal_size_type i = 0; i < size_; ++i) {
 			allocator_traits::construct (*this, new_storage + i, std::move (data_[i]));
 			allocator_traits::destroy (*this, data_ + i);
@@ -158,11 +185,30 @@ protected:
 		data_ = new_storage;
 		capacity_ = new_cap;
 	}
+	void move_to_new_allocated_storage (internal_size_type new_cap) {
+		// Create a new allocated storage and relocate current data to it.
+		move_to_new_storage (allocator_traits::allocate (*this, new_cap), new_cap);
+	}
 
 	// Access inline storage
 	pointer inline_storage_ptr () noexcept;
 	const_pointer inline_storage_ptr () const noexcept;
 
+	// Common implementations for SmallVector<N>
+	void shrink_to_fit_impl (internal_size_type inline_storage_capacity) {
+		if (size_ == capacity_ || capacity_ == inline_storage_capacity)
+			return; // Cannot shrink
+		if (size_ <= inline_storage_capacity)
+			move_to_new_storage (inline_storage_ptr (), inline_storage_capacity);
+		else
+			move_to_new_allocated_storage (size_);
+	}
+	void swap_impl (SmallVectorBase<T, Allocator> & other) {
+		(void) other;
+		// TODO
+	}
+
+private:
 	internal_size_type size_;
 	internal_size_type capacity_;
 	pointer data_;
@@ -182,11 +228,11 @@ public:
 
 	SmallVector (size_type size, const T & value, const Allocator & allocator = Allocator ())
 	    : SmallVector (allocator) {
-		resize (size, value);
+		copy_construct_until_size_is (size, value);
 	}
 	explicit SmallVector (size_type size, const Allocator & allocator = Allocator ())
 	    : SmallVector (allocator) {
-		resize (size);
+		default_construct_until_size_is (size);
 	}
 
 	// TODO copy and move constructors
@@ -198,7 +244,7 @@ public:
 	// Iterators: all in SmallVectorBase
 
 	// Capacity
-	void shrink_to_fit ();
+	void shrink_to_fit () { this->shrink_to_fit_impl (N); }
 
 	// Modifiers
 	void swap (/* ??? TODO */) noexcept;
