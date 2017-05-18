@@ -3,20 +3,22 @@
 
 #include <duck/range/range.h>
 #include <duck/small_vector.h>
-
-void notice_this (duck::SmallVectorBase<int> & v) {
-	(void) v;
-}
+#include <list>
 
 template <typename SV> std::ptrdiff_t inline_storage_offset (const SV & sv) {
-	return reinterpret_cast<const char *> (sv.inline_storage_ptr ()) -
-	       reinterpret_cast<const char *> (&sv);
+	// Only works if non allocated, and data returns a ptr to inline storage
+	return reinterpret_cast<const char *> (sv.data ()) - reinterpret_cast<const char *> (&sv);
 }
 
 TEST_CASE ("is inline buffer offset constant") {
+	// Empty vec should use inline storage
 	duck::SmallVector<int, 1> vec1;
 	duck::SmallVector<int, 2> vec2;
 	duck::SmallVector<int, 10> vec10;
+	CHECK_FALSE (vec1.is_allocated ());
+	CHECK_FALSE (vec2.is_allocated ());
+	CHECK_FALSE (vec10.is_allocated ());
+
 	CHECK (inline_storage_offset (vec1) == inline_storage_offset (vec2));
 	CHECK (inline_storage_offset (vec1) == inline_storage_offset (vec10));
 }
@@ -104,13 +106,12 @@ TEST_CASE ("shrink_to_fit") {
 	v.shrink_to_fit ();
 	CHECK (v.capacity () == 8);
 	CHECK (v.is_allocated ());
-}
 
-#include <list>
-
-TEST_CASE ("bidir it") {
-	std::list<int> l{1, 2, 3, 4};
-	duck::SmallVector<int, 2> v{l.begin (), l.end ()};
+	v.clear ();
+	duck::SmallVectorBase<int> & base = v;
+	base.shrink_to_fit ();
+	CHECK (v.capacity () == duck::small_vector_minimum_inline_size);
+	CHECK_FALSE (v.is_allocated ());
 }
 
 TEST_CASE ("assign") {
@@ -141,6 +142,14 @@ TEST_CASE ("assign") {
 	CHECK (v.size () == 1);
 	CHECK (v.capacity () >= 5);
 	CHECK (v.is_allocated ());
+
+	// Test with a non Random Access iterator
+	std::list<int> l{1, 2, 3, 4};
+	v.assign (l.begin (), l.end ());
+	CHECK (v.size () == 4);
+	CHECK (v.is_allocated ());
+	for (auto i : duck::range (4))
+		CHECK (v[i] == i + 1);
 }
 
 struct MoveConstrOnlyWithCount {

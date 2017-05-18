@@ -12,6 +12,8 @@
 
 namespace duck {
 
+constexpr std::size_t small_vector_minimum_inline_size = 1;
+
 template <typename T, typename Allocator = std::allocator<T>>
 class SmallVectorBase : private std::allocator_traits<Allocator>::allocator_type {
 	/* Base of SmallVector, independent from the inline storage size (N).
@@ -19,6 +21,11 @@ class SmallVectorBase : private std::allocator_traits<Allocator>::allocator_type
 	 * In particular, functions that might shrink the storage (and thus may reuse the inline storage)
 	 * are only defined in SmallVector itself.
 	 * Functions that grow the storage will allocate, so they can be implemented here.
+	 *
+	 * TODO replace clear()+append() by a replace() in many places
+	 * (replace copy/move assigns on already built Ts instead of destroying + recreating)
+	 *
+	 * TODO remove allocator support (too crazy...)
 	 */
 private:
 	// Internal typedefs
@@ -49,30 +56,43 @@ public:
 	SmallVectorBase (SmallVectorBase &&) = delete;
 	~SmallVectorBase () {
 		clear ();
-		free_storage_if_allocated ();
+		reset_storage ();
 	}
 
 	SmallVectorBase & operator= (const SmallVectorBase & other) {
-		//FIXME do according to standard (mess with allocator replacement)
 		clear ();
-		if (!same_allocator_as (other)) {
-			free_storage_if_allocated ();
+		if (allocator_traits::propagate_on_container_copy_assignment::value &&
+		    get_allocator () != other.get_allocator ()) {
+			// If allocator must be changed, destroy storage beforehand
+			reset_storage ();
+			Allocator::operator= (other);
 		}
-		if (allocator_traits::propagate_on_container_copy_assignment::value)
-			Allocator::operator= (other); // FIXME not following the standard
+		append_sequence (other.begin (), other.end ());
 		return *this;
 	}
-	SmallVectorBase & operator= (SmallVectorBase && other) {
-		// TODO add swap, and noexcept condition
-		if (allocator_traits::propagate_on_container_move_assignment::value)
+	SmallVectorBase & operator= (SmallVectorBase && other) noexcept (
+	    allocator_traits::propagate_on_container_move_assignment::value) {
+		if ((allocator_traits::propagate_on_container_move_assignment::value ||
+		     get_allocator () == other.get_allocator ()) &&
+		    other.is_allocated ()) {
+			// Move buffer if non inline
+			clear ();
+			free_storage_if_allocated ();
+			data_ = other.data_;
+			capacity_ = other.capacity_;
+			size_ = other.size_;
 			Allocator::operator= (std::move (other));
+
+		} else {
+			// Copy in place
+		}
 		return *this;
 	}
 	SmallVectorBase & operator= (std::initializer_list<T> ilist) {
 		assign (std::move (ilist));
 		return *this;
 	}
-	
+
 	void assign (size_type count, const T & value) {
 		clear ();
 		copy_construct_until_size_is (count, value);
@@ -81,14 +101,12 @@ public:
 	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
 	void assign (InputIt first, InputIt last) {
 		clear ();
-		append_sequence (std::move (first), std::move (last), Category{});
+		append_sequence_impl (std::move (first), std::move (last), Category{});
 	}
 	void assign (const std::initializer_list<T> ilist) { assign (ilist.begin (), ilist.end ()); }
-	
-	allocator_type get_allocator () const { return *this; }
-	bool same_allocator_as (const SmallVectorBase & other) {
-		return static_cast<const Allocator &> (*this) == static_cast<const Allocator &> (other);
-	}
+
+	const allocator_type & get_allocator () const noexcept { return *this; }
+	allocator_type & get_allocator () noexcept { return *this; }
 
 	// Element access
 	reference at (size_type pos) {
@@ -137,6 +155,7 @@ public:
 			move_to_new_allocated_storage (new_cap);
 	}
 	constexpr size_type capacity () const noexcept { return capacity_; }
+	void shrink_to_fit () { shrink_to_fit_impl (small_vector_minimum_inline_size); }
 
 	// Modifiers TODO insert emplace erase
 	void clear () noexcept { delete_backward_until_size_is (0); }
@@ -158,6 +177,12 @@ public:
 		delete_backward_until_size_is (count);
 		copy_construct_until_size_is (count, value);
 	}
+	void
+	swap (SmallVectorBase & other) noexcept (allocator_traits::propagate_on_container_swap::value) {
+		using std::swap;
+		if (allocator_traits::propagate_on_container_swap::value)
+			swap (get_allocator (), other.get_allocator ());
+	}
 
 	// SmallVector specific API
 	constexpr bool is_allocated () const noexcept { return data_ != inline_storage_ptr (); }
@@ -167,6 +192,11 @@ public:
 		allocator_traits::construct (*this, object, std::forward<Args> (args)...);
 		++size_;
 		return *object;
+	}
+	template <typename InputIt,
+	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
+	void append_sequence (InputIt first, InputIt last) {
+		append_sequence_impl (std::move (first), std::move (last), Category{});
 	}
 
 protected:
@@ -200,11 +230,12 @@ protected:
 		while (size_ < target_count)
 			unchecked_emplace_back (value);
 	}
-	template <typename It> void append_sequence (It first, It last, std::input_iterator_tag) {
+	template <typename It> void append_sequence_impl (It first, It last, std::input_iterator_tag) {
 		for (; first != last; ++first)
 			emplace_back (*first);
 	}
-	template <typename It> void append_sequence (It first, It last, std::random_access_iterator_tag) {
+	template <typename It>
+	void append_sequence_impl (It first, It last, std::random_access_iterator_tag) {
 		// More efficient if we can compute the size
 		reserve (size () + (last - first));
 		for (; first != last; ++first)
@@ -215,6 +246,11 @@ protected:
 	void free_storage_if_allocated () {
 		if (is_allocated ())
 			allocator_traits::deallocate (*this, data_, capacity_);
+	}
+	void reset_storage () {
+		free_storage_if_allocated ();
+		data_ = inline_storage_ptr ();
+		capacity_ = small_vector_minimum_inline_size;
 	}
 	void grow_if_needed (internal_size_type will_insert) {
 		if (size_ + will_insert > capacity_)
@@ -235,7 +271,7 @@ protected:
 		move_to_new_storage (allocator_traits::allocate (*this, new_cap), new_cap);
 	}
 
-	// Access inline storage
+	// Access inline storage (implemented by static upcast to the min SmallVector size).
 	pointer inline_storage_ptr () noexcept;
 	const_pointer inline_storage_ptr () const noexcept;
 
@@ -248,10 +284,6 @@ protected:
 		else
 			move_to_new_allocated_storage (size_);
 	}
-	void swap_impl (SmallVectorBase<T, Allocator> & other) {
-		(void) other;
-		// TODO
-	}
 
 private:
 	internal_size_type size_;
@@ -262,6 +294,8 @@ private:
 template <typename T, std::size_t N, typename Allocator = std::allocator<T>>
 class SmallVector : public SmallVectorBase<T, Allocator> {
 private:
+	static_assert (N > 0, "SmallVector must have non zero inline storage size");
+	friend class SmallVectorBase<T, Allocator>; // for Base::inline_storage_ptr()
 	using Base = SmallVectorBase<T, Allocator>;
 
 public:
@@ -285,7 +319,7 @@ public:
 	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
 	SmallVector (InputIt first, InputIt last, const Allocator & allocator = Allocator ())
 	    : Base (N, allocator) {
-		this->append_sequence (first, last, Category{});
+		this->append_sequence_impl (first, last, Category{});
 	}
 
 	SmallVector (SmallVectorBase<T, Allocator> && other);
@@ -300,18 +334,9 @@ public:
 	// Iterators: all in SmallVectorBase
 
 	// Capacity
-	void shrink_to_fit () { this->shrink_to_fit_impl (N); }
+	void shrink_to_fit () { this->shrink_to_fit_impl (N); } // override with real size
 
-	// Modifiers
-	void swap (/* ??? TODO */) noexcept;
-
-	//
-	typename Base::pointer inline_storage_ptr () noexcept {
-		return reinterpret_cast<typename Base::pointer> (&inline_storage_);
-	}
-	typename Base::const_pointer inline_storage_ptr () const noexcept {
-		return reinterpret_cast<typename Base::const_pointer> (&inline_storage_);
-	}
+	// Modifiers: all in SmallVectorBase
 
 private:
 	typename std::aligned_storage<N * sizeof (T), alignof (T)>::type inline_storage_;
@@ -319,13 +344,15 @@ private:
 
 // Inline storage should be placed at the same address irrelevant of size.
 template <typename T, typename Allocator>
-typename SmallVectorBase<T, Allocator>::pointer
-SmallVectorBase<T, Allocator>::inline_storage_ptr () noexcept {
-	return static_cast<SmallVector<T, 1, Allocator> *> (this)->inline_storage_ptr ();
+auto SmallVectorBase<T, Allocator>::inline_storage_ptr () noexcept -> pointer {
+	return reinterpret_cast<pointer> (
+	    &static_cast<SmallVector<T, small_vector_minimum_inline_size, Allocator> *> (this)
+	         ->inline_storage_);
 }
 template <typename T, typename Allocator>
-typename SmallVectorBase<T, Allocator>::const_pointer
-SmallVectorBase<T, Allocator>::inline_storage_ptr () const noexcept {
-	return static_cast<const SmallVector<T, 1, Allocator> *> (this)->inline_storage_ptr ();
+auto SmallVectorBase<T, Allocator>::inline_storage_ptr () const noexcept -> const_pointer {
+	return reinterpret_cast<const_pointer> (
+	    &static_cast<const SmallVector<T, small_vector_minimum_inline_size, Allocator> *> (this)
+	         ->inline_storage_);
 }
 }
