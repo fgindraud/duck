@@ -8,4 +8,9 @@ struct blah {};
 TEST_CASE ("test") {
 	duck::Optional<int> a;
 	CHECK_FALSE (a);
+	a = 42;
+	CHECK (a);
+	CHECK (a.value () == 42);
+	a.reset();
+	CHECK_FALSE (a);
 }

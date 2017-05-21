@@ -9,8 +9,12 @@
 namespace duck {
 
 struct InPlace {};
+constexpr InPlace in_place;
 
 template <typename T> class Optional {
+private:
+	template <typename U> using A = T;
+
 public:
 	using value_type = T;
 
@@ -27,9 +31,27 @@ public:
 		create (std::forward<Args> (args)...);
 	}
 
-	~Optional () {
-		if (has_value_)
-			destroy ();
+	~Optional () { reset (); }
+
+	Optional & operator= (const Optional & other) {
+		reset ();
+		if (other)
+			create (*other);
+		return *this;
+	}
+	Optional & operator= (Optional && other) {
+		reset ();
+		if (other)
+			create (std::move (other));
+		return *this;
+	}
+	template <typename U,
+	          typename = typename std::enable_if<
+	              !std::is_same<Optional, typename std::decay<U>::type>::value>::type>
+	Optional & operator= (U && u) {
+		reset ();
+		create (std::forward<U> (u));
+		return *this;
 	}
 
 	T & value () & noexcept {
@@ -67,6 +89,28 @@ public:
 		                  : static_cast<T> (std::forward<U> (default_value));
 	}
 
+	void reset () noexcept {
+		if (has_value_)
+			destroy ();
+	}
+	template <typename... Args> T & emplace (Args &&... args) {
+		reset ();
+		create (std::forward<Args> (args)...);
+		return *value_ptr ();
+	}
+	void swap (Optional & other) noexcept {
+		using std::swap;
+		if (has_value () && other.has_value ()) {
+			swap (value (), other.value ());
+		} else if (!has_value () && other.has_value ()) {
+			create (std::move (*other));
+			other.destroy ();
+		} else if (has_value () && !other.has_value ()) {
+			other.create (std::move (this->value ()));
+			destroy ();
+		}
+	}
+
 private:
 	template <typename... Args> void create (Args &&... args) {
 		assert (!has_value_);
@@ -86,30 +130,5 @@ private:
 
 	typename std::aligned_storage<sizeof (T), alignof (T)>::type storage_;
 	bool has_value_{false};
-};
-
-template <typename T> class Optional<T &> {
-public:
-	using value_type = T &;
-
-	constexpr Optional () = default;
-
-	T & value () const noexcept {
-		assert (has_value ());
-		return *ptr_;
-	}
-
-	// no operator->
-	T & operator* () const noexcept { return *ptr_; }
-
-	constexpr bool has_value () const noexcept { return ptr_ != nullptr; }
-	constexpr operator bool () const noexcept { return has_value (); }
-
-	template <typename U> constexpr T & value_or (U & default_value) const noexcept {
-		return has_value () ? *ptr_ : static_cast<T &> (default_value);
-	}
-
-private:
-	T * ptr_{nullptr};
 };
 }
