@@ -13,4 +13,5 @@ TEST_CASE ("test") {
 	CHECK (a.value () == 42);
 	a.reset();
 	CHECK_FALSE (a);
+	// TODO improve
 }

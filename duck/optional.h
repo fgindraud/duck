@@ -8,13 +8,12 @@
 
 namespace duck {
 
-struct InPlace {};
-constexpr InPlace in_place;
+struct InPlace {
+	constexpr InPlace () = default;
+};
+constexpr InPlace in_place{};
 
 template <typename T> class Optional {
-private:
-	template <typename U> using A = T;
-
 public:
 	using value_type = T;
 
