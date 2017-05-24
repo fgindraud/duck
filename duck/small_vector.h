@@ -150,7 +150,22 @@ public:
 	}
 	void swap (SmallVectorBase & other) noexcept {
 		using std::swap;
-		// TODO
+		if (is_allocated () && other.is_allocated ()) {
+			// Swap storages
+			swap (size_, other.size_);
+			swap (capacity_, other.capacity_);
+			swap (data_, other.data_);
+		} else if (!is_allocated () && other.is_allocated ()) {
+			// Steal other storage, assign other from this (move elements), set this storage from stolen
+			// TODO
+		} else if (is_allocated () && !other.is_allocated ()) {
+			// Symetric TODO
+		} else {
+			// If capacity is compatible on both sides, can member-wise swap
+			// if not, swap until smallest sized has been completely swapped
+			// Then append_move elements from bigger one + reserve (may realloc, no choice)
+			// TODO
+		}
 	}
 
 	// SmallVector specific API
@@ -235,6 +250,13 @@ protected:
 		// Create a new allocated storage and relocate current data to it.
 		move_to_new_storage (static_cast<pointer> (::operator new (new_cap * sizeof (T))), new_cap);
 	}
+
+	struct StorageInfo {
+		// TODO move storage manipulation in this small class ? (easier swap / move /...)
+		internal_size_type size_;
+		internal_size_type capacity_;
+		pointer data_;
+	};
 
 	// Access inline storage (implemented by static upcast to the min SmallVector size).
 	pointer inline_storage_ptr () noexcept;
