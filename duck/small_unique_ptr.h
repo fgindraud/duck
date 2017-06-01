@@ -10,13 +10,22 @@
 
 namespace duck {
 
-// TODO it will require T to have virtual move() if using move assign/constr
-// TODO same problems as smallvector : needs a base ?
 // TODO add alignment template arg ?
-// TODO more of uniq_ptr API
 
 template <typename T, std::size_t StorageLen> class SmallUniquePtr {
+	/* This class is analog to unique_ptr<T>, and has a similar API.
+	 * However it has a local buffer used instead of allocation if the type is small enough.
+	 *
+	 * Only polymorphic T types are supported (virtual).
+	 * Non polymorphic classes do not benefit from this class.
+	 * Either construct them as is, or use unique_ptr (size is fixed).
+	 *
+	 * To support move operations, T must have a virtual move function.
+	 * TODO base class to inherit from
+	 */
 private:
+	static_assert (std::is_polymorphic<T>::value,
+	               "This class should only be used for polymorphic types");
 	using StorageType = typename std::aligned_storage<StorageLen>::type;
 	static constexpr auto storage_align = alignof (StorageType);
 
@@ -28,6 +37,15 @@ public:
 	SmallUniquePtr () = default;
 	SmallUniquePtr (std::nullptr_t) noexcept : SmallUniquePtr () {}
 	SmallUniquePtr (pointer p) noexcept : data_ (p) {}
+	SmallUniquePtr (const SmallUniquePtr &) = delete;
+	SmallUniquePtr (SmallUniquePtr && other) {
+		if (other.is_allocated ()) {
+			data_ = other.data_;
+			other.data_ = nullptr;
+		} else {
+			// Move into place (may allocate) TODO
+		}
+	}
 
 	template <typename U, typename... Args> SmallUniquePtr (InPlace<U>, Args &&... args) {
 		build<U> (std::forward<Args> (args)...);
@@ -86,14 +104,7 @@ public:
 
 	// Both functions are undefined is pointer is null
 	bool is_inline () const noexcept {
-		return is_inline_helper_if_polymorphic (std::is_polymorphic<T>{});
-	}
-	bool is_allocated () const noexcept { return !is_inline (); }
-
-private:
-	// Static dispatch helper to optimize is_inline/is_allocated
-	bool is_inline_helper_if_polymorphic (std::true_type) const noexcept {
-		/* If T is polymorphic, we can expect derived classes to be used.
+		/* T is polymorphic, we can expect derived classes to be used.
 		 * Depending on the layout of derived classes, data_ may be different from the storage pointer.
 		 * Checking that data_ == &inline_storage_ is not sufficient.
 		 * The condition is to check that data_ is inside the inline_storage_ buffer.
@@ -103,13 +114,9 @@ private:
 		return inline_storage_as_byte <= data_as_byte &&
 		       data_as_byte < inline_storage_as_byte + StorageLen;
 	}
-	bool is_inline_helper_if_polymorphic (std::false_type) const noexcept {
-		/* If T is not polymorphic, using a derived class is UB (non-virtual destructor).
-		 * Thus we only expect T to be used, and we can just compare pointers.
-		 */
-		return reinterpret_cast<const_pointer> (&inline_storage_) == data_;
-	}
+	bool is_allocated () const noexcept { return !is_inline (); }
 
+private:
 	/* Condition used to determine if a type U can be built inline.
 	 * This is not an equivalence: a type U could be built inline and be stored allocated.
 	 * (for example if result of a move)
@@ -141,8 +148,8 @@ private:
 	template <typename U, typename... Args> void build (Args &&... args) {
 		static_assert (std::is_base_of<T, U>::value, "build object must derive from T");
 		// tmp serves as a RAII temporary storage for the buffer : storage is cleaned on Constr error.
-		auto storage_deleter = destroy_storage<U>;
-		std::unique_ptr<T, decltype (storage_deleter)> tmp{create_storage<U> (), storage_deleter};
+		auto deleter = destroy_storage<U>;
+		std::unique_ptr<T, decltype (deleter)> tmp{create_storage<U> (), deleter};
 		new (tmp.get ()) U (std::forward<Args> (args)...);
 		data_ = tmp.release ();
 	}
@@ -158,8 +165,6 @@ private:
 	pointer data_{nullptr}; // Points to the T object, not the chosen storage
 	StorageType inline_storage_;
 };
-
-// make_small_unique ? no need as we have emplace and inplace constructor
 
 // Comparison TODO ?
 }
