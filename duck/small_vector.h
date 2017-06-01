@@ -51,7 +51,8 @@ public:
 	SmallVectorBase (SmallVectorBase &&) = delete;
 	~SmallVectorBase () {
 		clear ();
-		reset_storage ();
+		free_storage_if_allocated ();
+		set_storage_to_inline ();
 	}
 
 	SmallVectorBase & operator= (const SmallVectorBase & other) {
@@ -60,7 +61,19 @@ public:
 		return *this;
 	}
 	SmallVectorBase & operator= (SmallVectorBase && other) noexcept {
-		// TODO
+		clear ();
+		if (other.is_allocated ()) {
+			// Steal buffer
+			free_storage_if_allocated ();
+			size_ = other.size_;
+			capacity_ = other.capacity_;
+			data_ = other.data_;
+			other.size_ = 0;
+			other.set_storage_to_inline ();
+		} else {
+			// Move elements
+			append_sequence_by_move (other.begin (), other.end ());
+		}
 		return *this;
 	}
 	SmallVectorBase & operator= (std::initializer_list<T> ilist) {
@@ -78,7 +91,10 @@ public:
 		clear ();
 		append_sequence_impl (std::move (first), std::move (last), Category{});
 	}
-	void assign (const std::initializer_list<T> ilist) { assign (ilist.begin (), ilist.end ()); }
+	void assign (const std::initializer_list<T> ilist) {
+		clear ();
+		append_sequence_by_move (ilist.begin (), ilist.end ());
+	}
 
 	// Element access
 	reference at (size_type pos) {
@@ -150,22 +166,7 @@ public:
 	}
 	void swap (SmallVectorBase & other) noexcept {
 		using std::swap;
-		if (is_allocated () && other.is_allocated ()) {
-			// Swap storages
-			swap (size_, other.size_);
-			swap (capacity_, other.capacity_);
-			swap (data_, other.data_);
-		} else if (!is_allocated () && other.is_allocated ()) {
-			// Steal other storage, assign other from this (move elements), set this storage from stolen
-			// TODO
-		} else if (is_allocated () && !other.is_allocated ()) {
-			// Symetric TODO
-		} else {
-			// If capacity is compatible on both sides, can member-wise swap
-			// if not, swap until smallest sized has been completely swapped
-			// Then append_move elements from bigger one + reserve (may realloc, no choice)
-			// TODO
-		}
+		// TODO still problematic
 	}
 
 	// SmallVector specific API
@@ -181,6 +182,11 @@ public:
 	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
 	void append_sequence (InputIt first, InputIt last) {
 		append_sequence_impl (std::move (first), std::move (last), Category{});
+	}
+	template <typename InputIt,
+	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
+	void append_sequence_by_move (InputIt first, InputIt last) {
+		append_sequence_by_move_impl (std::move (first), std::move (last), Category{});
 	}
 
 protected:
@@ -221,14 +227,25 @@ protected:
 		for (; first != last; ++first)
 			unchecked_emplace_back (*first);
 	}
+	template <typename It>
+	void append_sequence_by_move_impl (It first, It last, std::input_iterator_tag) {
+		for (; first != last; ++first)
+			emplace_back (std::move (*first));
+	}
+	template <typename It>
+	void append_sequence_by_move_impl (It first, It last, std::random_access_iterator_tag) {
+		// More efficient if we can compute the size
+		reserve (size () + (last - first));
+		for (; first != last; ++first)
+			unchecked_emplace_back (std::move (*first));
+	}
 
 	// Storage helpers
 	void free_storage_if_allocated () {
 		if (is_allocated ())
 			::operator delete (data_);
 	}
-	void reset_storage () {
-		free_storage_if_allocated ();
+	void set_storage_to_inline () {
 		data_ = inline_storage_ptr ();
 		capacity_ = small_vector_minimum_inline_size;
 	}
@@ -250,13 +267,6 @@ protected:
 		// Create a new allocated storage and relocate current data to it.
 		move_to_new_storage (static_cast<pointer> (::operator new (new_cap * sizeof (T))), new_cap);
 	}
-
-	struct StorageInfo {
-		// TODO move storage manipulation in this small class ? (easier swap / move /...)
-		internal_size_type size_;
-		internal_size_type capacity_;
-		pointer data_;
-	};
 
 	// Access inline storage (implemented by static upcast to the min SmallVector size).
 	pointer inline_storage_ptr () noexcept;
@@ -297,14 +307,15 @@ public:
 		this->default_construct_until_size_is (size);
 	}
 
-	// TODO copy and move constructors
+	SmallVector (const SmallVectorBase<T> & other) : SmallVector () { *this = other; }
+
 	template <typename InputIt,
 	          typename Category = typename std::iterator_traits<InputIt>::iterator_category>
 	SmallVector (InputIt first, InputIt last) : SmallVector () {
 		this->append_sequence_impl (first, last, Category{});
 	}
 
-	SmallVector (SmallVectorBase<T> && other);
+	SmallVector (SmallVectorBase<T> && other) noexcept : SmallVector () { *this = std::move (other); }
 
 	SmallVector (std::initializer_list<T> ilist) : SmallVector () { *this = std::move (ilist); }
 
