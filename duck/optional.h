@@ -3,15 +3,10 @@
 // In place optional type
 
 #include <cassert>
-#include <type_traits>
+#include <duck/type_traits.h>
 #include <utility>
 
 namespace duck {
-
-struct InPlace {
-	constexpr InPlace () = default;
-};
-constexpr InPlace in_place{};
 
 template <typename T> class Optional {
 public:
@@ -26,7 +21,7 @@ public:
 		if (other)
 			create (*std::move (other));
 	}
-	template <typename... Args> Optional (InPlace, Args &&... args) {
+	template <typename... Args> Optional (InPlace<void>, Args &&... args) {
 		create (std::forward<Args> (args)...);
 	}
 

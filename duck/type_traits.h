@@ -16,4 +16,8 @@ namespace Traits {
 		enum { value = !std::is_base_of<Self, typename std::decay<T>::type>::value };
 	};
 }
+
+// Common type tags
+template <typename T> struct InPlace { constexpr InPlace () = default; };
+constexpr InPlace<void> in_place{};
 }

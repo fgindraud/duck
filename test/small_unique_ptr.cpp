@@ -14,9 +14,7 @@ struct SmallDerived : public Base {
 };
 struct BigDerived : public Base {
 	int a_[4];
-	int f () const noexcept override {
-		return -1;
-	}
+	int f () const noexcept override { return -1; }
 };
 
 TEST_CASE ("test") {
@@ -35,6 +33,12 @@ TEST_CASE ("test") {
 	CHECK (!p.is_inline ());
 	CHECK (p.is_allocated ());
 	CHECK (p->f () == -1);
+
+	// Construction
+	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> p2{duck::InPlace<SmallDerived>{}, 4};
+	CHECK (p2);
+	CHECK (p2.is_inline());
+	CHECK (p2->f() == 4);
 
 	// TODO continue
 }
