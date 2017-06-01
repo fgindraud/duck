@@ -2,7 +2,6 @@
 
 // Analog to std::unique_ptr<T>, but has a local storage to avoid new() for small objects
 // Intended to store small virtual classes with less overhead.
-// TODO continue. will differ from unique_ptr.
 
 #include <cassert>
 #include <type_traits>
@@ -25,22 +24,28 @@ public:
 
 	// Constructors
 	SmallUniquePtr () = default;
+	~SmallUniquePtr () { clear (); }
 
 	// Modifiers
-	template <typename U, typename... Args> void emplace (Args &&... args) {
-		static_assert (std::is_base_of<T, U>::value, "emplace must be used with type derived from T");
-		// TODO clean old ; exception safety
-		auto p = create_storage<U> ();
-		data_ = new (p) U (std::forward<Args> (args)...);
-	}
-	template <typename U, typename V, typename... Args> void emplace (std::initializer_list<V> ilist, Args &&... args) {
-		static_assert (std::is_base_of<T, U>::value, "emplace must be used with type derived from T");
-		auto p = create_storage<U> ();
-		data_ = new (p) U (std::move (ilist), std::forward<Args> (args)...);
+	void clear () noexcept {
+		if (data_) {
+			if (is_allocated ())
+				delete data_;
+			else
+				data_->~T ();
+			data_ = nullptr;
+		}
 	}
 
-	// FIXME what if data differs from create_storage<T> value ?
-	// Does delete handle it ?
+	template <typename U = T, typename... Args> void emplace (Args &&... args) {
+		clear ();
+		build<U> (std::forward<Args> (args)...);
+	}
+	template <typename U = T, typename V, typename... Args>
+	void emplace (std::initializer_list<V> ilist, Args &&... args) {
+		clear ();
+		build<U> (std::move (ilist), std::forward<Args> (args)...);
+	}
 
 	// Observers
 	constexpr pointer get () const noexcept { return data_; }
@@ -48,26 +53,53 @@ public:
 	pointer operator-> () const noexcept { return data_; }
 	typename std::add_lvalue_reference<T>::type operator* () const noexcept { return *data_; }
 
-	bool is_allocated () const noexcept {
-		return data_ != nullptr && is_allocated_assuming_non_null ();
+	// Both functions are undefined is pointer is null
+	bool is_inline () const noexcept {
+		return is_inline_helper_if_polymorphic (std::is_polymorphic<T>{});
 	}
-	bool is_allocated_assuming_non_null () const noexcept { return data_ != get_inline_storage (); }
+	bool is_allocated () const noexcept { return !is_inline (); }
 
 private:
-	pointer get_inline_storage () noexcept { return reinterpret_cast<pointer> (&storage_); }
-	const_pointer get_inline_storage () const noexcept {
-		return reinterpret_cast<const_pointer> (&storage_);
+	bool is_inline_helper_if_polymorphic (std::true_type) const noexcept {
+		/* If T is polymorphic, we can expect derived classes to be used.
+		 * Depending on the layout of derived classes, data_ may be different from the storage pointer.
+		 * Checking that data_ == &inline_storage_ is not sufficient.
+		 * The condition is to check that data_ is inside the inline_storage_ buffer.
+		 */
+		auto inline_storage_as_byte = reinterpret_cast<const unsigned char *> (&inline_storage_);
+		auto data_as_byte = reinterpret_cast<const unsigned char *> (data_);
+		return inline_storage_as_byte <= data_as_byte &&
+		       data_as_byte < inline_storage_as_byte + StorageLen;
+	}
+	bool is_inline_helper_if_polymorphic (std::false_type) const noexcept {
+		/* If T is not polymorphic, using a derived class is UB (non-virtual destructor).
+		 * Thus we only expect T to be used, and we can just compare pointers.
+		 */
+		return reinterpret_cast<const_pointer> (&inline_storage_) == data_;
 	}
 
-	template <typename U,
-	          typename = typename std::enable_if<(sizeof (U) <= StorageLen &&
-	                                              alignof (U) <= storage_align)>::type>
-	pointer create_storage () {
-		return get_inline_storage ();
+	template <typename U>
+	using BuildInline =
+	    std::integral_constant<bool, (sizeof (U) <= StorageLen && alignof (U) <= storage_align)>;
+
+	template <typename U> pointer create_storage () {
+		return create_storage_helper (sizeof (U), BuildInline<U>{});
+	}
+	pointer create_storage_helper (std::size_t, std::true_type) {
+		return reinterpret_cast<pointer> (&inline_storage_);
+	}
+	pointer create_storage_helper (std::size_t size, std::false_type) {
+		return static_cast<pointer> (::operator new (size));
 	}
 
-	pointer data_{nullptr};
-	StorageType storage_;
+	template <typename U, typename... Args> void build (Args &&... args) {
+		static_assert (std::is_base_of<T, U>::value, "build object must derive from T");
+		auto p = create_storage<U> ();
+		data_ = new (p) U (std::forward<Args> (args)...);
+	}
+
+	pointer data_{nullptr}; // Points to the T object, not the chosen storage
+	StorageType inline_storage_;
 };
 
 // Comparison TODO ?
