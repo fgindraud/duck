@@ -27,6 +27,7 @@ public:
 	// Constructors
 	SmallUniquePtr () = default;
 	SmallUniquePtr (std::nullptr_t) noexcept : SmallUniquePtr () {}
+	SmallUniquePtr (pointer p) noexcept : data_ (p) {}
 
 	template <typename U, typename... Args> SmallUniquePtr (InPlace<U>, Args &&... args) {
 		build<U> (std::forward<Args> (args)...);
@@ -38,10 +39,22 @@ public:
 
 	// TODO movable
 
-	~SmallUniquePtr () { clear (); }
+	~SmallUniquePtr () { reset (); }
+
+	SmallUniquePtr & operator= (std::nullptr_t) noexcept {
+		reset ();
+		return *this;
+	}
 
 	// Modifiers
-	void clear () noexcept {
+	pointer release () noexcept {
+		// TODO improve
+		make_storage_allocated_if_not ();
+		auto tmp = data_;
+		data_ = nullptr;
+		return tmp;
+	}
+	void reset () noexcept {
 		if (data_) {
 			if (is_allocated ())
 				delete data_;
@@ -50,14 +63,18 @@ public:
 			data_ = nullptr;
 		}
 	}
+	void reset (pointer p) noexcept {
+		reset ();
+		data_ = p;
+	}
 
 	template <typename U = T, typename... Args> void emplace (Args &&... args) {
-		clear ();
+		reset ();
 		build<U> (std::forward<Args> (args)...);
 	}
 	template <typename U = T, typename V, typename... Args>
 	void emplace (std::initializer_list<V> ilist, Args &&... args) {
-		clear ();
+		reset ();
 		build<U> (std::move (ilist), std::forward<Args> (args)...);
 	}
 
@@ -93,7 +110,10 @@ private:
 		return reinterpret_cast<const_pointer> (&inline_storage_) == data_;
 	}
 
-	// Condition used to determine if a type U can (and will) be built inline
+	/* Condition used to determine if a type U can be built inline.
+	 * This is not an equivalence: a type U could be built inline and be stored allocated.
+	 * (for example if result of a move)
+	 */
 	template <typename U>
 	using BuildInline =
 	    std::integral_constant<bool, (sizeof (U) <= StorageLen && alignof (U) <= storage_align)>;
@@ -125,6 +145,14 @@ private:
 		std::unique_ptr<T, decltype (storage_deleter)> tmp{create_storage<U> (), storage_deleter};
 		new (tmp.get ()) U (std::forward<Args> (args)...);
 		data_ = tmp.release ();
+	}
+
+	void make_storage_allocated_if_not () noexcept {
+		if (is_inline ()) {
+			// FIXME size is unknown but smaller than StorageLen if inline
+			auto tmp = create_storage_helper (StorageLen, std::false_type{});
+			data_ = new (tmp) T (std::move (*data_)); // FIXME use virtual move if virt
+		}
 	}
 
 	pointer data_{nullptr}; // Points to the T object, not the chosen storage
