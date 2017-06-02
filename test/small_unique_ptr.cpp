@@ -1,8 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/debug.h>
 #include <duck/small_unique_ptr.h>
+#include <type_traits>
 
 namespace NoMoveSupport {
 struct Base {
@@ -55,20 +55,18 @@ TEST_CASE ("construction and access (flat hierarchy)") {
 }
 
 namespace SupportsMove {
-struct Base : public virtual duck::SmallUniquePtrMakeMovableBase<Base>, public duck::Noisy<'B'> {
+struct Base : public duck::SmallUniquePtrMakeMovableBase {
 	virtual ~Base () = default;
 	virtual int f () const = 0;
 };
-struct SmallDerived : public Base,
-                      public duck::SmallUniquePtrMakeMovable<SmallDerived, Base>,
-                      public duck::Noisy<'d'> {
+struct SmallDerived : public Base {
+	DUCK_SMALL_UNIQUE_PTR_MAKE_MOVABLE;
 	int i_;
 	SmallDerived (int i = 0) noexcept : i_ (i) {}
 	int f () const noexcept override { return i_; }
 };
-struct BigDerived : public Base,
-                    public duck::SmallUniquePtrMakeMovable<BigDerived, Base>,
-                    public duck::Noisy<'D'> {
+struct BigDerived : public Base {
+	DUCK_SMALL_UNIQUE_PTR_MAKE_MOVABLE;
 	int a_[4];
 	int f () const noexcept override { return -1; }
 };
@@ -144,4 +142,29 @@ TEST_CASE ("moves and releases (flat hierarchy)") {
 	CHECK (raw_ptr2 != nullptr);
 	CHECK (raw_ptr2->f () == 7);
 	delete raw_ptr2;
+}
+
+TEST_CASE ("conversion and make_small_unique") {
+	using namespace SupportsMove;
+
+	// Generate with Derived type
+	auto p{duck::make_small_unique<SmallDerived> (42)};
+	using Is_MakeSmallUniqueSmallDerived_A_SupOfSmallDerived =
+	    std::is_same<decltype (p), duck::SmallUniquePtr<SmallDerived, sizeof (SmallDerived)>>;
+	CHECK (Is_MakeSmallUniqueSmallDerived_A_SupOfSmallDerived::value);
+	CHECK (p);
+	CHECK (p->f () == 42);
+
+	// Convert to base type (should be in place)
+	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> p2{std::move (p)};
+	CHECK (p2);
+	CHECK (!p);
+	CHECK (p2.is_inline ());
+	CHECK (p2->f () == 42);
+
+	// Create BigDerived, move + cast to p2.
+	p2 = duck::make_small_unique<BigDerived> ();
+	CHECK (p2);
+	CHECK (p2.is_allocated());
+	CHECK (p2->f() == -1);
 }
