@@ -23,22 +23,24 @@ inline std::string demangle (const char * name) {
 #endif
 }
 
-class Noisy {
+template <char c = ' '> class Noisy {
 public:
 	Noisy () { msg ("default constr"); }
 	Noisy (const Noisy &) { msg ("copy constr"); }
-	Noisy (Noisy &&) { msg ("move constr"); }
+	Noisy (Noisy &&) noexcept { msg ("move constr"); }
 	Noisy & operator= (const Noisy &) {
 		msg ("copy assign");
 		return *this;
 	}
-	Noisy & operator= (Noisy &&) {
+	Noisy & operator= (Noisy &&) noexcept {
 		msg ("move assign");
 		return *this;
 	}
 	~Noisy () { msg ("destr"); }
 
 private:
-	void msg (const char * operation) { std::cout << '[' << this << "] " << operation << " noisy\n"; }
+	void msg (const char * operation) {
+		std::cout << '[' << this << "] " << operation << ' ' << c << " noisy\n";
+	}
 };
 }
