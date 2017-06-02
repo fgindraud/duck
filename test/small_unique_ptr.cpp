@@ -148,7 +148,7 @@ TEST_CASE ("conversion and make_small_unique") {
 	using namespace SupportsMove;
 
 	// Generate with Derived type
-	auto p{duck::make_small_unique<SmallDerived> (42)};
+	auto p = duck::make_small_unique<SmallDerived> (42);
 	using Is_MakeSmallUniqueSmallDerived_A_SupOfSmallDerived =
 	    std::is_same<decltype (p), duck::SmallUniquePtr<SmallDerived, sizeof (SmallDerived)>>;
 	CHECK (Is_MakeSmallUniqueSmallDerived_A_SupOfSmallDerived::value);
@@ -165,6 +165,6 @@ TEST_CASE ("conversion and make_small_unique") {
 	// Create BigDerived, move + cast to p2.
 	p2 = duck::make_small_unique<BigDerived> ();
 	CHECK (p2);
-	CHECK (p2.is_allocated());
-	CHECK (p2->f() == -1);
+	CHECK (p2.is_allocated ());
+	CHECK (p2->f () == -1);
 }

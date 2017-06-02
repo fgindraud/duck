@@ -238,7 +238,7 @@ private:
 	template <typename U, typename... Args> void build (Args &&... args) {
 		static_assert (std::is_base_of<type, U>::value, "build object must derive from T");
 		// tmp serves as a RAII temporary storage for the buffer : storage is cleaned on Constr error.
-		Detail::DestroyAtEndOfScope<decltype (destroy_storage<U>), destroy_storage<U>> tmp{
+		Detail::DestroyAtEndOfScope<void(&)(void*), destroy_storage<U>> tmp{
 		    create_storage_for_build<U> ()};
 		new (tmp.get ()) U (std::forward<Args> (args)...);
 		data_ = static_cast<pointer> (tmp.release ());
