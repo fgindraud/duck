@@ -10,16 +10,15 @@
 namespace duck {
 
 namespace Detail {
-	template <typename Deleter, Deleter deleter> class DestroyAtEndOfScope {
-		// Stores a pointer that can either released, or destroyed by the deleter at end of scope.
+	template <typename DestroyFunc, DestroyFunc destroyer> class DestroyPointerAtEndOfScope {
+		/* Stores a pointer that can either released, or destroyed by the deleter at end of scope.
+		 * The destroyer function must do nothing for nullptr.
+		 */
 	public:
-		DestroyAtEndOfScope (void * p) noexcept : p_ (p) {}
-		DestroyAtEndOfScope (const DestroyAtEndOfScope &) = delete;
-		DestroyAtEndOfScope & operator= (const DestroyAtEndOfScope &) = delete;
-		~DestroyAtEndOfScope () {
-			if (p_ != nullptr)
-				deleter (p_);
-		}
+		DestroyPointerAtEndOfScope (void * p) noexcept : p_ (p) {}
+		DestroyPointerAtEndOfScope (const DestroyPointerAtEndOfScope &) = delete;
+		DestroyPointerAtEndOfScope & operator= (const DestroyPointerAtEndOfScope &) = delete;
+		~DestroyPointerAtEndOfScope () { destroyer (p_); }
 		void * get () const noexcept { return p_; }
 		void * release () noexcept {
 			auto tmp = p_;
@@ -238,7 +237,7 @@ private:
 	template <typename U, typename... Args> void build (Args &&... args) {
 		static_assert (std::is_base_of<type, U>::value, "build object must derive from T");
 		// tmp serves as a RAII temporary storage for the buffer : storage is cleaned on Constr error.
-		Detail::DestroyAtEndOfScope<void(&)(void*), destroy_storage<U>> tmp{
+		Detail::DestroyPointerAtEndOfScope<void (&) (void *), destroy_storage<U>> tmp{
 		    create_storage_for_build<U> ()};
 		new (tmp.get ()) U (std::forward<Args> (args)...);
 		data_ = static_cast<pointer> (tmp.release ());
