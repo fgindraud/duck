@@ -12,7 +12,7 @@ namespace duck {
 struct NullOpt {
 	constexpr NullOpt () = default;
 };
-constexpr NullOpt nullopt;
+constexpr NullOpt nullopt{};
 
 template <typename T> class Optional {
 	/* Optional<T> is similar to the c++17 std::optional<T>.
