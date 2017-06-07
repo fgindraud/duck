@@ -1,6 +1,7 @@
 #pragma once
 
 // In place optional type
+// STATUS: mature
 
 #include <cassert>
 #include <duck/type_traits.h>

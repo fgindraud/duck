@@ -1,6 +1,7 @@
 #pragma once
 
 // Tagged pointer class
+// STATUS: operational
 
 #include <cassert>
 #include <cstdint>

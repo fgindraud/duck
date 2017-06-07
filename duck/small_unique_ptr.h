@@ -2,6 +2,7 @@
 
 // Analog to std::unique_ptr<T>, but has a local storage to avoid new() for small objects
 // Intended to store small virtual classes with less overhead.
+// STATUS: mature
 
 #include <cassert>
 #include <duck/type_traits.h> // For InPlace<T> and <type_traits>

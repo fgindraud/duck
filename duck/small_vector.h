@@ -1,6 +1,7 @@
 #pragma once
 
 // Vector with small size optimisation (no allocator support)
+// STATUS: prototype
 
 #include <cstdint>
 #include <initializer_list>

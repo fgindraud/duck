@@ -1,6 +1,7 @@
 #pragma once
 
 // Formatting library (core components).
+// STATUS: prototype, needs restored placeholder functionality
 
 #include <duck/type_traits.h>
 #include <iosfwd>    // std::ostream declaration

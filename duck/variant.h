@@ -1,6 +1,7 @@
 #pragma once
 
 // Variant classes
+// STATUS: WIP
 
 #include <cstdint>
 #include <duck/type_traits.h>
@@ -95,7 +96,5 @@ namespace Variant {
 		typename std::aligned_storage<len, align>::type storage_;
 		Detail::WrappedMethod destructor_;
 	};
-
-	// TODO variant storing in place a Derived class ? Problem of finding the ptr to base...
 }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 // Formatting library: basic formatting elements.
+// STATUS: operational
 
 #include <algorithm> // std::copy
 #include <cstring>   // printing char* (strlen)

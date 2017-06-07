@@ -1,6 +1,7 @@
 #pragma once
 
 // Top level range object with full functionnality
+// STATUS: operational, needs added functionality
 
 #include <duck/iterator/integer.h>
 #include <duck/range/base.h>

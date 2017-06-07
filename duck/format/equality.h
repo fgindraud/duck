@@ -1,6 +1,7 @@
 #pragma once
 
 // Non allocating comparison with strings.
+// STATUS: prototype
 
 #include <duck/format/core.h>
 #include <iterator>

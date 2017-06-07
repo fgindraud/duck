@@ -2,6 +2,7 @@
 
 // Defines IntegerIterator (iterates on integral number spaces).
 // Allows to generate an integer range with all range features.
+// STATUS: mature
 
 #include <iterator>
 

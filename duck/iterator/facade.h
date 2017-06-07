@@ -1,6 +1,7 @@
 #pragma once
 
 // Iterator builder classes
+// STATUS: prototype
 
 #include <duck/iterator/maybe_traits.h>
 #include <duck/meta/maybe_type.h>
