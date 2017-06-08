@@ -1,7 +1,7 @@
 #pragma once
 
 // Single writer, then multiple readers pointer type.
-// STATUS: prototype
+// STATUS: mature
 
 #include <cassert>
 #include <memory>
@@ -12,8 +12,6 @@ namespace duck {
 // Forward declaration
 template <typename T> class FreezableUniquePtr;
 template <typename T> class FrozenSharedPtr;
-
-// TODO use private inheritance + usings for operators and get() ?
 
 template <typename T> class FreezableUniquePtr {
 	/* A unique pointer to a mutable ressource.
@@ -90,12 +88,35 @@ public:
 	    : ptr_ (static_cast<std::shared_ptr<T>> (std::move (ptr))) {}
 
 	// Access
-	constexpr explicit operator bool () const noexcept { return bool (ptr_); }
+	constexpr explicit operator bool () const noexcept { return bool(ptr_); }
 	ConstT * get () const noexcept { return ptr_.get (); }
 	ConstT & operator* () const noexcept { return *ptr_; }
 	ConstT * operator-> () const noexcept { return get (); }
 
-	// TODO conversion
+	// Conversion: can upcast
+	template <typename U,
+	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	explicit FrozenSharedPtr (const FrozenSharedPtr<U> & ptr) noexcept : ptr_ (ptr.get_shared ()) {}
+	template <typename U,
+	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	explicit FrozenSharedPtr (FrozenSharedPtr<U> && ptr) noexcept
+	    : ptr_ (std::move (ptr).get_shared ()) {}
+	template <typename U,
+	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	FrozenSharedPtr & operator= (const FrozenSharedPtr<U> & ptr) noexcept {
+		ptr_ = ptr.get_shared ();
+		return *this;
+	}
+	template <typename U,
+	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	FrozenSharedPtr & operator= (FrozenSharedPtr<U> && ptr) noexcept {
+		ptr_ = std::move (ptr).get_shared ();
+		return *this;
+	}
+
+	// Impl access (considered internal)
+	const std::shared_ptr<ConstT> & get_shared () const & noexcept { return ptr_; }
+	std::shared_ptr<ConstT> && get_shared () && noexcept { return std::move (ptr_); }
 
 private:
 	std::shared_ptr<ConstT> ptr_;

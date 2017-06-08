@@ -28,9 +28,18 @@ TEST_CASE ("FreezableUniquePtr") {
 }
 
 TEST_CASE ("FrozenSharedPtr") {
-	auto p = duck::make_freezable_unique<int>(44);
-	auto sp = std::move (p).freeze();
+	auto p = duck::make_freezable_unique<int> (44);
+	auto sp = std::move (p).freeze ();
 	CHECK (!p);
 	CHECK (sp);
 	CHECK (*sp == 44);
+
+	auto spcpy = sp;
+	CHECK (sp);
+	CHECK (spcpy);
+	CHECK (*sp == 44);
+	CHECK (*spcpy == 44);
+	CHECK (sp.get () == spcpy.get ());
+
+	duck::FrozenSharedPtr<Base> basep{duck::make_freezable_unique<Derived> ().freeze ()};
 }
