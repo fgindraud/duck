@@ -114,6 +114,14 @@ public:
 		return *this;
 	}
 
+	// Allow shared_from_this functionnality, may violate the properties !
+  // FIXME make it safer
+  // use a custom base enable_shared_from_this type, and std::is_base_of check ?
+	template <typename SharedFromThisType>
+	static FrozenSharedPtr shared_from_this (const SharedFromThisType & t) {
+		return FrozenSharedPtr{t.shared_from_this ()};
+	}
+
 	// Impl access (considered internal)
 	const std::shared_ptr<ConstT> & get_shared () const & noexcept { return ptr_; }
 	std::shared_ptr<ConstT> && get_shared () && noexcept { return std::move (ptr_); }
