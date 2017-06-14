@@ -191,12 +191,12 @@ TEST_CASE ("constness") {
 	*const_opt = 42;
 	CHECK (*const_opt == 42);
 
-	// Can reset Opt<const T>
+	// Can modify the value only by reconstructing it for Opt<const T>
 	duck::Optional<const int> opt_const;
 	CHECK (!opt_const);
-	// TODO enable opt_const = 42;
-	//CHECK (opt_const);
-	//CHECK (*opt_const == 42);
+	opt_const = 42; // Automatically uses reconstruction
+	CHECK (opt_const);
+	CHECK (*opt_const == 42);
 	opt_const.emplace(33);
 	CHECK (*opt_const == 33);
 	opt_const.reset ();

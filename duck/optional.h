@@ -26,7 +26,8 @@ template <typename T> class Optional {
 	 * Moves are considered to change state, so move overloads require a non const && *this.
 	 * A moved-from Optional still contains a value (which is moved-from).
 	 *
-	 * Non copyable and non movable object should only use emplace() and reset(), assignments might fail.
+	 * Non copyable and non movable object should only use emplace() and reset(), assignments might
+	 * fail.
 	 * TODO replace() internal method that switch impl if can assign
 	 */
 	static_assert (!std::is_reference<T>::value, "Optional<T> does not support references");
@@ -34,7 +35,7 @@ template <typename T> class Optional {
 public:
 	using value_type = T;
 
-	constexpr Optional () = default;
+	constexpr Optional () : has_value_ (false) {}
 	constexpr Optional (NullOpt) noexcept : Optional () {}
 	Optional (bool) = delete;
 	Optional (const Optional & other) : Optional () {
@@ -65,7 +66,7 @@ public:
 	Optional & operator= (bool) = delete;
 	Optional & operator= (const Optional & other) {
 		if (has_value () && other)
-			value () = *other;
+			replace_value_with (*other);
 		else if (!has_value () && other)
 			create (*other);
 		else if (has_value () && !other)
@@ -74,7 +75,7 @@ public:
 	}
 	Optional & operator= (Optional && other) noexcept {
 		if (has_value () && other)
-			value () = std::move (*other);
+			replace_value_with (std::move (*other));
 		else if (!has_value () && other)
 			create (std::move (*other));
 		else if (has_value () && !other)
@@ -83,14 +84,14 @@ public:
 	}
 	Optional & operator= (const T & t) {
 		if (has_value ())
-			value () = t;
+			replace_value_with (t);
 		else
 			create (t);
 		return *this;
 	}
 	Optional & operator= (T && t) noexcept {
 		if (has_value ())
-			value () = std::move (t);
+			replace_value_with (std::move (t));
 		else
 			create (std::move (t));
 		return *this;
@@ -204,9 +205,21 @@ private:
 		has_value_ = false;
 	}
 
+	// Implement replace using assignment operators if possible, or destroy+constructor
+	template <typename U> void replace_value_with (U && u) {
+		replace_value_with_helper (std::forward<U> (u), std::is_assignable<T, U>{});
+	}
+	template <typename U> void replace_value_with_helper (U && u, std::true_type) {
+		value () = std::forward<U> (u);
+	}
+	template <typename U> void replace_value_with_helper (U && u, std::false_type) {
+		destroy ();
+		create (std::forward<U> (u));
+	}
+
 	// Storage is "mutable" to support muting the object if the optional is const
 	T * value_ptr () const noexcept { return reinterpret_cast<T *> (&storage_); }
 	mutable typename std::aligned_storage<sizeof (T), alignof (T)>::type storage_;
-	bool has_value_{false};
+	bool has_value_;
 };
 }
