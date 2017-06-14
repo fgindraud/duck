@@ -26,9 +26,8 @@ template <typename T> class Optional {
 	 * Moves are considered to change state, so move overloads require a non const && *this.
 	 * A moved-from Optional still contains a value (which is moved-from).
 	 *
-	 * Non copyable and non movable object should only use emplace() and reset(), assignments might
-	 * fail.
-	 * TODO replace() internal method that switch impl if can assign
+	 * Types that do not support copy/move assignments use destruction+copy/move construction instead.
+	 * Non copyable and non movable object should only use emplace().
 	 */
 	static_assert (!std::is_reference<T>::value, "Optional<T> does not support references");
 
