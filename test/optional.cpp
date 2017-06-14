@@ -51,9 +51,10 @@ TEST_CASE ("basic operations") {
 
 template <typename T> using IsOptionalInt = std::is_same<T, duck::Optional<int>>;
 
-TEST_CASE ("value_or_*, map") {
-	duck::Optional<int> valued{42};
-	duck::Optional<int> empty;
+TEST_CASE ("value_or_*, map, filter") {
+	const duck::Optional<int> valued{42};
+	const duck::Optional<int> valued2{33};
+	const duck::Optional<int> empty;
 
 	CHECK (valued.value_or (1) == 42);
 	CHECK (empty.value_or (1) == 1);
@@ -93,6 +94,13 @@ TEST_CASE ("value_or_*, map") {
 	auto chained_valued = valued.map (double_input).map (to_string);
 	CHECK (chained_valued);
 	CHECK (*chained_valued == "84");
+
+	// Filter
+	auto predicate = [](int a) { return a >= 40; };
+	CHECK (!empty.filter (predicate));
+	CHECK (!valued2.filter (predicate));
+	CHECK (valued.filter (predicate));
+	CHECK (valued.filter (predicate).value () == 42);
 }
 
 // Non movable nor copyable type, shoud support emplace stuff
@@ -152,11 +160,45 @@ TEST_CASE ("move only objects") {
 
 	// Check value_or
 	p2.reset ();
-	up = std::move (p2).value_or(UniqP{});
+	up = std::move (p2).value_or (UniqP{});
 	CHECK (!up); // Was empty
 	CHECK (p);
 	CHECK (*p);
-	up = std::move (p).value_or(UniqP {});
+	up = std::move (p).value_or (UniqP{});
 	CHECK (up);
 	CHECK (*up == 42);
+
+	// Check map (chainable)
+	p = std::move (up);
+	CHECK (p);
+	CHECK (*p);
+	CHECK (**p == 42);
+	auto incr = [](UniqP && tp) {
+		(*tp)++;
+		return std::move (tp);
+	};
+	p2 = std::move (p).map (incr).map (incr);
+	CHECK (p2);
+	CHECK (*p2);
+	CHECK (**p2 == 44);
+	CHECK (p);
+	CHECK (!*p);
+}
+
+TEST_CASE ("constness") {
+	// Can change value of const Opt<T>
+	const duck::Optional<int> const_opt{23};
+	*const_opt = 42;
+	CHECK (*const_opt == 42);
+
+	// Can reset Opt<const T>
+	duck::Optional<const int> opt_const;
+	CHECK (!opt_const);
+	// TODO enable opt_const = 42;
+	//CHECK (opt_const);
+	//CHECK (*opt_const == 42);
+	opt_const.emplace(33);
+	CHECK (*opt_const == 33);
+	opt_const.reset ();
+	CHECK (!opt_const);
 }
