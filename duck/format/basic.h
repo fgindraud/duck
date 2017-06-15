@@ -16,7 +16,6 @@ namespace Format {
 	/* Reference or cheap value basic element formatters.
 	 * Hold either a reference (string), or a very cheap value to the object (int / char).
 	 */
-
 	class SingleChar : public ElementBase<SingleChar> {
 		// Single character (does not support multibyte chararcters !)
 	public:
