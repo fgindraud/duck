@@ -202,3 +202,19 @@ TEST_CASE ("constness") {
 	opt_const.reset ();
 	CHECK (!opt_const);
 }
+
+TEST_CASE ("operator|") {
+	duck::Optional<int> empty;
+	duck::Optional<int> a {42};
+	duck::Optional<int> b {24};
+
+	auto c = empty | a | b;
+	CHECK (c);
+	CHECK (*c == 42);
+
+	using Or_Of_LVRef_LVRef_is_LVRef = std::is_lvalue_reference<decltype (empty | a)>;
+	CHECK (Or_Of_LVRef_LVRef_is_LVRef::value);
+
+	using Or_Of_RVRef_RVRef_is_RVRef = std::is_rvalue_reference<decltype (std::move (empty) | std::move (a))>;
+	CHECK (Or_Of_RVRef_RVRef_is_RVRef::value);
+}

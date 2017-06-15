@@ -221,4 +221,23 @@ private:
 	mutable typename std::aligned_storage<sizeof (T), alignof (T)>::type storage_;
 	bool has_value_;
 };
+
+/* a | b -> returns a if a, or b.
+ * Both a and b are evaluated (no operator|| lazy semantics).
+ * If both a and b are the same kind of reference (lvalue/rvalue), just return the reference.
+ * If reference kind differs, an intermediate Optional<T> is built from the right refs.
+ */
+template <typename T>
+const Optional<T> & operator| (const Optional<T> & a, const Optional<T> & b) noexcept {
+	return a ? a : b;
+}
+template <typename T> Optional<T> && operator| (Optional<T> && a, Optional<T> && b) noexcept {
+	return a ? std::move (a) : std::move (b);
+}
+template <typename T> Optional<T> operator| (const Optional<T> & a, Optional<T> && b) {
+	return a ? a : std::move (b);
+}
+template <typename T> Optional<T> operator| (Optional<T> && a, const Optional<T> & b) {
+	return a ? std::move (a) : b;
+}
 }
