@@ -4,6 +4,7 @@
 // STATUS: WIP
 
 #include <duck/format/core.h>
+#include <duck/utility.h> // min
 #include <iterator>
 #include <stdexcept>
 #include <utility> // forward / move
@@ -104,7 +105,30 @@ namespace Format {
 		return {std::forward<F> (f), times};
 	}
 
+	/* Truncates the sub formatter to the given size limit.
+	 */
+	template <typename F> class Truncated : public Base<Truncated<F>> {
+	private:
+		F formatter_;
+		std::size_t limit_;
 
+	public:
+		template <typename F_>
+		constexpr Truncated (F_ && f, std::size_t limit)
+		    : formatter_ (std::forward<F_> (f)), limit_ (limit) {}
+
+		constexpr std::size_t size () const { return min (formatter_.size (), limit_); }
+		template <typename OutputIt> OutputIt write (OutputIt it) const {
+			return formatter_.write (Iterator::TruncatedOutput<OutputIt>{it, limit_}).base ();
+		}
+
+		constexpr const F & formatter () const & noexcept { return formatter_; }
+		F && formatter () && noexcept { return std::move (formatter_); }
+		constexpr std::size_t limit () const noexcept { return limit_; }
+	};
+	template <typename F> constexpr Truncated<F> truncated (F && f, std::size_t limit) {
+		return {std::forward<F> (f), limit};
+	}
 
 	/* Left pad formatter F with formatter Pad until it reaches size.
 	 * If pad.size () == 0, throw exception (cannot pad).
@@ -133,7 +157,6 @@ namespace Format {
 		}
 	};
 
-	// TODO add padding, ...
 	// TODO add iterable / join (may need placeholder or placeholder like system ?)
 }
 }

@@ -32,3 +32,14 @@ TEST_CASE ("repeated") {
 	auto f = duck::Format::repeated (duck::format ('#'), 5);
 	CHECK (f.to_string () == "#####");
 }
+
+TEST_CASE ("truncated") {
+	auto hw = duck::format ("Hello world !");
+	auto f = duck::Format::truncated (hw, 5);
+	CHECK (f.size () == 5);
+	CHECK (f.to_string () == "Hello");
+
+	auto f2 = duck::Format::truncated (hw, 25);
+	CHECK (f2.size () == hw.size ());
+	CHECK (f2.to_string () == hw.to_string ());
+}
