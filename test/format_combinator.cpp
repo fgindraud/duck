@@ -20,6 +20,14 @@ TEST_CASE ("truncated output iterator") {
 	CHECK (std::all_of (va.begin () + 20, va.end (), [](int a) { return a == 42; }));
 }
 
+TEST_CASE ("ref") {
+	const auto f = duck::format ('-');
+	auto a = duck::Format::ref (f);
+	CHECK (a.size () == f.size ());
+	CHECK (a.to_string () == f.to_string ());
+	CHECK (&a.formatter () == &f);
+}
+
 TEST_CASE ("repeated") {
 	auto f = duck::Format::repeated (duck::format ('#'), 5);
 	CHECK (f.to_string () == "#####");

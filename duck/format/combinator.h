@@ -59,6 +59,24 @@ namespace Iterator {
 }
 
 namespace Format {
+	/* Take a formatter as a reference.
+	 */
+	template <typename F> class Ref : public Base<Ref<F>> {
+	private:
+		const F & formatter_;
+
+	public:
+		constexpr Ref (const F & f) noexcept : formatter_ (f) {}
+
+		constexpr std::size_t size () const { return formatter_.size (); }
+		template <typename OutputIt> OutputIt write (OutputIt it) const {
+			return formatter_.write (it);
+		}
+
+		const F & formatter () const noexcept { return formatter_; }
+	};
+	template <typename F> constexpr Ref<F> ref (const F & f) noexcept { return {f}; }
+
 	/* Repeats a formatter a fixed number of times.
 	 */
 	template <typename F> class Repeated : public Base<Repeated<F>> {
@@ -86,9 +104,12 @@ namespace Format {
 		return {std::forward<F> (f), times};
 	}
 
+
+
 	/* Left pad formatter F with formatter Pad until it reaches size.
 	 * If pad.size () == 0, throw exception (cannot pad).
 	 * If pad.size () > 1, padding may stop before reaching size.
+	 * TODO which semantics ? truncate or not ?
 	 */
 	template <typename F, typename Pad> class LeftPad : public Base<LeftPad<F, Pad>> {
 	private:
