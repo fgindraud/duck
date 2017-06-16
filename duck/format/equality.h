@@ -37,7 +37,7 @@ namespace Format {
 			using pointer = void;
 			using difference_type = std::ptrdiff_t;
 
-			constexpr ComparisonIterator () noexcept = default;
+			constexpr ComparisonIterator () = default;
 			constexpr ComparisonIterator (InputIt begin, InputIt end) noexcept
 			    : current_ (begin), end_ (end) {}
 
