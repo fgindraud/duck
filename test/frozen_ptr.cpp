@@ -9,10 +9,10 @@ struct Base {
 struct Derived : Base {};
 
 TEST_CASE ("FreezableUniquePtr") {
-	auto empty = duck::FreezableUniquePtr<int>{};
+	auto empty = duck::FreezablePtr<int>{};
 	CHECK (!empty);
 
-	auto p = duck::make_freezable_unique<int> (42);
+	auto p = duck::make_freezable<int> (42);
 	CHECK (p);
 	CHECK (*p == 42);
 	*p = 3;
@@ -23,12 +23,12 @@ TEST_CASE ("FreezableUniquePtr") {
 	CHECK (!p);
 	CHECK (*p2 == 3);
 
-	auto derived = duck::make_freezable_unique<Derived> ();
-	duck::FreezableUniquePtr<Base> base{std::move (derived)};
+	auto derived = duck::make_freezable<Derived> ();
+	duck::FreezablePtr<Base> base{std::move (derived)};
 }
 
 TEST_CASE ("FrozenSharedPtr") {
-	auto p = duck::make_freezable_unique<int> (44);
+	auto p = duck::make_freezable<int> (44);
 	auto sp = std::move (p).freeze ();
 	CHECK (!p);
 	CHECK (sp);
@@ -41,5 +41,5 @@ TEST_CASE ("FrozenSharedPtr") {
 	CHECK (*spcpy == 44);
 	CHECK (sp.get () == spcpy.get ());
 
-	duck::FrozenSharedPtr<Base> basep{duck::make_freezable_unique<Derived> ().freeze ()};
+	duck::FrozenPtr<Base> basep{duck::make_freezable<Derived> ().freeze ()};
 }
