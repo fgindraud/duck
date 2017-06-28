@@ -4,7 +4,6 @@
 // STATUS: operational
 
 #include <algorithm> // std::copy
-#include <cstring>   // printing char* (strlen)
 #include <duck/format/core.h>
 #include <limits> // printing ints
 #include <string> // printing string
@@ -60,7 +59,8 @@ namespace Format {
 		 */
 	public:
 		constexpr CStringRef (const char * str, std::size_t len) noexcept : str_ (str), len_ (len) {}
-		explicit CStringRef (const char * str) : CStringRef (str, std::strlen (str)) {}
+		explicit CStringRef (const char * str)
+		    : CStringRef (str, std::char_traits<char>::length (str)) {}
 		constexpr std::size_t size () const noexcept { return len_; }
 		template <typename OutputIt> OutputIt write (OutputIt it) const {
 			return std::copy_n (str_, len_, it);
