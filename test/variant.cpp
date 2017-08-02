@@ -8,10 +8,10 @@
 struct blah {};
 
 TEST_CASE ("test") {
-	using MyVariant = duck::Variant::StaticList<bool, int, blah>;
-	CHECK (MyVariant::id_for_type<bool> () == 0);
-	CHECK (MyVariant::id_for_type<int> () == 1);
-	CHECK (MyVariant::id_for_type<blah> () == 2);
+	using MyVariant = duck::Variant::Static<bool, int, blah>;
+	CHECK (MyVariant::index_for_type<bool> () == 0);
+	CHECK (MyVariant::index_for_type<int> () == 1);
+	CHECK (MyVariant::index_for_type<blah> () == 2);
 
 	MyVariant a{3};
 	int b = 42;
