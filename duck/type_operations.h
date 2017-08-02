@@ -1,0 +1,74 @@
+#pragma once
+
+// Utility wrappers for type operations (construction, copy, moves, ...)
+
+#include <duck/debug.h>
+#include <stdexcept>
+#include <type_traits>
+#include <typeinfo>
+
+namespace duck {
+namespace Type {
+	inline void failure_operation_not_implemented (const std::string & operation,
+	                                               const std::type_info & for_type) {
+		throw std::runtime_error ("Operation not implemented for type '" + demangle (for_type.name ()) +
+		                          "': " + operation);
+	}
+
+	// Default construction
+	template <typename T> void default_construct_impl (void * storage, std::true_type) {
+		new (storage) T ();
+	}
+	template <typename T> void default_construct_impl (void *, std::false_type) {
+		failure_operation_not_implemented ("default constructor", typeid (T));
+	}
+	template <typename T> void default_construct (void * storage) {
+		default_construct_impl<T> (storage, std::is_default_constructible<T>{});
+	}
+
+	// Destructor
+	template <typename T> void destroy_impl (void * storage, std::true_type) {
+		reinterpret_cast<T *> (storage)->~T ();
+	}
+	template <typename T> void destroy_impl (void *, std::false_type) {
+		failure_operation_not_implemented ("destructor", typeid (T));
+	}
+	template <typename T> void destroy (void * storage) {
+		destroy_impl<T> (storage, std::is_destructible<T>{});
+	}
+
+	// Copy construction
+	template <typename T>
+	void copy_construct_impl (void * storage, const void * from_storage, std::true_type) {
+		new (storage) T (*reinterpret_cast<const T *> (from_storage));
+	}
+	template <typename T> void copy_construct_impl (void *, const void *, std::false_type) {
+		failure_operation_not_implemented ("copy constructor", typeid (T));
+	}
+	template <typename T> void copy_construct (void * storage, const void * from_storage) {
+		copy_construct_impl<T> (storage, from_storage, std::is_copy_constructible<T>{});
+	}
+
+	// Move construction
+	template <typename T>
+	void move_construct_impl (void * storage, void * from_storage, std::true_type) {
+		new (storage) T (std::move (*reinterpret_cast<T *> (from_storage)));
+	}
+	template <typename T> void move_construct_impl (void *, void *, std::false_type) {
+		failure_operation_not_implemented ("move constructor", typeid (T));
+	}
+	template <typename T> void move_construct (void * storage, void * from_storage) {
+		move_construct_impl<T> (storage, from_storage, std::is_move_constructible<T>{});
+	}
+
+	struct Operations {
+		void (*const destroy) (void *);
+		void (*const default_construct) (void *);
+		void (*const copy_construct) (void *, const void *);
+		void (*const move_construct) (void *, void *);
+	};
+	template <typename T> constexpr Operations operations () {
+		return {destroy<T>, default_construct<T>, copy_construct<T>, move_construct<T>};
+	}
+}
+}

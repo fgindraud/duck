@@ -4,6 +4,7 @@
 // STATUS: WIP
 
 #include <cstdint>
+#include <duck/type_operations.h>
 #include <duck/type_traits.h>
 #include <duck/utility.h>
 #include <typeindex>
@@ -31,10 +32,6 @@ namespace Variant {
 		struct GetTypeId<T, First, Others...> {
 			enum { value = GetTypeId<T, Others...>::value + 1 };
 		};
-
-		// Wrap common functions
-		using WrappedMethod = void (*) (void *);
-		template <typename T> inline void wrap_destructor (void * p) { static_cast<T *> (p)->~T (); }
 	}
 
 	template <typename... Types> class StaticList {
@@ -68,19 +65,19 @@ namespace Variant {
 		// TODO improve
 	public:
 		template <typename T, typename = typename std::enable_if<Traits::NonSelf<T, Dynamic>::value>>
-		explicit Dynamic (T && t) : destructor_ (Detail::wrap_destructor<T>) {
+		explicit Dynamic (T && t) : destructor_ (Type::destroy<T>) {
 			static_assert (sizeof (T) <= len, "T must fit in reserved size");
 			static_assert (alignof (T) <= align, "T align requirement must fit in reserved storage");
 			new (&storage_) T (std::forward<T> (t));
 		}
 
 		template <typename T> T & as () {
-			if (&Detail::wrap_destructor<T> != destructor_)
+			if (&Type::destroy<T> != destructor_)
 				throw std::bad_cast{};
 			return reinterpret_cast<T &> (storage_);
 		}
 		template <typename T> const T & as () const {
-			if (&Detail::wrap_destructor<T> != destructor_)
+			if (&Type::destroy<T> != destructor_)
 				throw std::bad_cast{};
 			return reinterpret_cast<const T &> (storage_);
 		}
@@ -94,7 +91,7 @@ namespace Variant {
 
 	private:
 		typename std::aligned_storage<len, align>::type storage_;
-		Detail::WrappedMethod destructor_;
+		void (*destructor_) (void *);
 	};
 }
 }
