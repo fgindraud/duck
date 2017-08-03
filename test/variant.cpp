@@ -3,6 +3,7 @@
 
 #include <duck/variant.h>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 struct blah {};
@@ -10,8 +11,12 @@ inline std::ostream & operator<< (std::ostream & os, const blah &) {
 	return os << "blah!";
 }
 
-struct PrintVisitor {
-	template <typename T> void operator() (const T & t) const { std::cout << t << '\n'; }
+struct ToStringVisitor {
+	template <typename T> std::string operator() (const T & t) const {
+		std::ostringstream oss;
+		oss << t;
+		return oss.str ();
+	}
 };
 
 TEST_CASE ("test") {
@@ -23,8 +28,10 @@ TEST_CASE ("test") {
 	Var a{blah{}};
 	Var b{32};
 	Var c{duck::InPlace<std::string>{}, "hello"};
-	b.visit (PrintVisitor{});
-	c.visit (PrintVisitor{});
+	auto y = b.visit (ToStringVisitor{});
+	CHECK (y == "32");
+	auto z = c.visit (ToStringVisitor{});
+	CHECK (z == "hello");
 }
 
 TEST_CASE ("dynamic") {

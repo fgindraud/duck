@@ -44,11 +44,15 @@ namespace Variant {
 		};
 
 		// Wrap operator ()
-		template <typename Visitor, typename T>
-		void wrap_call_operator (void * storage, Visitor & visitor) {
-			visitor (*reinterpret_cast<T *> (storage));
+		template <typename Visitor, typename ReturnType, typename T>
+		ReturnType wrap_call_operator (void * storage, Visitor & visitor) {
+			return visitor (*reinterpret_cast<T *> (storage));
 		}
-		template <typename Visitor> void noop_call_operator (void *, Visitor &) {}
+		template <typename Visitor, typename ReturnType>
+		ReturnType noop_call_operator (void *, Visitor &) {
+			throw BadVariantAccess{};
+			// FIXME for now invalid variant throws BadVariantAccess on visit.
+		}
 	}
 
 	template <typename... Types> class Static {
@@ -112,6 +116,14 @@ namespace Variant {
 			return *this;
 		}
 
+		template <typename T, int = GetTypePos<T>::value> Static & operator= (T && t) {
+			if (is_type<T> ()) {
+				get_unsafe<T> () = std::forward<T> (t);
+			} else {
+				emplace<T> (std::forward<T> (t));
+			}
+		}
+
 		constexpr int index () const noexcept { return index_; }
 		constexpr bool valid () const noexcept { return index () != invalid_index; }
 		template <typename T, int = GetTypePos<T>::value> constexpr bool is_type () const noexcept {
@@ -143,14 +155,19 @@ namespace Variant {
 			return get_unsafe<T> ();
 		}
 
-		// TODO support return type ?
 		// TODO support stateful Visitor (by ref)
 		// TODO static check of case coverage already done, make it less obscure on error ?
-		template <typename Visitor> void visit (Visitor visitor) {
-			using FuncType = void (*) (void * storage, Visitor & vis);
+		template <typename Visitor>
+		using VisitorReturnType = typename std::common_type<decltype (
+		    std::declval<Visitor> () (std::declval<Types> ()))...>::type;
+
+		template <typename Visitor> VisitorReturnType<Visitor> visit (Visitor visitor) {
+			using RetType = VisitorReturnType<Visitor>;
+			using FuncType = RetType (*) (void * storage, Visitor & vis);
 			static constexpr FuncType function_by_type[sizeof...(Types) + 1] = {
-			    Detail::noop_call_operator<Visitor>, Detail::wrap_call_operator<Visitor, Types>...};
-			function_by_type[index_ + 1](&storage_, visitor);
+			    Detail::noop_call_operator<Visitor, RetType>,
+			    Detail::wrap_call_operator<Visitor, RetType, Types>...};
+			return function_by_type[index_ + 1](&storage_, visitor);
 		}
 
 	private:
