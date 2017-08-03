@@ -15,6 +15,15 @@ namespace Type {
 		                          "': " + operation);
 	}
 
+	/* Type erased functions for various type operations:
+	 * - default construction
+	 * - destruction
+	 * - copy construction
+	 * - move construction
+	 *
+	 * A specialisation for T=void is a noop.
+	 */
+
 	// Default construction
 	template <typename T> void default_construct_impl (void * storage, std::true_type) {
 		new (storage) T ();
@@ -25,6 +34,7 @@ namespace Type {
 	template <typename T> void default_construct (void * storage) {
 		default_construct_impl<T> (storage, std::is_default_constructible<T>{});
 	}
+	template <> void default_construct<void> (void *) {}
 
 	// Destructor
 	template <typename T> void destroy_impl (void * storage, std::true_type) {
@@ -36,6 +46,7 @@ namespace Type {
 	template <typename T> void destroy (void * storage) {
 		destroy_impl<T> (storage, std::is_destructible<T>{});
 	}
+	template <> void destroy<void> (void *) {}
 
 	// Copy construction
 	template <typename T>
@@ -48,6 +59,7 @@ namespace Type {
 	template <typename T> void copy_construct (void * storage, const void * from_storage) {
 		copy_construct_impl<T> (storage, from_storage, std::is_copy_constructible<T>{});
 	}
+	template <> void copy_construct<void> (void *, const void *) {}
 
 	// Move construction
 	template <typename T>
@@ -60,6 +72,7 @@ namespace Type {
 	template <typename T> void move_construct (void * storage, void * from_storage) {
 		move_construct_impl<T> (storage, from_storage, std::is_move_constructible<T>{});
 	}
+	template <> void move_construct<void> (void *, void *) {}
 
 	struct Operations {
 		void (*const destroy) (void *);
@@ -67,7 +80,7 @@ namespace Type {
 		void (*const copy_construct) (void *, const void *);
 		void (*const move_construct) (void *, void *);
 	};
-	template <typename T> constexpr Operations operations () {
+	template <typename T> constexpr Operations operations () noexcept {
 		return {destroy<T>, default_construct<T>, copy_construct<T>, move_construct<T>};
 	}
 }
