@@ -5,20 +5,26 @@
 #include <iostream>
 #include <string>
 
-#include <duck/debug.h>
-struct blah : duck::Noisy<'a'> {};
-struct bloh : duck::Noisy<'o'> {};
+struct blah {};
+inline std::ostream & operator<< (std::ostream & os, const blah &) {
+	return os << "blah!";
+}
+
+struct PrintVisitor {
+	template <typename T> void operator() (const T & t) const { std::cout << t << '\n'; }
+};
 
 TEST_CASE ("test") {
-	using MyVariant = duck::Variant::Static<bool, int, blah, bloh>;
-	CHECK (MyVariant::index_for_type<bool> () == 0);
-	CHECK (MyVariant::index_for_type<int> () == 1);
-	CHECK (MyVariant::index_for_type<blah> () == 2);
+	using Var = duck::Variant::Static<bool, int, blah, std::string>;
+	CHECK (Var::index_for_type<bool> () == 0);
+	CHECK (Var::index_for_type<int> () == 1);
+	CHECK (Var::index_for_type<blah> () == 2);
 
-	MyVariant a{blah{}};
-	MyVariant b;
-	b = a;
-	a = std::move (b);
+	Var a{blah{}};
+	Var b{32};
+	Var c{duck::InPlace<std::string>{}, "hello"};
+	b.visit (PrintVisitor{});
+	c.visit (PrintVisitor{});
 }
 
 TEST_CASE ("dynamic") {

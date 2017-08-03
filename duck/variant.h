@@ -9,11 +9,19 @@
 #include <duck/type_operations.h>
 #include <duck/type_traits.h>
 #include <duck/utility.h>
-#include <typeindex>
+#include <exception>
 #include <utility>
 
 namespace duck {
 namespace Variant {
+
+	class BadVariantAccess : public std::exception {
+	public:
+		BadVariantAccess () = default;
+		const char * what () const noexcept override {
+			return "Variant accessed with type different from current type";
+		}
+	};
 
 	namespace Detail {
 		// Get nth type in a pack (SFINAE fails if bad index)
@@ -34,6 +42,13 @@ namespace Variant {
 		struct GetTypePos<T, First, Others...> {
 			enum { value = GetTypePos<T, Others...>::value + 1 };
 		};
+
+		// Wrap operator ()
+		template <typename Visitor, typename T>
+		void wrap_call_operator (void * storage, Visitor & visitor) {
+			visitor (*reinterpret_cast<T *> (storage));
+		}
+		template <typename Visitor> void noop_call_operator (void *, Visitor &) {}
 	}
 
 	template <typename... Types> class Static {
@@ -113,7 +128,30 @@ namespace Variant {
 			return build<T> (std::move (ilist), std::forward<Args> (args)...);
 		}
 
-		// TODO template access, ...
+		template <typename T> T & get_unsafe () noexcept { return reinterpret_cast<T &> (storage_); }
+		template <typename T> const T & get_unsafe () const noexcept {
+			return reinterpret_cast<const T &> (storage_);
+		}
+		template <typename T> T & get () {
+			if (!is_type<T> ())
+				throw BadVariantAccess{};
+			return get_unsafe<T> ();
+		}
+		template <typename T> const T & get () const {
+			if (!is_type<T> ())
+				throw BadVariantAccess{};
+			return get_unsafe<T> ();
+		}
+
+		// TODO support return type ?
+		// TODO support stateful Visitor (by ref)
+		// TODO static check of case coverage already done, make it less obscure on error ?
+		template <typename Visitor> void visit (Visitor visitor) {
+			using FuncType = void (*) (void * storage, Visitor & vis);
+			static constexpr FuncType function_by_type[sizeof...(Types) + 1] = {
+			    Detail::noop_call_operator<Visitor>, Detail::wrap_call_operator<Visitor, Types>...};
+			function_by_type[index_ + 1](&storage_, visitor);
+		}
 
 	private:
 		int index_{invalid_index};
@@ -128,7 +166,7 @@ namespace Variant {
 		 */
 		const Type::Operations & type_ops () const noexcept {
 			static constexpr Type::Operations ops_by_index[sizeof...(Types) + 1] = {
-			    Type::operations<void> (), Type::operations<Types> ()...};
+			    Type::noop_operations (), Type::operations<Types> ()...};
 			return ops_by_index[index_ + 1];
 		}
 
@@ -159,12 +197,12 @@ namespace Variant {
 
 		template <typename T> T & as () {
 			if (&Type::destroy<T> != destructor_)
-				throw std::bad_cast{};
+				throw BadVariantAccess{};
 			return reinterpret_cast<T &> (storage_);
 		}
 		template <typename T> const T & as () const {
 			if (&Type::destroy<T> != destructor_)
-				throw std::bad_cast{};
+				throw BadVariantAccess{};
 			return reinterpret_cast<const T &> (storage_);
 		}
 
