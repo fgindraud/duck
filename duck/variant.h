@@ -6,11 +6,9 @@
 // SmallUniqPtr (in a separate header)
 // STATUS: WIP
 
-#include <cstdint>
 #include <duck/type_operations.h>
 #include <duck/type_traits.h>
 #include <duck/utility.h>
-#include <limits>
 #include <typeindex>
 #include <utility>
 
@@ -59,44 +57,61 @@ namespace Variant {
 
 		Static () = default;
 
-		template <typename T, int index = GetTypePos<T>::value> explicit Static (T && t) {
+		template <typename T, int = GetTypePos<T>::value> explicit Static (T && t) {
 			// This constructor is SFINAE restricted to supported types
-			new (&storage_) typename std::decay<T>::type (std::forward<T> (t));
-			index_ = index_for_type<T> ();
+			build<typename std::decay<T>::type> (std::forward<T> (t));
 		}
 		template <typename T, typename... Args> explicit Static (InPlace<T>, Args &&... args) {
-			new (&storage_) T (std::forward<Args> (args)...);
-			index_ = index_for_type<T> ();
+			build<T> (std::forward<Args> (args)...);
 		}
 
-		~Static () { type_ops (index_).destroy (&storage_); }
+		~Static () { reset (); }
 
 		// TODO delete if not all can be copied ? noexcept spec ?
 		Static (const Static & other) {
-			other.type_ops (other.index_).copy_construct (&storage_, &other.storage_);
-			index_ = other.index_;
+			other.type_ops ().copy_construct (&storage_, &other.storage_);
+			index_ = other.index ();
 		}
 		Static & operator= (const Static & other) {
-			type_ops (index_).destroy (&storage_);
-			index_ = invalid_index;
-			other.type_ops (other.index_).copy_construct (&storage_, &other.storage_);
-			index_ = other.index_;
+			if (index () == other.index ()) {
+				type_ops ().copy_assign (&storage_, &other.storage_);
+			} else {
+				reset ();
+				other.type_ops ().copy_construct (&storage_, &other.storage_);
+				index_ = other.index ();
+			}
 			return *this;
 		}
 		Static (Static && other) {
-			other.type_ops (other.index_).move_construct (&storage_, &other.storage_);
-			index_ = other.index_;
+			other.type_ops ().move_construct (&storage_, &other.storage_);
+			index_ = other.index ();
 		}
 		Static & operator= (Static && other) {
-			type_ops (index_).destroy (&storage_);
-			index_ = invalid_index;
-			other.type_ops (other.index_).move_construct (&storage_, &other.storage_);
-			index_ = other.index_;
+			if (index () == other.index ()) {
+				type_ops ().move_assign (&storage_, &other.storage_);
+			} else {
+				reset ();
+				other.type_ops ().move_construct (&storage_, &other.storage_);
+				index_ = other.index ();
+			}
 			return *this;
 		}
 
 		constexpr int index () const noexcept { return index_; }
 		constexpr bool valid () const noexcept { return index () != invalid_index; }
+		template <typename T, int = GetTypePos<T>::value> constexpr bool is_type () const noexcept {
+			return index () == index_for_type<T> ();
+		}
+
+		template <typename T, typename... Args> T & emplace (Args &&... args) {
+			reset ();
+			return build<T> (std::forward<Args> (args)...);
+		}
+		template <typename T, typename U, typename... Args>
+		T & emplace (std::initializer_list<U> ilist, Args &&... args) {
+			reset ();
+			return build<T> (std::move (ilist), std::forward<Args> (args)...);
+		}
 
 		// TODO template access, ...
 
@@ -111,10 +126,23 @@ namespace Variant {
 		 * The table is shifted by 1.
 		 * index 0 of the table refers to "no type", and has noop type operations.
 		 */
-		static const Type::Operations & type_ops (int index) {
+		const Type::Operations & type_ops () const noexcept {
 			static constexpr Type::Operations ops_by_index[sizeof...(Types) + 1] = {
 			    Type::operations<void> (), Type::operations<Types> ()...};
-			return ops_by_index[index + 1];
+			return ops_by_index[index_ + 1];
+		}
+
+		// Destroy object, put in invalid state
+		void reset () noexcept {
+			type_ops ().destroy (&storage_);
+			index_ = invalid_index;
+		}
+
+		// Build in place
+		template <typename T, typename... Args> T & build (Args &&... args) {
+			auto * obj = new (&storage_) T (std::forward<Args> (args)...);
+			index_ = index_for_type<T> ();
+			return *obj;
 		}
 	};
 
