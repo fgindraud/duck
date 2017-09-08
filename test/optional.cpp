@@ -2,6 +2,7 @@
 #include "doctest.h"
 
 #include <duck/optional.h>
+#include <map>
 #include <memory> // tests with uniq_ptr
 #include <string> // to_string
 #include <type_traits>
@@ -218,6 +219,12 @@ TEST_CASE ("operator|") {
 	using Or_Of_RVRef_RVRef_is_RVRef =
 	    std::is_rvalue_reference<decltype (std::move (empty) | std::move (a))>;
 	CHECK (Or_Of_RVRef_RVRef_is_RVRef::value);
+
+	// Default
+	CHECK ((empty | 0) == 0);
+	CHECK ((a | 0) == *a);
+	CHECK ((empty | empty | 0) == 0);
+	CHECK ((empty | a | 0) == *a);
 }
 
 TEST_CASE ("reference optionals") {
@@ -239,7 +246,17 @@ TEST_CASE ("reference optionals") {
 	ref = &a;
 	CHECK (ref);
 	CHECK (&ref.value () == &a);
-	auto b = ref.map ([] (int a) { return -a; });
+	auto b = ref.map ([](int a) { return -a; });
 	CHECK (b);
 	CHECK (*b == -a);
+}
+
+TEST_CASE ("optional_find") {
+	std::map<int, int> m;
+	m[12]=42;
+	auto empty = duck::optional_find (m, 0);
+	CHECK (!empty);
+	auto not_empty = duck::optional_find (m, 12);
+	CHECK (not_empty);
+	CHECK (not_empty->second == 42);
 }

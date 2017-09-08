@@ -326,7 +326,38 @@ template <typename T> Optional<T> operator| (const Optional<T> & a, Optional<T> 
 template <typename T> Optional<T> operator| (Optional<T> && a, const Optional<T> & b) {
 	return a ? std::move (a) : b;
 }
+// Overloads ending with plain object ("true" optional)
+template <typename T> T operator| (const Optional<T> & a, const T & b) {
+	return a.value_or (b);
+}
+template <typename T> T operator| (Optional<T> && a, const T & b) {
+	return std::move (a).value_or (b);
+}
+template <typename T> T operator| (const Optional<T> & a, T && b) {
+	return a.value_or (std::move (b));
+}
+template <typename T> T operator| (Optional<T> && a, T && b) {
+	return std::move (a).value_or (std::move (b));
+}
 
-// TODO optional_find for assoc containers
-// TODO operator| ending with T, returns T (default case for |)
+/* Call find(key) on an associative container, return the result as an optional.
+ * Intended to avoid comparing the iterator with end().
+ */
+template <typename Container, typename Key>
+Optional<typename Container::value_type &> optional_find (Container & container, const Key & key) {
+	auto it = container.find (key);
+	if (it != container.end ())
+		return Optional<typename Container::value_type &>{*it};
+	else
+		return {};
+}
+template <typename Container, typename Key>
+Optional<const typename Container::value_type &> optional_find (const Container & container,
+                                                                const Key & key) {
+	auto it = container.find (key);
+	if (it != container.end ())
+		return Optional<const typename Container::value_type &>{*it};
+	else
+		return {};
+}
 }
