@@ -29,7 +29,7 @@ template <typename T> class Optional {
 	 * Types that do not support copy/move assignments use destruction+copy/move construction instead.
 	 * Non copyable and non movable object should only use emplace().
 	 */
-	static_assert (!std::is_reference<T>::value, "Optional<T> does not support references");
+	static_assert (!std::is_reference<T>::value, "base Optional<T> does not support references");
 
 public:
 	using value_type = T;
@@ -45,13 +45,13 @@ public:
 		if (other)
 			create (*std::move (other));
 	}
-	explicit Optional (const T & t) : Optional () { create (t); }
-	explicit Optional (T && t) : Optional () { create (std::move (t)); }
-	template <typename... Args> explicit Optional (InPlace<void>, Args &&... args) : Optional () {
+	Optional (const T & t) : Optional () { create (t); }
+	Optional (T && t) : Optional () { create (std::move (t)); }
+	template <typename... Args> Optional (InPlace<void>, Args &&... args) : Optional () {
 		create (std::forward<Args> (args)...);
 	}
 	template <typename U, typename... Args>
-	explicit Optional (InPlace<void>, std::initializer_list<U> ilist, Args &&... args) : Optional () {
+	Optional (InPlace<void>, std::initializer_list<U> ilist, Args &&... args) : Optional () {
 		create (std::move (ilist), std::forward<Args> (args)...);
 	}
 
@@ -163,14 +163,14 @@ public:
 	          typename ReturnType = typename std::result_of<Callable (const T &)>::type>
 	Optional<ReturnType> map (Callable && callable) const & {
 		if (has_value ())
-			return Optional<ReturnType>{std::forward<Callable> (callable) (value ())};
+			return std::forward<Callable> (callable) (value ());
 		else
 			return {};
 	}
 	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &&)>::type>
 	Optional<ReturnType> map (Callable && callable) && {
 		if (has_value ())
-			return Optional<ReturnType>{std::forward<Callable> (callable) (std::move (*this).value ())};
+			return std::forward<Callable> (callable) (std::move (*this).value ());
 		else
 			return {};
 	}
@@ -237,8 +237,8 @@ public:
 	constexpr Optional (const Optional &) = default;
 	constexpr Optional (Optional &&) = default;
 	constexpr Optional (std::nullptr_t) noexcept : Optional () {}
-	constexpr explicit Optional (T * t) noexcept : pointer_ (t) {}
-	constexpr explicit Optional (T & t) noexcept : Optional (&t) {}
+	constexpr Optional (T * t) noexcept : pointer_ (t) {}
+	constexpr Optional (T & t) noexcept : Optional (&t) {}
 	~Optional () = default;
 
 	// Assignment
@@ -291,7 +291,7 @@ public:
 	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &)>::type>
 	Optional<ReturnType> map (Callable && callable) const {
 		if (has_value ())
-			return Optional<ReturnType>{std::forward<Callable> (callable) (value ())};
+			return std::forward<Callable> (callable) (value ());
 		else
 			return {};
 	}
@@ -347,7 +347,7 @@ template <typename Container, typename Key>
 Optional<typename Container::value_type &> optional_find (Container & container, const Key & key) {
 	auto it = container.find (key);
 	if (it != container.end ())
-		return Optional<typename Container::value_type &>{*it};
+		return *it;
 	else
 		return {};
 }
@@ -356,7 +356,7 @@ Optional<const typename Container::value_type &> optional_find (const Container 
                                                                 const Key & key) {
 	auto it = container.find (key);
 	if (it != container.end ())
-		return Optional<const typename Container::value_type &>{*it};
+		return *it;
 	else
 		return {};
 }
