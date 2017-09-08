@@ -189,6 +189,20 @@ public:
 			return {};
 	}
 
+	// Cast : Optional<T> -> Optional<U>. TODO improve useability
+	template <typename U> Optional<U> cast () const & {
+		if (has_value ())
+			return static_cast<U> (value ());
+		else
+			return {};
+	}
+	template <typename U> Optional<U> cast () && {
+		if (has_value ())
+			return static_cast<U> (std::move (*this).value ());
+		else
+			return {};
+	}
+
 private:
 	template <typename... Args> void create (Args &&... args) {
 		assert (!has_value_);
@@ -304,6 +318,14 @@ public:
 			return {};
 	}
 
+	// Cast : Optional<T &> -> Optional<U>
+	template <typename U> Optional<U> cast () const {
+		if (has_value ())
+			return static_cast<U> (value ());
+		else
+			return {};
+	}
+
 private:
 	T * pointer_{nullptr};
 };
@@ -344,19 +366,19 @@ template <typename T> T operator| (Optional<T> && a, T && b) {
  * Intended to avoid comparing the iterator with end().
  */
 template <typename Container, typename Key>
-Optional<typename Container::value_type &> optional_find (Container & container, const Key & key) {
+Optional<typename Container::mapped_type &> optional_find (Container & container, const Key & key) {
 	auto it = container.find (key);
 	if (it != container.end ())
-		return *it;
+		return it->second;
 	else
 		return {};
 }
 template <typename Container, typename Key>
-Optional<const typename Container::value_type &> optional_find (const Container & container,
-                                                                const Key & key) {
+Optional<const typename Container::mapped_type &> optional_find (const Container & container,
+                                                                 const Key & key) {
 	auto it = container.find (key);
 	if (it != container.end ())
-		return *it;
+		return it->second;
 	else
 		return {};
 }

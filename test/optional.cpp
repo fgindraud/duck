@@ -258,5 +258,14 @@ TEST_CASE ("optional_find") {
 	CHECK (!empty);
 	auto not_empty = duck::optional_find (m, 12);
 	CHECK (not_empty);
-	CHECK (not_empty->second == 42);
+	CHECK (*not_empty == 42);
+}
+
+TEST_CASE ("cast") {
+	int a = 42;
+	duck::Optional<int &> ref {a};
+	auto b = ref.cast<int>();
+	CHECK (b);
+	CHECK (*b == a);
+	CHECK (&(*b) != &a);
 }
