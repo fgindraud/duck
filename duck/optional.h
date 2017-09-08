@@ -34,9 +34,9 @@ template <typename T> class Optional {
 public:
 	using value_type = T;
 
+	// Constructors
 	constexpr Optional () : has_value_ (false) {}
 	constexpr Optional (NullOpt) noexcept : Optional () {}
-	Optional (bool) = delete;
 	Optional (const Optional & other) : Optional () {
 		if (other)
 			create (*other);
@@ -45,13 +45,13 @@ public:
 		if (other)
 			create (*std::move (other));
 	}
-	Optional (const T & t) : Optional () { create (t); }
-	Optional (T && t) : Optional () { create (std::move (t)); }
-	template <typename... Args> Optional (InPlace<void>, Args &&... args) : Optional () {
+	explicit Optional (const T & t) : Optional () { create (t); }
+	explicit Optional (T && t) : Optional () { create (std::move (t)); }
+	template <typename... Args> explicit Optional (InPlace<void>, Args &&... args) : Optional () {
 		create (std::forward<Args> (args)...);
 	}
 	template <typename U, typename... Args>
-	Optional (InPlace<void>, std::initializer_list<U> ilist, Args &&... args) : Optional () {
+	explicit Optional (InPlace<void>, std::initializer_list<U> ilist, Args &&... args) : Optional () {
 		create (std::move (ilist), std::forward<Args> (args)...);
 	}
 
@@ -62,7 +62,6 @@ public:
 		reset ();
 		return *this;
 	}
-	Optional & operator= (bool) = delete;
 	Optional & operator= (const Optional & other) {
 		if (has_value () && other)
 			replace_value_with (*other);
@@ -96,6 +95,10 @@ public:
 		return *this;
 	}
 
+	// Status
+	constexpr bool has_value () const noexcept { return has_value_; }
+	constexpr explicit operator bool () const noexcept { return has_value (); }
+
 	// Unchecked access
 	T & value () const & noexcept {
 		assert (has_value ());
@@ -105,63 +108,9 @@ public:
 		assert (has_value ());
 		return std::move (*value_ptr ());
 	}
-
-	// Operator unchecked access
 	T * operator-> () const noexcept { return value_ptr (); }
 	T & operator* () const & noexcept { return value (); }
 	T && operator* () && noexcept { return std::move (*this).value (); }
-
-	// Status test
-	constexpr bool has_value () const noexcept { return has_value_; }
-	constexpr explicit operator bool () const noexcept { return has_value (); }
-
-	// Access with default
-	template <typename U> constexpr T value_or (U && default_value) const & {
-		return has_value () ? value () : static_cast<T> (std::forward<U> (default_value));
-	}
-	template <typename U> T value_or (U && default_value) && {
-		return has_value () ? std::move (*this).value ()
-		                    : static_cast<T> (std::forward<U> (default_value));
-	}
-
-	// Access with generated default
-	template <typename Callable> T value_or_generate (Callable && callable) const & {
-		return has_value () ? value () : std::forward<Callable> (callable) ();
-	}
-	template <typename Callable> T value_or_generate (Callable && callable) && {
-		return has_value () ? std::move (*this).value () : std::forward<Callable> (callable) ();
-	}
-
-	// Map : Optional<T> -> Optional<U> with f : T -> U
-	template <typename Callable,
-	          typename ReturnType = typename std::result_of<Callable (const T &)>::type>
-	Optional<ReturnType> map (Callable && callable) const & {
-		if (has_value ())
-			return std::forward<Callable> (callable) (value ());
-		else
-			return {};
-	}
-	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &&)>::type>
-	Optional<ReturnType> map (Callable && callable) && {
-		if (has_value ())
-			return std::forward<Callable> (callable) (std::move (*this).value ());
-		else
-			return {};
-	}
-
-	// Filter : Optional<T> -> Optional<T>, propagate arg if p(arg), or return NullOpt
-	template <typename Predicate> Optional filter (Predicate && predicate) const & {
-		if (has_value () && std::forward<Predicate> (predicate) (value ()))
-			return *this;
-		else
-			return {};
-	}
-	template <typename Predicate> Optional filter (Predicate && predicate) && {
-		if (has_value () && std::forward<Predicate> (predicate) (value ()))
-			return std::move (*this);
-		else
-			return {};
-	}
 
 	// Modifiers
 	void reset () noexcept {
@@ -190,6 +139,54 @@ public:
 			other.create (std::move (value ()));
 			destroy ();
 		}
+	}
+
+	// Access with default
+	template <typename U> constexpr T value_or (U && default_value) const & {
+		return has_value () ? value () : static_cast<T> (std::forward<U> (default_value));
+	}
+	template <typename U> T value_or (U && default_value) && {
+		return has_value () ? std::move (*this).value ()
+		                    : static_cast<T> (std::forward<U> (default_value));
+	}
+
+	// Access with generated default
+	template <typename Callable> T value_or_generate (Callable && callable) const & {
+		return has_value () ? value () : std::forward<Callable> (callable) ();
+	}
+	template <typename Callable> T value_or_generate (Callable && callable) && {
+		return has_value () ? std::move (*this).value () : std::forward<Callable> (callable) ();
+	}
+
+	// Map : Optional<T> -> Optional<U> with f : T -> U
+	template <typename Callable,
+	          typename ReturnType = typename std::result_of<Callable (const T &)>::type>
+	Optional<ReturnType> map (Callable && callable) const & {
+		if (has_value ())
+			return Optional<ReturnType>{std::forward<Callable> (callable) (value ())};
+		else
+			return {};
+	}
+	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &&)>::type>
+	Optional<ReturnType> map (Callable && callable) && {
+		if (has_value ())
+			return Optional<ReturnType>{std::forward<Callable> (callable) (std::move (*this).value ())};
+		else
+			return {};
+	}
+
+	// Filter : Optional<T> -> Optional<T>, propagate value if p(value), or return NullOpt
+	template <typename Predicate> Optional filter (Predicate && predicate) const & {
+		if (has_value () && std::forward<Predicate> (predicate) (value ()))
+			return *this;
+		else
+			return {};
+	}
+	template <typename Predicate> Optional filter (Predicate && predicate) && {
+		if (has_value () && std::forward<Predicate> (predicate) (value ()))
+			return std::move (*this);
+		else
+			return {};
 	}
 
 private:
@@ -222,6 +219,95 @@ private:
 	bool has_value_;
 };
 
+template <typename T> class Optional<T &> {
+	/* Specialisation for references.
+	 * This specialisation has the same semantics as a pointer.
+	 *
+	 * Copy and moves just copy the pointer/reference.
+	 * Access returns the reference itself, so operator-> will modify the referenced object.
+	 * The reference can be modified by assignment and the same modifiers as the main class.
+	 * All modifiers bind to both T & and T * for convenience.
+	 */
+public:
+	using value_type = T &;
+
+	// Constructors
+	constexpr Optional () = default;
+	constexpr Optional (NullOpt) noexcept : Optional () {}
+	constexpr Optional (const Optional &) = default;
+	constexpr Optional (Optional &&) = default;
+	constexpr Optional (std::nullptr_t) noexcept : Optional () {}
+	constexpr explicit Optional (T * t) noexcept : pointer_ (t) {}
+	constexpr explicit Optional (T & t) noexcept : Optional (&t) {}
+	~Optional () = default;
+
+	// Assignment
+	Optional & operator= (NullOpt) noexcept {
+		reset ();
+		return *this;
+	}
+	Optional & operator= (const Optional &) = default;
+	Optional & operator= (Optional &&) = default;
+	Optional & operator= (std::nullptr_t) noexcept {
+		pointer_ = nullptr;
+		return *this;
+	}
+	Optional & operator= (T * t) {
+		pointer_ = t;
+		return *this;
+	}
+	Optional & operator= (T & t) { return *this = &t; }
+
+	// Status
+	constexpr bool has_value () const noexcept { return pointer_ != nullptr; }
+	constexpr explicit operator bool () const noexcept { return has_value (); }
+
+	// Unchecked access
+	T & value () const noexcept {
+		assert (has_value ());
+		return *pointer_;
+	}
+	T * operator-> () const noexcept { return pointer_; }
+	T & operator* () const noexcept { return value (); }
+
+	// Modifiers
+	void reset () noexcept { pointer_ = nullptr; }
+	void emplace (T * t) noexcept { pointer_ = t; }
+	void emplace (T & t) noexcept { emplace (&t); }
+	void swap (Optional & other) noexcept {
+		using std::swap;
+		swap (pointer_, other.pointer_);
+	}
+
+	// Access with default
+	constexpr T & value_or (T & default_ref) const { return has_value () ? value () : default_ref; }
+
+	// Access with generated default
+	template <typename Callable> constexpr T & value_or_generate (Callable && callable) const {
+		return has_value () ? value () : std::forward<Callable> (callable) ();
+	}
+
+	// Map : Optional<T &> -> Optional<U> with f : T & -> U
+	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &)>::type>
+	Optional<ReturnType> map (Callable && callable) const {
+		if (has_value ())
+			return Optional<ReturnType>{std::forward<Callable> (callable) (value ())};
+		else
+			return {};
+	}
+
+	// Filter : Optional<T &> -> Optional<T &>, propagate ref if p(ref), or return NullOpt
+	template <typename Predicate> Optional filter (Predicate && predicate) const {
+		if (has_value () && std::forward<Predicate> (predicate) (value ()))
+			return *this;
+		else
+			return {};
+	}
+
+private:
+	T * pointer_{nullptr};
+};
+
 /* a | b -> returns a if a, or b.
  * Both a and b are evaluated (no operator|| lazy semantics).
  * If both a and b are the same kind of reference (lvalue/rvalue), just return the reference.
@@ -240,4 +326,7 @@ template <typename T> Optional<T> operator| (const Optional<T> & a, Optional<T> 
 template <typename T> Optional<T> operator| (Optional<T> && a, const Optional<T> & b) {
 	return a ? std::move (a) : b;
 }
+
+// TODO optional_find for assoc containers
+// TODO operator| ending with T, returns T (default case for |)
 }

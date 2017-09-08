@@ -197,7 +197,7 @@ TEST_CASE ("constness") {
 	opt_const = 42; // Automatically uses reconstruction
 	CHECK (opt_const);
 	CHECK (*opt_const == 42);
-	opt_const.emplace(33);
+	opt_const.emplace (33);
 	CHECK (*opt_const == 33);
 	opt_const.reset ();
 	CHECK (!opt_const);
@@ -205,8 +205,8 @@ TEST_CASE ("constness") {
 
 TEST_CASE ("operator|") {
 	duck::Optional<int> empty;
-	duck::Optional<int> a {42};
-	duck::Optional<int> b {24};
+	duck::Optional<int> a{42};
+	duck::Optional<int> b{24};
 
 	auto c = empty | a | b;
 	CHECK (c);
@@ -215,6 +215,31 @@ TEST_CASE ("operator|") {
 	using Or_Of_LVRef_LVRef_is_LVRef = std::is_lvalue_reference<decltype (empty | a)>;
 	CHECK (Or_Of_LVRef_LVRef_is_LVRef::value);
 
-	using Or_Of_RVRef_RVRef_is_RVRef = std::is_rvalue_reference<decltype (std::move (empty) | std::move (a))>;
+	using Or_Of_RVRef_RVRef_is_RVRef =
+	    std::is_rvalue_reference<decltype (std::move (empty) | std::move (a))>;
 	CHECK (Or_Of_RVRef_RVRef_is_RVRef::value);
+}
+
+TEST_CASE ("reference optionals") {
+	//
+	int a = 42;
+	duck::Optional<int &> ref{a};
+	CHECK (ref);
+	CHECK (*ref == a);
+	*ref = 32;
+	CHECK (a == 32);
+	ref = nullptr;
+	CHECK (!ref);
+	CHECK (&ref.value_or (a) == &a);
+	ref = a;
+	CHECK (ref);
+	CHECK (&ref.value () == &a);
+	ref = duck::nullopt;
+	CHECK (!ref);
+	ref = &a;
+	CHECK (ref);
+	CHECK (&ref.value () == &a);
+	auto b = ref.map ([] (int a) { return -a; });
+	CHECK (b);
+	CHECK (*b == -a);
 }
