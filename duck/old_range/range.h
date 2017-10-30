@@ -3,9 +3,9 @@
 // Top level range object with full functionnality
 // STATUS: operational, needs added functionality
 
-#include <duck/iterator/integer.h>
-#include <duck/range/base.h>
-#include <duck/range/combinator.h>
+#include <duck/old_range/integer_iterator.h>
+#include <duck/old_range/base.h>
+#include <duck/old_range/combinator.h>
 #include <iterator>
 #include <type_traits>
 #include <utility>

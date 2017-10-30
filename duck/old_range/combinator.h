@@ -3,7 +3,7 @@
 // Defines combinator iterators, and factory functions to use them in ranges.
 
 #include <duck/iterator/traits.h>
-#include <duck/range/base.h>
+#include <duck/old_range/base.h>
 #include <utility>
 
 namespace duck {
