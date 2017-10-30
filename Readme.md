@@ -17,11 +17,15 @@ Status
 ------
 
 Currently completely work in progress.
-TODO:
+TODO (completely out-of-date and not updated often):
 - add license stuff and small doc in files.
-- expand std::algorithm version with ranges ?
-- Continue combinators (fix filter, add transform)
-- Formatter placeholder (static, and dynamic ?)
+- ranges:
+	- rewrite ranges to V2 (in progress): lazy, simpler iterators referencing ranges.
+	- expand std::algorithm version with ranges ?
+	- combinators with operator| + type tags syntax ?
+- formatter:
+	- bad, generate too many types.
+	- introduce piece-string system ?
 
 License
 -------
