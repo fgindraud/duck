@@ -3,8 +3,8 @@
 // Range V2
 // STATUS: WIP
 
+#include <duck/type_traits.h>
 #include <iterator>
-#include <type_traits>
 #include <utility>
 
 namespace duck {
@@ -36,7 +36,7 @@ namespace Range {
 	 * - Iterator: iterator type
 	 * - SizeType: type returned by size() method
 	 */
-	template <typename RangeType> struct Traits;
+	template <typename RangeType> struct RangeTraits;
 
 	/* Common base interface for range types.
 	 * Intended to be used in a CRTP pattern extending a derived range class.
@@ -49,7 +49,7 @@ namespace Range {
 	public:
 		constexpr bool empty () const { return derived ().begin () == derived ().end (); }
 
-		constexpr typename Traits<Derived>::SizeType size () const {
+		constexpr typename RangeTraits<Derived>::SizeType size () const {
 			return std::distance (derived ().begin (), derived ().end ());
 		}
 
@@ -61,7 +61,7 @@ namespace Range {
 	 */
 	template <typename It> class IteratorPair;
 
-	template <typename It> struct Traits<IteratorPair<It>> {
+	template <typename It> struct RangeTraits<IteratorPair<It>> {
 		using Iterator = It;
 		using SizeType = Detail::IteratorDifferenceType<It>;
 	};
@@ -164,7 +164,7 @@ namespace Range {
 	 */
 	template <typename Container> class ContainerRef;
 
-	template <typename Container> struct Traits<ContainerRef<Container>> {
+	template <typename Container> struct RangeTraits<ContainerRef<Container>> {
 		using Iterator = Detail::IteratorTypeOf<Container>;
 		using SizeType = typename Container::size_type;
 	};
@@ -174,15 +174,15 @@ namespace Range {
 		Container & container_;
 
 	public:
-		using Trait = Traits<ContainerRef<Container>>;
+		using Traits = RangeTraits<ContainerRef<Container>>;
 
 		constexpr ContainerRef (Container & ref) : container_ (ref) {}
 
-		constexpr typename Trait::Iterator begin () const {
+		constexpr typename Traits::Iterator begin () const {
 			using std::begin;
 			return begin (container_);
 		}
-		constexpr typename Trait::Iterator end () const {
+		constexpr typename Traits::Iterator end () const {
 			using std::end;
 			return end (container_);
 		}
@@ -190,7 +190,7 @@ namespace Range {
 		Container & container () const noexcept { return container_; }
 
 		constexpr bool empty () const { return container_.empty (); }
-		constexpr typename Trait::SizeType size () const { return container_.size (); }
+		constexpr typename Traits::SizeType size () const { return container_.size (); }
 	};
 
 	template <typename Container, typename = Detail::EnableIfHasBegin<Container>>
@@ -202,6 +202,7 @@ namespace Range {
 		// TODO add special case to just propagate ranges in range()
 		// TODO use Base<T> to check if it is a range ?
 		// TODO add a simple combinator for test !
+		// -> Defining f(const T&), f(T&) and f(T&&) dispatches calls as intended.
 
 #if 0
 	template <typename It> class Range : public Base<It> {
