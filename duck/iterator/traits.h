@@ -1,6 +1,7 @@
 #pragma once
 
 // Iterator traits
+// FIXME remove after functionnality is integrated in Range
 
 #include <iterator>
 #include <type_traits>
