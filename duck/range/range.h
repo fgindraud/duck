@@ -9,26 +9,39 @@
 
 namespace duck {
 namespace Range {
-	namespace Detail {
-		// Getters
-		template <typename It>
-		using IteratorCategory = typename std::iterator_traits<It>::iterator_category;
-		template <typename It>
-		using IteratorDifferenceType = typename std::iterator_traits<It>::difference_type;
+	/*********************************************************************************
+	 * Type traits.
+	 */
 
-		// Get iterator type through call begin
-		namespace Detail {
-			using std::begin;
-			template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
-		} // namespace Detail
-		template <typename T> using IteratorTypeOf = decltype (Detail::call_begin (std::declval<T> ()));
+	// Is an iterator: std::iterator_traits<It> is SFINAE compatible
+	template <typename It, typename = void> struct IsIterator : std::false_type {};
+	template <typename It>
+	struct IsIterator<It, VoidT<typename std::iterator_traits<It>::iterator_category>>
+	    : std::true_type {};
 
-		// Enable ifs TODO use void_t
-		template <typename It> using EnableIfIsIterator = IteratorCategory<It>;
-		template <typename Int>
-		using EnableIfIsInteger = typename std::enable_if<std::is_integral<Int>::value>::type;
-		template <typename T> using EnableIfHasBegin = IteratorTypeOf<T>;
-	} // namespace Detail
+	namespace UnifiedCall {
+		// namespace representing the "using std::sth; sth(object);" pattern.
+		using std::begin;
+		using std::end;
+		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
+		template <typename T> auto call_end (T && t) -> decltype (end (std::forward<T> (t)));
+	} // namespace UnifiedCall
+	template <typename T>
+	using IteratorTypeOf = decltype (UnifiedCall::call_begin (std::declval<T> ()));
+
+	// Is iterable: if we can call begin & end on the object.
+	template <typename T, typename = void> struct IsIterable : std::false_type {};
+	template <typename T>
+	struct IsIterable<T, VoidT<decltype (UnifiedCall::call_begin (std::declval<T> ())),
+	                           decltype (UnifiedCall::call_end (std::declval<T> ()))>>
+	    : std::true_type {};
+
+	// Is container: has empty(), size() methods and is Iterable.
+	template <typename T, typename = void> struct IsContainer : std::false_type {};
+	template <typename T>
+	struct IsContainer<
+	    T, VoidT<decltype (std::declval<T> ().empty ()), decltype (std::declval<T> ().size ())>>
+	    : IsIterable<T> {};
 
 	/**********************************************************************************
 	 * Provides typedefs for Range types (must be specialised).
@@ -38,9 +51,19 @@ namespace Range {
 	 */
 	template <typename RangeType> struct RangeTraits;
 
+	/* Type trait to test if this is a range type.
+	 * Impl: tests if RangeTraits is defined.
+	 */
+	template <typename T, typename = void> struct IsRange : std::false_type {};
+	template <typename T>
+	struct IsRange<T, VoidT<typename RangeTraits<T>::Iterator>> : std::true_type {};
+
 	/* Common base interface for range types.
 	 * Intended to be used in a CRTP pattern extending a derived range class.
 	 * Derived classes can override these functions if they have a better implementation.
+	 *
+	 * Ranges are not guaranteed to inherit from Base.
+	 * To take a range argument, prefer using SFINAE restriction with IsRange trait.
 	 */
 	template <typename Derived> class Base {
 	private:
@@ -63,10 +86,12 @@ namespace Range {
 
 	template <typename It> struct RangeTraits<IteratorPair<It>> {
 		using Iterator = It;
-		using SizeType = Detail::IteratorDifferenceType<It>;
+		using SizeType = typename std::iterator_traits<It>::difference_type;
 	};
 
 	template <typename It> class IteratorPair : public Base<IteratorPair<It>> {
+		static_assert (IsIterator<It>::value, "IteratorPair<It>: It must be a valid iterator type");
+
 	private:
 		It begin_;
 		It end_;
@@ -79,7 +104,7 @@ namespace Range {
 		constexpr It end () const { return end_; }
 	};
 
-	template <typename It, typename = Detail::EnableIfIsIterator<It>>
+	template <typename It, typename = EnableIfV<IsIterator<It>>>
 	constexpr IteratorPair<It> range (It begin_it, It end_it) {
 		return {std::move (begin_it), std::move (end_it)};
 	}
@@ -149,60 +174,139 @@ namespace Range {
 		Int n_{};
 	};
 
-	template <typename Int, typename = Detail::EnableIfIsInteger<Int>>
+	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
 	constexpr IteratorPair<IntegerIterator<Int>> range (Int from, Int to) {
 		return {IntegerIterator<Int>{from}, IntegerIterator<Int>{to}};
 	}
-	template <typename Int, typename = Detail::EnableIfIsInteger<Int>>
+	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
 	constexpr IteratorPair<IntegerIterator<Int>> range (Int to) {
 		return range (Int{0}, to);
 	}
 
 	/**********************************************************************************
-	 * Container reference.
-	 * Can store a const reference (Container = const T) or mutable reference (Container = T).
+	 * Iterable reference & value.
+	 * Ref stores: const reference (const T) or mutable reference (T).
+	 * Value stores the iterable object itself.
+	 * This class is just a lazy iterator pair.
 	 */
-	template <typename Container> class ContainerRef;
+	template <typename T> class IterableRef;
+	template <typename T> class IterableValue;
 
-	template <typename Container> struct RangeTraits<ContainerRef<Container>> {
-		using Iterator = Detail::IteratorTypeOf<Container>;
-		using SizeType = typename Container::size_type;
-	};
+	// Same traits as the iterator pair.
+	template <typename T>
+	struct RangeTraits<IterableRef<T>> : RangeTraits<IteratorPair<IteratorTypeOf<T>>> {};
+	template <typename T>
+	struct RangeTraits<IterableValue<T>> : RangeTraits<IteratorPair<IteratorTypeOf<T>>> {};
 
-	template <typename Container> class ContainerRef : public Base<ContainerRef<Container>> {
-	private:
-		Container & container_;
+	template <typename T> class IterableRef : public Base<IterableRef<T>> {
+		static_assert (IsIterable<T>::value, "IterableRef<T>: requires that T is iterable");
+
+	protected:
+		T & iterable_;
 
 	public:
-		using Traits = RangeTraits<ContainerRef<Container>>;
+		constexpr IterableRef (T & ref) : iterable_ (ref) {}
 
-		constexpr ContainerRef (Container & ref) : container_ (ref) {}
-
-		constexpr typename Traits::Iterator begin () const {
+		constexpr typename RangeTraits<IterableRef<T>>::Iterator begin () const {
 			using std::begin;
-			return begin (container_);
+			return begin (iterable_);
 		}
-		constexpr typename Traits::Iterator end () const {
+		constexpr typename RangeTraits<IterableRef<T>>::Iterator end () const {
 			using std::end;
-			return end (container_);
+			return end (iterable_);
 		}
-
-		Container & container () const noexcept { return container_; }
-
-		constexpr bool empty () const { return container_.empty (); }
-		constexpr typename Traits::SizeType size () const { return container_.size (); }
 	};
 
-	template <typename Container, typename = Detail::EnableIfHasBegin<Container>>
-	constexpr ContainerRef<Container> range (Container & container) {
-		return {container};
+	template <typename T> class IterableValue : public Base<IterableValue<T>> {
+		static_assert (IsIterable<T>::value, "IterableValue<T>: requires that T is iterable");
+
+	protected:
+		T iterable_;
+
+	public:
+		constexpr IterableValue (T && t) : iterable_ (std::move (t)) {}
+
+		constexpr typename RangeTraits<IterableRef<T>>::Iterator begin () const {
+			using std::begin;
+			return begin (iterable_);
+		}
+		constexpr typename RangeTraits<IterableRef<T>>::Iterator end () const {
+			using std::end;
+			return end (iterable_);
+		}
+	};
+
+	// range() overloads: temporaries will use IterableValue.
+	template <typename T, typename = EnableIf<IsIterable<T>::value && !IsContainer<T>::value>>
+	constexpr IterableRef<T> range (T & iterable) {
+		return {iterable};
+	}
+	template <typename T, typename = EnableIf<IsIterable<T>::value && !IsContainer<T>::value>>
+	constexpr IterableValue<T> range (T && iterable) {
+		return {std::move (iterable)};
 	}
 
-		// TODO add ContainerValue
+	/**********************************************************************************
+	 * Container reference & value.
+	 * Similar to iterable, but specialised for STL compatible containers.
+	 * Provide optimized functions using the container directly (empty, size).
+	 */
+	template <typename C> class ContainerRef;
+	template <typename C> class ContainerValue;
+
+	// Traits
+	template <typename C> struct RangeTraits<ContainerRef<C>> {
+		using Iterator = IteratorTypeOf<C>;
+		using SizeType = typename C::size_type;
+	};
+	template <typename C> struct RangeTraits<ContainerValue<C>> {
+		using Iterator = IteratorTypeOf<C>;
+		using SizeType = typename C::size_type;
+	};
+
+	template <typename C> class ContainerRef : public IterableRef<C> {
+		static_assert (IsContainer<C>::value, "ContainerRef<C>: C must be a container");
+
+	protected:
+		using IterableRef<C>::iterable_;
+
+	public:
+		constexpr ContainerRef (C & ref) : IterableRef<C> (ref) {}
+
+		constexpr bool empty () const { return iterable_.empty (); }
+		constexpr typename RangeTraits<ContainerRef<C>>::SizeType size () const {
+			return iterable_.size ();
+		}
+	};
+
+	template <typename C> class ContainerValue : public IterableValue<C> {
+		static_assert (IsContainer<C>::value, "ContainerValue<C>: C must be a container");
+
+	protected:
+		using IterableValue<C>::iterable_;
+
+	public:
+		constexpr ContainerValue (C && c) : IterableValue<C> (std::move (c)) {}
+
+		constexpr bool empty () const { return iterable_.empty (); }
+		constexpr typename RangeTraits<ContainerValue<C>>::SizeType size () const {
+			return iterable_.size ();
+		}
+	};
+
+	// range () overloads
+	template <typename C, typename = EnableIfV<IsContainer<C>>>
+	constexpr ContainerRef<C> range (C & container) {
+		return {container};
+	}
+	template <typename C, typename = EnableIfV<IsContainer<C>>>
+	constexpr ContainerValue<C> range (C && container) {
+		return {std::move (container)};
+	}
+
+		// TODO maybe merge *Value & Ref ?
 		// TODO add special case to just propagate ranges in range()
-		// TODO use Base<T> to check if it is a range ?
 		// TODO add a simple combinator for test !
-		// -> Defining f(const T&), f(T&) and f(T&&) dispatches calls as intended.
 
 #if 0
 	template <typename It> class Range : public Base<It> {

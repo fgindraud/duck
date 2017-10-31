@@ -24,6 +24,12 @@ namespace Traits {
 template <typename... Types> struct MakeVoid { using Type = void; };
 template <typename... Types> using VoidT = typename MakeVoid<Types...>::Type;
 
+/* Enable if typedef.
+ * Missing std::enable_if_t typedef in c++11.
+ */
+template <bool condition> using EnableIf = typename std::enable_if<condition>::type;
+template <typename ConditionType> using EnableIfV = EnableIf<ConditionType::value>;
+
 // Common type tags
 template <typename T> struct InPlace { constexpr InPlace () = default; };
 constexpr InPlace<void> in_place{};
