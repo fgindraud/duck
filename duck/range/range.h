@@ -48,8 +48,11 @@ namespace Range {
 		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
 		template <typename T> auto call_end (T && t) -> decltype (end (std::forward<T> (t)));
 	} // namespace UnifiedCall
+
+	// Supports both T& and T. In case of T, add reference to ensure this is a lvalue.
 	template <typename T>
-	using IteratorTypeOf = decltype (UnifiedCall::call_begin (std::declval<T> ()));
+	using IteratorTypeOf = decltype (
+	    UnifiedCall::call_begin (std::declval<typename std::add_lvalue_reference<T>::type> ()));
 
 	// Is iterable: if we can call begin & end on the object.
 	template <typename T, typename = void> struct IsIterable : std::false_type {};
@@ -223,14 +226,14 @@ namespace Range {
 
 	// Same traits as the iterator pair.
 	// std::remove_reference<T> gives us const I or I, to select I::const_iterator or I::iterator
-	// TODO make a trait to select iterable base type
-	template <typename T>
-	struct RangeTraits<Iterable<T>> : RangeTraits<IteratorPair<IteratorTypeOf<IterableBaseType<T>>>> {
+	template <typename T> struct RangeTraits<Iterable<T>> {
+		using Iterator = IteratorTypeOf<IterableBaseType<T>>;
+		using SizeType = typename std::iterator_traits<Iterator>::difference_type;
 	};
 
 	template <typename T> class Iterable : public Base<Iterable<T>> {
 		static_assert (IsIterable<T>::value, "Iterable<T>: requires that T is iterable");
-		static_assert (!std::is_rvalue_reference<T>::value,
+		static_assert (std::is_lvalue_reference<T>::value || !std::is_reference<T>::value,
 		               "Iterable<T>: T must be 'const I&', 'I&', or 'I'");
 
 	protected:
@@ -293,9 +296,8 @@ namespace Range {
 		return {std::forward<C> (container)};
 	}
 
-		// TODO type tests !
-		// TODO add special case to just propagate ranges in range()
-		// TODO add a simple combinator for test !
+	// TODO add special case to just propagate ranges in range()
+	// TODO add a simple combinator for test !
 
 #if 0
 	template <typename It> class Range : public Base<It> {
