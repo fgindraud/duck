@@ -4,8 +4,10 @@
 // STATUS: WIP
 
 #include <duck/type_traits.h>
+#include <initializer_list> // init list overload
 #include <iterator>
 #include <utility>
+#include <vector> // init list overload
 
 namespace duck {
 namespace Range {
@@ -49,24 +51,27 @@ namespace Range {
 		template <typename T> auto call_end (T && t) -> decltype (end (std::forward<T> (t)));
 	} // namespace UnifiedCall
 
-	// Supports both T& and T. In case of T, add reference to ensure this is a lvalue.
+	// Supports both T& and T.
 	template <typename T>
-	using IteratorTypeOf = decltype (
-	    UnifiedCall::call_begin (std::declval<typename std::add_lvalue_reference<T>::type> ()));
+	using IteratorTypeOf = decltype (UnifiedCall::call_begin (std::declval<T &> ()));
 
-	// Is iterable: if we can call begin & end on the object.
+	// Is iterable: if we can call begin & end on the object
 	template <typename T, typename = void> struct IsIterable : std::false_type {};
 	template <typename T>
-	struct IsIterable<T, VoidT<decltype (UnifiedCall::call_begin (std::declval<T> ())),
-	                           decltype (UnifiedCall::call_end (std::declval<T> ()))>>
+	struct IsIterable<T, VoidT<decltype (UnifiedCall::call_begin (std::declval<T &> ())),
+	                           decltype (UnifiedCall::call_end (std::declval<T &> ()))>>
 	    : std::true_type {};
+	template <typename T>
+	using IsBaseTypeIterable = IsIterable<typename std::remove_reference<T>::type>;
 
 	// Is container: has empty(), size() methods and is Iterable.
 	template <typename T, typename = void> struct IsContainer : std::false_type {};
 	template <typename T>
-	struct IsContainer<
-	    T, VoidT<decltype (std::declval<T> ().empty ()), decltype (std::declval<T> ().size ())>>
+	struct IsContainer<T, VoidT<decltype (std::declval<T &> ().empty ()),
+	                            decltype (std::declval<T &> ().size ()), typename T::size_type>>
 	    : IsIterable<T> {};
+	template <typename T>
+	using IsBaseTypeContainer = IsContainer<typename std::remove_reference<T>::type>;
 
 	/**********************************************************************************
 	 * Provides typedefs for Range types (must be specialised).
@@ -232,7 +237,7 @@ namespace Range {
 	};
 
 	template <typename T> class Iterable : public Base<Iterable<T>> {
-		static_assert (IsIterable<T>::value, "Iterable<T>: requires that T is iterable");
+		static_assert (IsBaseTypeIterable<T>::value, "Iterable<T>: requires that T is iterable");
 		static_assert (std::is_lvalue_reference<T>::value || !std::is_reference<T>::value,
 		               "Iterable<T>: T must be 'const I&', 'I&', or 'I'");
 
@@ -258,7 +263,8 @@ namespace Range {
 
 	// range() overload
 	// Matchings: const I& -> Iterable<const I&> ; I& -> Iterable<I&> ; I&& -> Iterable<I>.
-	template <typename T, typename = EnableIf<IsIterable<T>::value && !IsContainer<T>::value>>
+	template <typename T,
+	          typename = EnableIf<IsBaseTypeIterable<T>::value && !IsBaseTypeContainer<T>::value>>
 	constexpr Iterable<T> range (T && iterable) {
 		return {std::forward<T> (iterable)};
 	}
@@ -276,7 +282,7 @@ namespace Range {
 	};
 
 	template <typename C> class Container : public Iterable<C> {
-		static_assert (IsContainer<C>::value, "Container<C>: C must be a container");
+		static_assert (IsBaseTypeContainer<C>::value, "Container<C>: C must be a container");
 
 	protected:
 		using Iterable<C>::iterable_;
@@ -291,13 +297,20 @@ namespace Range {
 	};
 
 	// range () overloads
-	template <typename C, typename = EnableIfV<IsContainer<C>>>
+	template <typename C, typename = EnableIfV<IsBaseTypeContainer<C>>>
 	constexpr Container<C> range (C && container) {
 		return {std::forward<C> (container)};
 	}
+	template <typename T> constexpr Container<std::vector<T>> range (std::initializer_list<T> ilist) {
+		// Range overload for initializer_list<T>.
+		// initializer_list are somewhat equivalent to reference to const temporary.
+		// Thus they cannot be stored (lifetime will not be extended enough).
+		// So we have to build a container with its data (vector will do fine...).
+		return {ilist};
+	}
 
-	// TODO add special case to just propagate ranges in range()
-	// TODO add a simple combinator for test !
+		// TODO add special case to just propagate ranges in range()
+		// TODO add a simple combinator for test !
 
 #if 0
 	template <typename It> class Range : public Base<It> {

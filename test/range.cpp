@@ -2,7 +2,9 @@
 #include "doctest.h"
 
 #include <duck/range/range.h>
+#include <list>
 #include <type_traits>
+#include <vector>
 
 // Type deduction dummy types
 struct DummyIteratorTraits {
@@ -21,6 +23,7 @@ struct MyIterable {
 	ConstIterator end () const { return {}; }
 };
 struct MyContainer : MyIterable {
+	using size_type = int;
 	bool empty () const { return true; }
 	int size () const { return 0; }
 };
@@ -96,4 +99,36 @@ TEST_CASE ("integer iterator") {
 	auto it2 = it - 2;
 	CHECK (it - it2 == 2);
 	CHECK (it2 < it);
+	it++;
+	CHECK (*it == 43);
+}
+
+TEST_CASE ("integer range") {
+	auto r = duck::range (4, 10);
+	CHECK (*r.begin () == 4);
+	CHECK (*r.end () == 10);
+	CHECK_FALSE (r.empty ());
+	CHECK (r.size () == 6);
+	auto r2 = duck::range (0);
+	CHECK (r2.empty ());
+	CHECK (r2.size () == 0);
+}
+
+TEST_CASE ("container ref range") {
+	std::vector<int> vec{0, 1, 2, 3, 4};
+	auto vec_r = duck::range (vec);
+	CHECK_FALSE (vec_r.empty ());
+	CHECK (vec_r.size () == 5);
+	CHECK (vec_r.begin () == vec.begin ());
+	CHECK (vec_r.end () == vec.end ());
+	*vec_r.begin () = 42;
+	CHECK (vec[0] == 42);
+	CHECK (std::equal (vec.begin (), vec.end (), vec_r.begin ()));
+}
+
+TEST_CASE ("container value range") {
+	auto r = duck::range ({1, 2, 3, 4});
+	CHECK_FALSE (r.empty ());
+	CHECK (r.size () == 4);
+	CHECK (*r.begin () == 1);
 }
