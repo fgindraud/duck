@@ -30,7 +30,7 @@ namespace Detail {
 	private:
 		void * p_;
 	};
-}
+} // namespace Detail
 
 /* Helper classes used to define a virtual move function.
  * Any type T that uses move operations in a SmallUniquePtr MUST inherit from
@@ -97,7 +97,7 @@ public:
 	}
 	template <typename U, typename V, typename... Args>
 	SmallUniquePtr (InPlace<U>, std::initializer_list<V> ilist, Args &&... args) {
-		build<U> (std::move (ilist), std::forward<Args> (args)...);
+		build<U> (ilist, std::forward<Args> (args)...);
 	}
 
 	~SmallUniquePtr () { reset (); }
@@ -150,7 +150,7 @@ public:
 	}
 	template <typename U = type, typename V, typename... Args>
 	void reset (InPlace<U>, std::initializer_list<V> ilist, Args &&... args) {
-		emplace<U> (std::move (ilist), std::forward<Args> (args)...);
+		emplace<U> (ilist, std::forward<Args> (args)...);
 	}
 
 	template <typename U = type, typename... Args> void emplace (Args &&... args) {
@@ -160,7 +160,7 @@ public:
 	template <typename U = type, typename V, typename... Args>
 	void emplace (std::initializer_list<V> ilist, Args &&... args) {
 		reset ();
-		build<U> (std::move (ilist), std::forward<Args> (args)...);
+		build<U> (ilist, std::forward<Args> (args)...);
 	}
 
 	// Observers
@@ -268,4 +268,4 @@ template <typename T, std::size_t StorageSize = sizeof (T), typename... Args>
 SmallUniquePtr<T, StorageSize> make_small_unique (Args &&... args) {
 	return SmallUniquePtr<T, StorageSize>{InPlace<T>{}, std::forward<Args> (args)...};
 }
-}
+} // namespace duck

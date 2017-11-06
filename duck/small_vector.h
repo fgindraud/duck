@@ -78,7 +78,7 @@ public:
 		return *this;
 	}
 	SmallVectorBase & operator= (std::initializer_list<T> ilist) {
-		assign (std::move (ilist));
+		assign (ilist);
 		return *this;
 	}
 
@@ -92,7 +92,7 @@ public:
 		clear ();
 		append_sequence_impl (std::move (first), std::move (last), Category{});
 	}
-	void assign (const std::initializer_list<T> ilist) {
+	void assign (std::initializer_list<T> ilist) {
 		clear ();
 		append_sequence_by_move (ilist.begin (), ilist.end ());
 	}
@@ -318,7 +318,7 @@ public:
 
 	SmallVector (SmallVectorBase<T> && other) noexcept : SmallVector () { *this = std::move (other); }
 
-	SmallVector (std::initializer_list<T> ilist) : SmallVector () { *this = std::move (ilist); }
+	SmallVector (std::initializer_list<T> ilist) : SmallVector () { *this = ilist; }
 
 	// Element access: all in SmallVectorBase
 
@@ -344,4 +344,4 @@ auto SmallVectorBase<T>::inline_storage_ptr () const noexcept -> const_pointer {
 	    &static_cast<const SmallVector<T, small_vector_minimum_inline_size> *> (this)
 	         ->inline_storage_);
 }
-}
+} // namespace duck

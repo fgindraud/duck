@@ -53,7 +53,7 @@ namespace Variant {
 			throw BadVariantAccess{};
 			// FIXME for now invalid variant throws BadVariantAccess on visit.
 		}
-	}
+	} // namespace Detail
 
 	template <typename... Types> class Static {
 		// Variant for a static list of types
@@ -137,7 +137,7 @@ namespace Variant {
 		template <typename T, typename U, typename... Args>
 		T & emplace (std::initializer_list<U> ilist, Args &&... args) {
 			reset ();
-			return build<T> (std::move (ilist), std::forward<Args> (args)...);
+			return build<T> (ilist, std::forward<Args> (args)...);
 		}
 
 		template <typename T> T & get_unsafe () noexcept { return reinterpret_cast<T &> (storage_); }
@@ -234,5 +234,5 @@ namespace Variant {
 		typename std::aligned_storage<len, align>::type storage_;
 		void (*destructor_) (void *);
 	};
-}
-}
+} // namespace Variant
+} // namespace duck
