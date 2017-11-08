@@ -5,7 +5,6 @@
 
 #include <duck/old_range/integer_iterator.h>
 #include <duck/old_range/base.h>
-#include <duck/old_range/combinator.h>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -73,13 +72,6 @@ namespace Range {
 		// Build a container from this range
 		template <typename Container> Container to_container () const {
 			return Container (begin (), end ());
-		}
-
-		// Combinators
-		Range<std::reverse_iterator<It>> reverse () const { return reverse_base (*this); }
-		template <typename UnaryPredicate>
-		Range<Iterator::Filter<It, UnaryPredicate>> filter (UnaryPredicate p) const {
-			return filter_base (*this, std::move (p));
 		}
 	};
 

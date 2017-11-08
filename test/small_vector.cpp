@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/old_range/range.h> // FIXME
+#include <duck/range/range.h>
 #include <duck/small_vector.h>
 #include <list>
 
