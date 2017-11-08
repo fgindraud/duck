@@ -80,6 +80,10 @@ namespace Range {
 	 * - SizeType: type returned by size() method
 	 */
 	template <typename RangeType> struct RangeTraits;
+	
+	// Typedefs
+	template<typename R> using RangeIterator = typename RangeTraits<R>::Iterator;
+	template<typename R> using RangeIteratorTraits = std::iterator_traits<RangeIterator<R>>;
 
 	/* Type trait to test if this is a range type.
 	 * Impl: tests if RangeTraits is defined.
@@ -92,14 +96,14 @@ namespace Range {
 	 * Intended to be used in a CRTP pattern extending a derived range class.
 	 * Derived classes can override these functions if they have a better implementation.
 	 *
-	 * Ranges are not guaranteed to inherit from Base.
-	 * To take a range argument, prefer using SFINAE restriction with IsRange trait.
+	 * Ranges must inherit from Base.
+	 * Ranges can be taken by reference through it (similar to eigen strategy).
+	 * Note that all methods should be called through derived().method ().
 	 */
 	template <typename Derived> class Base {
-	private:
+	public:
 		constexpr const Derived & derived () const { return static_cast<const Derived &> (*this); }
 
-	public:
 		constexpr bool empty () const { return derived ().begin () == derived ().end (); }
 
 		constexpr typename RangeTraits<Derived>::SizeType size () const {
@@ -241,7 +245,7 @@ namespace Range {
 		static_assert (std::is_lvalue_reference<T>::value || !std::is_reference<T>::value,
 		               "Iterable<T>: T must be 'const I&', 'I&', or 'I'");
 
-	protected:
+	private:
 		T iterable_; // Reference for const I& / I&, object for I.
 
 	public:
@@ -277,22 +281,34 @@ namespace Range {
 	template <typename C> class Container;
 
 	// Traits
-	template <typename C> struct RangeTraits<Container<C>> : RangeTraits<Iterable<C>> {
+	template <typename C> struct RangeTraits<Container<C>> {
+		using Iterator = IteratorTypeOf<IterableBaseType<C>>;
 		using SizeType = typename IterableBaseType<C>::size_type;
 	};
 
-	template <typename C> class Container : public Iterable<C> {
+	template <typename C> class Container : public Base<Container<C>> {
+		static_assert (std::is_lvalue_reference<C>::value || !std::is_reference<C>::value,
+		               "Container<C>: C must be 'const I&', 'I&', or 'I'");
 		static_assert (IsBaseTypeContainer<C>::value, "Container<C>: C must be a container");
 
-	protected:
-		using Iterable<C>::iterable_;
+	private:
+		C container_;
 
 	public:
-		constexpr Container (C && c) : Iterable<C> (std::forward<C> (c)) {}
+		constexpr Container (C && c) : container_ (std::forward<C> (c)) {}
 
-		constexpr bool empty () const { return iterable_.empty (); }
+		constexpr typename RangeTraits<Container<C>>::Iterator begin () const {
+			using std::begin;
+			return begin (container_);
+		}
+		constexpr typename RangeTraits<Container<C>>::Iterator end () const {
+			using std::end;
+			return end (container_);
+		}
+
+		constexpr bool empty () const { return container_.empty (); }
 		constexpr typename RangeTraits<Container<C>>::SizeType size () const {
-			return iterable_.size ();
+			return container_.size ();
 		}
 	};
 
