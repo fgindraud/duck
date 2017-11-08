@@ -4,6 +4,7 @@
 // STATUS: WIP
 
 #include <duck/range/range.h>
+#include <limits>
 
 namespace duck {
 namespace Range {
@@ -11,16 +12,14 @@ namespace Range {
 	 */
 
 	/********************************************************************************
-	 * Slice. TODO
+	 * Slicing. TODO
+	 * Just pack lambdas that transform iterators ?
 	 */
-	template <typename R> class Sliced;
-
-	template <typename R> struct RangeTraits<Sliced<R>> : RangeTraits<R> {};
-
-	template <typename R> class Sliced : public Base<Sliced<R>> {};
 
 	/********************************************************************************
 	 * Counted range.
+	 *
+	 * end() pointer index is UB.
 	 * TODO finish, be careful of ref/pointers to temporaries
 	 */
 	template <typename R, typename IntType> class Counted;
@@ -32,63 +31,63 @@ namespace Range {
 	public:
 		using iterator_category = typename std::iterator_traits<It>::iterator_category;
 		struct value_type {
-			typename std::iterator_traits<It>::reference value; // FIXME make value / index methods
+			It it;
 			IntType index;
+			constexpr value_type () = default;
+			typename std::iterator_traits<It>::reference value () const { return *it; }
 		};
 		using difference_type = typename std::iterator_traits<It>::difference_type;
 		using pointer = const value_type *;
-		using reference = value_type; // Not standard compliant
+		using reference = const value_type &;
 
-		constexpr CountedIterator () noexcept = default;
-		constexpr CountedIterator (It it, IntType n) : it_ (it), n_ (n) {}
+		constexpr CountedIterator () = default;
+		constexpr CountedIterator (value_type d) : d_ (d) {}
 
 		// Input / output
-		CountedIterator & operator++ () noexcept { return ++it_, ++n_, *this; }
-		constexpr reference operator* () const noexcept { return {*it_, n_}; }
-		constexpr pointer operator-> () const noexcept { return &n_; }
-		constexpr bool operator== (const CountedIterator & o) const noexcept { return it_ == o.it_; }
-		constexpr bool operator!= (const CountedIterator & o) const noexcept { return it_ != o.it_; }
+		CountedIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
+		constexpr reference operator* () const { return d_; }
+		constexpr pointer operator-> () const { return &d_; }
+		constexpr bool operator== (const CountedIterator & o) const { return d_.it == o.d_.it; }
+		constexpr bool operator!= (const CountedIterator & o) const { return d_.it != o.d_.it; }
 
 		// Forward
-		CountedIterator operator++ (int) noexcept {
+		CountedIterator operator++ (int) {
 			CountedIterator tmp (*this);
 			++*this;
 			return tmp;
 		}
 
 		// Bidir
-		CountedIterator & operator-- () noexcept { return --it_, --n_, *this; }
-		CountedIterator operator-- (int) noexcept {
+		CountedIterator & operator-- () { return --d_.it, --d_.index, *this; }
+		CountedIterator operator-- (int) {
 			CountedIterator tmp (*this);
 			--*this;
 			return tmp;
 		}
 
 		// Random access
-		CountedIterator & operator+= (difference_type n) noexcept { return it_ += n, n_ += n, *this; }
-		constexpr CountedIterator operator+ (difference_type n) const noexcept {
-			return CountedIterator (it_ + n, n_ + n);
+		CountedIterator & operator+= (difference_type n) { return d_.it += n, d_.index += n, *this; }
+		constexpr CountedIterator operator+ (difference_type n) const {
+			return CountedIterator (d_.it + n, d_.index + n);
 		}
-		friend constexpr CountedIterator operator+ (difference_type n,
-		                                            const CountedIterator & it) noexcept {
+		friend constexpr CountedIterator operator+ (difference_type n, const CountedIterator & it) {
 			return it + n;
 		}
-		CountedIterator & operator-= (difference_type n) noexcept { return it_ -= n, n_ -= n,*this; }
-		constexpr CountedIterator operator- (difference_type n) const noexcept {
-			return CountedIterator (it_ - n, n_ - n);
+		CountedIterator & operator-= (difference_type n) { return d_.it -= n, d_.index -= n, *this; }
+		constexpr CountedIterator operator- (difference_type n) const {
+			return CountedIterator (d_.it - n, d_.index - n);
 		}
-		constexpr difference_type operator- (const CountedIterator & o) const noexcept {
-			return it_ - o.it_;
+		constexpr difference_type operator- (const CountedIterator & o) const {
+			return d_.it - o.d_.it;
 		}
-		constexpr reference operator[] (difference_type n) const noexcept { return *(*this + n); }
-		constexpr bool operator< (const CountedIterator & o) const noexcept { return it_ < o.it_; }
-		constexpr bool operator> (const CountedIterator & o) const noexcept { return it_ > o.it_; }
-		constexpr bool operator<= (const CountedIterator & o) const noexcept { return it_ <= o.it_; }
-		constexpr bool operator>= (const CountedIterator & o) const noexcept { return it_ >= o.it_; }
+		constexpr value_type operator[] (difference_type n) const { return *(*this + n); }
+		constexpr bool operator< (const CountedIterator & o) const { return d_.it < o.d_.it; }
+		constexpr bool operator> (const CountedIterator & o) const { return d_.it > o.d_.it; }
+		constexpr bool operator<= (const CountedIterator & o) const { return d_.it <= o.d_.it; }
+		constexpr bool operator>= (const CountedIterator & o) const { return d_.it >= o.d_.it; }
 
 	private:
-		It it_{};
-		IntType n_{};
+		value_type d_{};
 	};
 
 	template <typename R, typename IntType> struct RangeTraits<Counted<R, IntType>> {
@@ -96,7 +95,21 @@ namespace Range {
 		using SizeType = typename RangeTraits<R>::SizeType;
 	};
 
-	template <typename R, typename IntType> class Counted : public Base<Counted<R, IntType>> {};
+	template <typename R, typename IntType> class Counted : public Base<Counted<R, IntType>> {
+	public:
+		constexpr Counted (const R & r) : inner_ (r) {}
+		constexpr Counted (R && r) : inner_ (std::move (r)) {}
+
+		constexpr typename RangeTraits<Counted<R, IntType>>::Iterator begin () const {
+			return {r.begin (), 0};
+		}
+		constexpr typename RangeTraits<Counted<R, IntType>>::Iterator end () const {
+			return {r.end (), std::numeric_limits<IntType>::max ()};
+		}
+
+	private:
+		R inner_;
+	};
 
 	// TODO add type tags (Combinators namespace ?)
 

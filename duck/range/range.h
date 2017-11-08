@@ -151,7 +151,7 @@ namespace Range {
 		using value_type = Int;
 		using difference_type = std::ptrdiff_t;
 		using pointer = const value_type *;
-		using reference = value_type; // Not standard compliant
+		using reference = const value_type &;
 
 		constexpr IntegerIterator () noexcept = default;
 		constexpr IntegerIterator (Int n) noexcept : n_ (n) {}
@@ -194,7 +194,7 @@ namespace Range {
 		constexpr difference_type operator- (const IntegerIterator & o) const noexcept {
 			return n_ - o.n_;
 		}
-		constexpr reference operator[] (difference_type n) const noexcept { return n_ + n; }
+		constexpr value_type operator[] (difference_type n) const noexcept { return n_ + n; }
 		constexpr bool operator< (const IntegerIterator & o) const noexcept { return n_ < o.n_; }
 		constexpr bool operator> (const IntegerIterator & o) const noexcept { return n_ > o.n_; }
 		constexpr bool operator<= (const IntegerIterator & o) const noexcept { return n_ <= o.n_; }
@@ -309,32 +309,11 @@ namespace Range {
 		return {ilist};
 	}
 
-	// TODO ubounded range
+		// TODO ubounded range
 		// TODO add special case to just propagate ranges in range()
 		// TODO add a simple combinator for test !
 
 #if 0
-	template <typename It> class Range : public Base<It> {
-		/* Represents a matching pair of iterators.
-		 *
-		 * This class has constant value semantics.
-		 * It can not be modified, but new ranges can be built from it.
-		 * It can be passed by value.
-		 *
-		 * This class has the same properties has the underlying iterator type.
-		 * This applies for invalidation, and which operations can be used.
-		 * Some operations may work inefficiently for low capability iterators (like size ()).
-		 * Beware with less than forward iterators (risk of iterating on them in size()).
-		 *
-		 * TODO more slices (to_end, from_start).
-		 * TODO checked operations ?
-		 */
-	public:
-		using ValueType = typename std::iterator_traits<It>::value_type;
-		using ReferenceType = typename std::iterator_traits<It>::reference;
-		using DifferenceType = typename std::iterator_traits<It>::difference_type;
-		using IteratorCategory = typename std::iterator_traits<It>::iterator_category;
-
 		// Input/forward iterator
 		constexpr ReferenceType front () const { return *begin (); }
 		Range pop_front () const { return Base<It>{std::next (begin ()), end ()}; }
