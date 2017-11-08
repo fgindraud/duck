@@ -80,10 +80,6 @@ namespace Range {
 	 */
 	template <typename RangeType> struct RangeTraits;
 
-	// Typedefs
-	template <typename R> using RangeIterator = typename RangeTraits<R>::Iterator;
-	template <typename R> using RangeIteratorTraits = std::iterator_traits<RangeIterator<R>>;
-
 	/* Type trait to test if this is a range type.
 	 * Impl: tests if RangeTraits is defined.
 	 */
@@ -98,12 +94,11 @@ namespace Range {
 	 * Ranges must inherit from Base.
 	 * Ranges can be taken by reference through it (similar to eigen strategy).
 	 * Note that all methods should be called through derived().method ().
+	 * Base inherit from RangeTraits of type to have useful typedefs.
 	 */
-	template <typename Derived> class Base {
+	template <typename Derived> class Base : public RangeTraits<Derived> {
 	public:
-		using Self = Derived;
-		using Iterator = typename RangeTraits<Self>::Iterator;
-		using SizeType = typename RangeTraits<Self>::SizeType;
+		using typename RangeTraits<Derived>::SizeType;
 
 		constexpr const Derived & derived () const { return static_cast<const Derived &> (*this); }
 
@@ -248,8 +243,7 @@ namespace Range {
 		               "Iterable<T>: T must be 'const I&', 'I&', or 'I'");
 
 	public:
-		using Self = Iterable<T>;
-		using Iterator = typename RangeTraits<Self>::Iterator;
+		using typename Base<Iterable<T>>::Iterator;
 
 		// T = const I& / I& : T&& -> const I& / I &, just copy reference (reference collapsing)
 		// T = I : T&& -> I&&, construct I by move
@@ -297,9 +291,8 @@ namespace Range {
 		static_assert (IsBaseTypeContainer<C>::value, "Container<C>: C must be a container");
 
 	public:
-		using Self = Container<C>;
-		using Iterator = typename RangeTraits<Self>::Iterator;
-		using SizeType = typename RangeTraits<Self>::SizeType;
+		using typename Base<Container<C>>::Iterator;
+		using typename Base<Container<C>>::SizeType;
 
 		constexpr Container (C && c) : container_ (std::forward<C> (c)) {}
 

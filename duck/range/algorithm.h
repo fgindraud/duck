@@ -32,35 +32,35 @@ void for_each (const Range::Base<Derived> & r, UnaryFunction f) {
 }
 
 template <typename Derived, typename T>
-typename Range::RangeIteratorTraits<Derived>::difference_type count (const Range::Base<Derived> & r,
-                                                                     const T & value) {
+typename std::iterator_traits<typename Derived::Iterator>::difference_type
+count (const Range::Base<Derived> & r, const T & value) {
 	return std::count (r.derived ().begin (), r.derived ().end (), value);
 }
 template <typename Derived, typename UnaryPredicate>
-typename Range::RangeIteratorTraits<Derived>::difference_type
+typename std::iterator_traits<typename Derived::Iterator>::difference_type
 count_if (const Range::Base<Derived> & r, UnaryPredicate p) {
 	return std::count_if (r.derived ().begin (), r.derived ().end (), p);
 }
 
 template <typename Derived, typename InputIt>
-std::pair<Range::RangeIterator<Derived>, InputIt> mismatch (const Range::Base<Derived> & r,
-                                                            InputIt it) {
+std::pair<typename Derived::Iterator, InputIt> mismatch (const Range::Base<Derived> & r,
+                                                         InputIt it) {
 	return std::mismatch (r.derived ().begin (), r.derived ().end (), it);
 }
 template <typename Derived, typename InputIt, typename BinaryPredicate>
-std::pair<Range::RangeIterator<Derived>, InputIt> mismatch (const Range::Base<Derived> & r,
-                                                            InputIt it, BinaryPredicate p) {
+std::pair<typename Derived::Iterator, InputIt> mismatch (const Range::Base<Derived> & r, InputIt it,
+                                                         BinaryPredicate p) {
 	return std::mismatch (r.derived ().begin (), r.derived ().end (), it, p);
 }
 #if HAS_CPP14
 template <typename Derived1, typename Derived2>
-std::pair<Range::RangeIterator<Derived1>, Range::RangeIterator<Derived2>>
+std::pair<typename Derived1::Iterator, typename Derived2::Iterator>
 mismatch (const Range::Base<Derived1> & r, const Range::Base<Derived2> & r2) {
 	return std::mismatch (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                      r2.derived ().end ());
 }
 template <typename Derived1, typename Derived2, typename BinaryPredicate>
-std::pair<Range::RangeIterator<Derived1>, Range::RangeIterator<Derived2>>
+std::pair<typename Derived1::Iterator, typename Derived2::Iterator>
 mismatch (const Range::Base<Derived1> & r, const Range::Base<Derived2> & r2, BinaryPredicate p) {
 	return std::mismatch (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                      r2.derived ().end (), p);
@@ -89,74 +89,73 @@ bool equal (const Range::Base<Derived1> & r, const Range::Base<Derived2> & r2, B
 #endif
 
 template <typename Derived, typename T>
-Range::RangeIterator<Derived> find (const Range::Base<Derived> & r, const T & value) {
+typename Derived::Iterator find (const Range::Base<Derived> & r, const T & value) {
 	return std::find (r.derived ().begin (), r.derived ().end (), value);
 }
 template <typename Derived, typename UnaryPredicate>
-Range::RangeIterator<Derived> find_if (const Range::Base<Derived> & r, UnaryPredicate p) {
+typename Derived::Iterator find_if (const Range::Base<Derived> & r, UnaryPredicate p) {
 	return std::find_if (r.derived ().begin (), r.derived ().end (), p);
 }
 template <typename Derived, typename UnaryPredicate>
-Range::RangeIterator<Derived> find_if_not (const Range::Base<Derived> & r, UnaryPredicate p) {
+typename Derived::Iterator find_if_not (const Range::Base<Derived> & r, UnaryPredicate p) {
 	return std::find_if_not (r.derived ().begin (), r.derived ().end (), p);
 }
 
 template <typename Derived1, typename Derived2>
-Range::RangeIterator<Derived1> find_end (const Range::Base<Derived1> & r,
-                                         const Range::Base<Derived2> & r2) {
+typename Derived1::Iterator find_end (const Range::Base<Derived1> & r,
+                                      const Range::Base<Derived2> & r2) {
 	return std::find_end (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                      r2.derived ().end ());
 }
 template <typename Derived1, typename Derived2, typename BinaryPredicate>
-Range::RangeIterator<Derived1> find_end (const Range::Base<Derived1> & r,
-                                         const Range::Base<Derived2> & r2, BinaryPredicate p) {
+typename Derived1::Iterator find_end (const Range::Base<Derived1> & r,
+                                      const Range::Base<Derived2> & r2, BinaryPredicate p) {
 	return std::find_end (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                      r2.derived ().end (), p);
 }
 
 template <typename Derived1, typename Derived2>
-Range::RangeIterator<Derived1> find_first_of (const Range::Base<Derived1> & r,
-                                              const Range::Base<Derived2> & r2) {
+typename Derived1::Iterator find_first_of (const Range::Base<Derived1> & r,
+                                           const Range::Base<Derived2> & r2) {
 	return std::find_first_of (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                           r2.derived ().end ());
 }
 template <typename Derived1, typename Derived2, typename BinaryPredicate>
-Range::RangeIterator<Derived1> find_first_of (const Range::Base<Derived1> & r,
-                                              const Range::Base<Derived2> & r2, BinaryPredicate p) {
+typename Derived1::Iterator find_first_of (const Range::Base<Derived1> & r,
+                                           const Range::Base<Derived2> & r2, BinaryPredicate p) {
 	return std::find_first_of (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                           r2.derived ().end (), p);
 }
 
 template <typename Derived>
-Range::RangeIterator<Derived> adjacent_find (const Range::Base<Derived> & r) {
+typename Derived::Iterator adjacent_find (const Range::Base<Derived> & r) {
 	return std::adjacent_find (r.derived ().begin (), r.derived ().end ());
 }
 template <typename Derived, typename BinaryPredicate>
-Range::RangeIterator<Derived> adjacent_find (const Range::Base<Derived> & r, BinaryPredicate p) {
+typename Derived::Iterator adjacent_find (const Range::Base<Derived> & r, BinaryPredicate p) {
 	return std::adjacent_find (r.derived ().begin (), r.derived ().end (), p);
 }
 
 template <typename Derived1, typename Derived2>
-Range::RangeIterator<Derived1> search (const Range::Base<Derived1> & r,
-                                       const Range::Base<Derived2> & r2) {
+typename Derived1::Iterator search (const Range::Base<Derived1> & r,
+                                    const Range::Base<Derived2> & r2) {
 	return std::search (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                    r2.derived ().end ());
 }
 template <typename Derived1, typename Derived2, typename BinaryPredicate>
-Range::RangeIterator<Derived1> search (const Range::Base<Derived1> & r,
-                                       const Range::Base<Derived2> & r2, BinaryPredicate p) {
+typename Derived1::Iterator search (const Range::Base<Derived1> & r,
+                                    const Range::Base<Derived2> & r2, BinaryPredicate p) {
 	return std::search (r.derived ().begin (), r.derived ().end (), r2.derived ().begin (),
 	                    r2.derived ().end (), p);
 }
 
 template <typename Derived, typename Size, typename T>
-Range::RangeIterator<Derived> search_n (const Range::Base<Derived> & r, Size count,
-                                        const T & value) {
+typename Derived::Iterator search_n (const Range::Base<Derived> & r, Size count, const T & value) {
 	return std::search_n (r.derived ().begin (), r.derived ().end (), count, value);
 }
 template <typename Derived, typename Size, typename T, typename BinaryPredicate>
-Range::RangeIterator<Derived> search_n (const Range::Base<Derived> & r, Size count, const T & value,
-                                        BinaryPredicate p) {
+typename Derived::Iterator search_n (const Range::Base<Derived> & r, Size count, const T & value,
+                                     BinaryPredicate p) {
 	return std::search_n (r.derived ().begin (), r.derived ().end (), count, value, p);
 }
 

@@ -31,9 +31,8 @@ namespace Range {
 
 	template <typename R> class Reversed : public Base<Reversed<R>> {
 	public:
-		using Self = Reversed<R>;
-		using Iterator = typename RangeTraits<Self>::Iterator;
-		using SizeType = typename RangeTraits<Self>::SizeType;
+		using typename Base<Reversed<R>>::Iterator;
+		using typename Base<Reversed<R>>::SizeType;
 
 		constexpr Reversed (const R & r) : inner_ (r) {}
 		constexpr Reversed (R && r) : inner_ (std::move (r)) {}
@@ -130,9 +129,8 @@ namespace Range {
 
 	template <typename R, typename IntType> class Counted : public Base<Counted<R, IntType>> {
 	public:
-		using Self = Counted<R, IntType>;
-		using Iterator = typename RangeTraits<Self>::Iterator;
-		using SizeType = typename RangeTraits<Self>::SizeType;
+		using typename Base<Counted<R, IntType>>::Iterator;
+		using typename Base<Counted<R, IntType>>::SizeType;
 
 		constexpr Counted (const R & r) : inner_ (r) {}
 		constexpr Counted (R && r) : inner_ (std::move (r)) {}
