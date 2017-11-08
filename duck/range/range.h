@@ -327,7 +327,7 @@ namespace Range {
 
 		// TODO ubounded range
 		// TODO add special case to just propagate ranges in range()
-		// TODO add a simple combinator for test !
+		// repeated (T, n);
 
 #if 0
 		// Input/forward iterator

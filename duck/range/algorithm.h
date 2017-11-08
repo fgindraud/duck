@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <duck/range/range.h>
 
+#ifndef HAS_CPP14
 #define HAS_CPP14 (__cpluplus >= 201402L)
+#endif
 
 namespace duck {
 
