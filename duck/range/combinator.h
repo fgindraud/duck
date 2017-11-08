@@ -34,6 +34,7 @@ namespace Range {
 			It it;
 			IntType index;
 			constexpr value_type () = default;
+			constexpr value_type (It it_arg, IntType index_arg) : it (it_arg), index (index_arg) {}
 			typename std::iterator_traits<It>::reference value () const { return *it; }
 		};
 		using difference_type = typename std::iterator_traits<It>::difference_type;
@@ -41,7 +42,7 @@ namespace Range {
 		using reference = const value_type &;
 
 		constexpr CountedIterator () = default;
-		constexpr CountedIterator (value_type d) : d_ (d) {}
+		constexpr CountedIterator (It it, IntType index) : d_ (it, index) {}
 
 		// Input / output
 		CountedIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
@@ -101,15 +102,17 @@ namespace Range {
 		constexpr Counted (R && r) : inner_ (std::move (r)) {}
 
 		constexpr typename RangeTraits<Counted<R, IntType>>::Iterator begin () const {
-			return {r.begin (), 0};
+			return {inner_.begin (), 0};
 		}
 		constexpr typename RangeTraits<Counted<R, IntType>>::Iterator end () const {
-			return {r.end (), std::numeric_limits<IntType>::max ()};
+			return {inner_.end (), std::numeric_limits<IntType>::max ()};
 		}
 
 	private:
 		R inner_;
 	};
+
+	template <typename IntType, typename R> Counted<R, IntType> counted (const R & r) { return {r}; }
 
 	// TODO add type tags (Combinators namespace ?)
 
