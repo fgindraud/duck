@@ -1,26 +1,31 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+#include <algorithm>
 #include <duck/range/combinator.h>
 #include <duck/range/range.h>
 #include <list>
 #include <vector>
 
-#include <iostream>
-#include <iterator>
-
 // FIXME
+#include <iostream>
 template <typename Derived>
 static std::ostream & operator<< (std::ostream & os, const duck::Range::Base<Derived> & r) {
 	os << "Range(";
-	for (const auto & v : r)
+	for (const auto & v : r.derived ())
 		os << v << ",";
 	return os << ")";
 }
 
-TEST_CASE ("counted range") {
-	auto r = duck::range ({0, 1, 2, 3, 4});
-	auto c_r = duck::Range::counted<int>(r);
+TEST_CASE ("tests") {
+	std::vector<int> vec{0, 1, 2, 3, 4};
+	auto r = duck::range (vec);
+
+	auto reversed = duck::Range::reversed (r);
+	CHECK (reversed.size () == r.size ());
+	CHECK (std::equal (reversed.begin (), reversed.end (), vec.rbegin ()));
+
+	auto c_r = duck::Range::counted<int> (r);
 	for (auto & iv : c_r) {
 		CHECK (iv.index == iv.value ());
 	}
@@ -33,8 +38,6 @@ TEST_CASE ("filled vector") {
 
 	// Reversed
 	auto reversed = r.reverse ();
-	CHECK (reversed.size () == v.size ());
-	CHECK (std::equal (reversed.begin (), reversed.end (), v.rbegin ()));
 
 	// Filter
 	auto filtered = r.filter ([](int i) { return i % 2 == 0; });

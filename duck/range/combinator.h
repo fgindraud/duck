@@ -9,6 +9,8 @@
 namespace duck {
 namespace Range {
 	/* Ranges base combinators lib.
+	 *
+	 * TODO improve generation : use tags with operator| overloads ?
 	 */
 
 	/********************************************************************************
@@ -17,13 +19,41 @@ namespace Range {
 	 */
 
 	/********************************************************************************
+	 * Reverse order.
+	 * Same rules as
+	 */
+	template <typename R> class Reversed;
+
+	template <typename R> struct RangeTraits<Reversed<R>> {
+		using Iterator = std::reverse_iterator<typename RangeTraits<R>::Iterator>;
+		using SizeType = typename RangeTraits<R>::SizeType;
+	};
+
+	template <typename R> class Reversed : public Base<Reversed<R>> {
+	public:
+		using Self = Reversed<R>;
+		using Iterator = typename RangeTraits<Self>::Iterator;
+		using SizeType = typename RangeTraits<Self>::SizeType;
+
+		constexpr Reversed (const R & r) : inner_ (r) {}
+		constexpr Reversed (R && r) : inner_ (std::move (r)) {}
+
+		constexpr Iterator begin () const { return Iterator{inner_.end ()}; }
+		constexpr Iterator end () const { return Iterator{inner_.begin ()}; }
+		constexpr SizeType size () const { return inner_.size (); }
+
+	private:
+		R inner_;
+	};
+
+	template <typename R> Reversed<R> reversed (const R & r) { return {r}; }
+
+	/********************************************************************************
 	 * Counted range.
 	 *
 	 * end() pointer index is UB.
 	 * TODO finish, be careful of ref/pointers to temporaries
 	 */
-	template <typename R, typename IntType> class Counted;
-
 	template <typename It, typename IntType> class CountedIterator {
 		static_assert (IsIterator<It>::value, "It must be an iterator type");
 		static_assert (std::is_integral<IntType>::value, "IntType must be integral");
@@ -91,6 +121,8 @@ namespace Range {
 		value_type d_{};
 	};
 
+	template <typename R, typename IntType> class Counted;
+
 	template <typename R, typename IntType> struct RangeTraits<Counted<R, IntType>> {
 		using Iterator = CountedIterator<typename RangeTraits<R>::Iterator, IntType>;
 		using SizeType = typename RangeTraits<R>::SizeType;
@@ -98,23 +130,23 @@ namespace Range {
 
 	template <typename R, typename IntType> class Counted : public Base<Counted<R, IntType>> {
 	public:
+		using Self = Counted<R, IntType>;
+		using Iterator = typename RangeTraits<Self>::Iterator;
+		using SizeType = typename RangeTraits<Self>::SizeType;
+
 		constexpr Counted (const R & r) : inner_ (r) {}
 		constexpr Counted (R && r) : inner_ (std::move (r)) {}
 
-		constexpr typename RangeTraits<Counted<R, IntType>>::Iterator begin () const {
-			return {inner_.begin (), 0};
-		}
-		constexpr typename RangeTraits<Counted<R, IntType>>::Iterator end () const {
+		constexpr Iterator begin () const { return {inner_.begin (), 0}; }
+		constexpr Iterator end () const {
 			return {inner_.end (), std::numeric_limits<IntType>::max ()};
 		}
+		constexpr SizeType size () const { return inner_.size (); }
 
 	private:
 		R inner_;
 	};
 
 	template <typename IntType, typename R> Counted<R, IntType> counted (const R & r) { return {r}; }
-
-	// TODO add type tags (Combinators namespace ?)
-
 } // namespace Range
 } // namespace duck

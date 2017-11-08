@@ -67,8 +67,7 @@ namespace Range {
 	// Is container: has empty(), size() methods and is Iterable.
 	template <typename T, typename = void> struct IsContainer : std::false_type {};
 	template <typename T>
-	struct IsContainer<T, VoidT<decltype (std::declval<T &> ().empty ()),
-	                            decltype (std::declval<T &> ().size ()), typename T::size_type>>
+	struct IsContainer<T, VoidT<decltype (std::declval<T &> ().size ()), typename T::size_type>>
 	    : IsIterable<T> {};
 	template <typename T>
 	using IsBaseTypeContainer = IsContainer<typename std::remove_reference<T>::type>;
@@ -80,10 +79,10 @@ namespace Range {
 	 * - SizeType: type returned by size() method
 	 */
 	template <typename RangeType> struct RangeTraits;
-	
+
 	// Typedefs
-	template<typename R> using RangeIterator = typename RangeTraits<R>::Iterator;
-	template<typename R> using RangeIteratorTraits = std::iterator_traits<RangeIterator<R>>;
+	template <typename R> using RangeIterator = typename RangeTraits<R>::Iterator;
+	template <typename R> using RangeIteratorTraits = std::iterator_traits<RangeIterator<R>>;
 
 	/* Type trait to test if this is a range type.
 	 * Impl: tests if RangeTraits is defined.
@@ -102,11 +101,14 @@ namespace Range {
 	 */
 	template <typename Derived> class Base {
 	public:
+		using Self = Derived;
+		using Iterator = typename RangeTraits<Self>::Iterator;
+		using SizeType = typename RangeTraits<Self>::SizeType;
+
 		constexpr const Derived & derived () const { return static_cast<const Derived &> (*this); }
 
 		constexpr bool empty () const { return derived ().begin () == derived ().end (); }
-
-		constexpr typename RangeTraits<Derived>::SizeType size () const {
+		constexpr SizeType size () const {
 			return std::distance (derived ().begin (), derived ().end ());
 		}
 
@@ -126,16 +128,16 @@ namespace Range {
 	template <typename It> class IteratorPair : public Base<IteratorPair<It>> {
 		static_assert (IsIterator<It>::value, "IteratorPair<It>: It must be a valid iterator type");
 
-	private:
-		It begin_;
-		It end_;
-
 	public:
 		constexpr IteratorPair (It begin_it, It end_it)
 		    : begin_ (std::move (begin_it)), end_ (std::move (end_it)) {}
 
 		constexpr It begin () const { return begin_; }
 		constexpr It end () const { return end_; }
+
+	private:
+		It begin_;
+		It end_;
 	};
 
 	template <typename It, typename = EnableIfV<IsIterator<It>>>
@@ -245,24 +247,27 @@ namespace Range {
 		static_assert (std::is_lvalue_reference<T>::value || !std::is_reference<T>::value,
 		               "Iterable<T>: T must be 'const I&', 'I&', or 'I'");
 
-	private:
-		T iterable_; // Reference for const I& / I&, object for I.
-
 	public:
+		using Self = Iterable<T>;
+		using Iterator = typename RangeTraits<Self>::Iterator;
+
 		// T = const I& / I& : T&& -> const I& / I &, just copy reference (reference collapsing)
 		// T = I : T&& -> I&&, construct I by move
 		constexpr Iterable (T && t) : iterable_ (std::forward<T> (t)) {}
 
 		// T = const I& / I& : returns I::const_iterator / I::iterator
 		// T = I : returns const_iterator, object is constant
-		constexpr typename RangeTraits<Iterable<T>>::Iterator begin () const {
+		constexpr Iterator begin () const {
 			using std::begin;
 			return begin (iterable_);
 		}
-		constexpr typename RangeTraits<Iterable<T>>::Iterator end () const {
+		constexpr Iterator end () const {
 			using std::end;
 			return end (iterable_);
 		}
+
+	private:
+		T iterable_; // Reference for const I& / I&, object for I.
 	};
 
 	// range() overload
@@ -291,25 +296,25 @@ namespace Range {
 		               "Container<C>: C must be 'const I&', 'I&', or 'I'");
 		static_assert (IsBaseTypeContainer<C>::value, "Container<C>: C must be a container");
 
-	private:
-		C container_;
-
 	public:
+		using Self = Container<C>;
+		using Iterator = typename RangeTraits<Self>::Iterator;
+		using SizeType = typename RangeTraits<Self>::SizeType;
+
 		constexpr Container (C && c) : container_ (std::forward<C> (c)) {}
 
-		constexpr typename RangeTraits<Container<C>>::Iterator begin () const {
+		constexpr Iterator begin () const {
 			using std::begin;
 			return begin (container_);
 		}
-		constexpr typename RangeTraits<Container<C>>::Iterator end () const {
+		constexpr Iterator end () const {
 			using std::end;
 			return end (container_);
 		}
+		constexpr SizeType size () const { return container_.size (); }
 
-		constexpr bool empty () const { return container_.empty (); }
-		constexpr typename RangeTraits<Container<C>>::SizeType size () const {
-			return container_.size ();
-		}
+	private:
+		C container_;
 	};
 
 	// range () overloads
