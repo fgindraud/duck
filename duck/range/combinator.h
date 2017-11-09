@@ -10,7 +10,6 @@
 namespace duck {
 namespace Range {
 	/* Ranges base combinators lib.
-	 * TODO get inner accessor (base () like reverse it ?)
 	 */
 
 	/********************************************************************************
@@ -36,7 +35,6 @@ namespace Range {
 		using typename Base<Reversed<R>>::SizeType;
 
 		constexpr Reversed (const R & r) : inner_ (r) {}
-		constexpr Reversed (R && r) : inner_ (std::move (r)) {}
 
 		constexpr Iterator begin () const { return Iterator{inner_.end ()}; }
 		constexpr Iterator end () const { return Iterator{inner_.begin ()}; }
@@ -77,8 +75,8 @@ namespace Range {
 		constexpr Filter (const R & r, const Predicate & predicate)
 		    : inner_ (r), predicate_ (predicate) {}
 
-		Iterator begin () const;
-		Iterator end () const;
+		constexpr Iterator begin () const;
+		constexpr Iterator end () const;
 
 	private:
 		friend class FilterIterator<R, Predicate>;
@@ -132,6 +130,8 @@ namespace Range {
 		constexpr FilterIterator (InnerIterator it, const Filter<R, Predicate> & range)
 		    : it_ (it), range_ (&range) {}
 
+		constexpr InnerIterator base () const { return it_; }
+
 		// Input / output
 		FilterIterator & operator++ () { return it_ = range_->next_after (it_), *this; }
 		constexpr reference operator* () const { return *it_; }
@@ -159,25 +159,31 @@ namespace Range {
 		const Filter<R, Predicate> * range_{nullptr};
 	};
 
-	template <typename R, typename Predicate> auto Filter<R, Predicate>::begin () const -> Iterator {
+	template <typename R, typename Predicate>
+	constexpr auto Filter<R, Predicate>::begin () const -> Iterator {
 		return {next (inner_.begin ()), *this};
 	}
-	template <typename R, typename Predicate> auto Filter<R, Predicate>::end () const -> Iterator {
+	template <typename R, typename Predicate>
+	constexpr auto Filter<R, Predicate>::end () const -> Iterator {
 		return {inner_.end (), *this};
 	}
 
 	namespace Combinator {
 		template <typename R, typename Predicate>
-		Filter<R, Predicate> filter (const R & r, const Predicate & predicate) {
+		constexpr Filter<R, Predicate> filter (const R & r, const Predicate & predicate) {
 			return {r, predicate};
 		}
 
-		template <typename Predicate> struct FilterTag { Predicate predicate; };
-		template <typename Predicate> FilterTag<Predicate> filter (const Predicate & predicate) {
+		template <typename Predicate> struct FilterTag {
+			constexpr FilterTag (const Predicate & p) : predicate (p) {}
+			Predicate predicate;
+		};
+		template <typename Predicate>
+		constexpr FilterTag<Predicate> filter (const Predicate & predicate) {
 			return {predicate};
 		}
 		template <typename R, typename Predicate>
-		auto operator| (const R & r, const FilterTag<Predicate> & tag)
+		constexpr auto operator| (const R & r, const FilterTag<Predicate> & tag)
 		    -> decltype (filter (r, tag.predicate)) {
 			return filter (r, tag.predicate);
 		}
@@ -205,9 +211,9 @@ namespace Range {
 
 		constexpr Apply (const R & r, const Function & function) : inner_ (r), function_ (function) {}
 
-		Iterator begin () const;
-		Iterator end () const;
-		SizeType size () const { return inner_.size (); }
+		constexpr Iterator begin () const;
+		constexpr Iterator end () const;
+		constexpr SizeType size () const { return inner_.size (); }
 
 	private:
 		friend class ApplyIterator<R, Function>;
@@ -231,6 +237,8 @@ namespace Range {
 		constexpr ApplyIterator () = default;
 		constexpr ApplyIterator (InnerIterator it, const Apply<R, Function> & range)
 		    : it_ (it), range_ (&range) {}
+
+		constexpr InnerIterator base () const { return it_; }
 
 		// Input / output
 		ApplyIterator & operator++ () { return ++it_, *this; }
@@ -278,25 +286,30 @@ namespace Range {
 		const Apply<R, Function> * range_{nullptr};
 	};
 
-	template <typename R, typename Function> auto Apply<R, Function>::begin () const -> Iterator {
+	template <typename R, typename Function>
+	constexpr auto Apply<R, Function>::begin () const -> Iterator {
 		return {inner_.begin (), *this};
 	}
-	template <typename R, typename Function> auto Apply<R, Function>::end () const -> Iterator {
+	template <typename R, typename Function>
+	constexpr auto Apply<R, Function>::end () const -> Iterator {
 		return {inner_.end (), *this};
 	}
 
 	namespace Combinator {
 		template <typename R, typename Function>
-		Apply<R, Function> apply (const R & r, const Function & function) {
+		constexpr Apply<R, Function> apply (const R & r, const Function & function) {
 			return {r, function};
 		}
 
-		template <typename Function> struct ApplyTag { Function function; };
-		template <typename Function> ApplyTag<Function> apply (const Function & function) {
+		template <typename Function> struct ApplyTag {
+			constexpr ApplyTag (const Function & f) : function (f) {}
+			Function function;
+		};
+		template <typename Function> constexpr ApplyTag<Function> apply (const Function & function) {
 			return {function};
 		}
 		template <typename R, typename Function>
-		auto operator| (const R & r, const ApplyTag<Function> & tag)
+		constexpr auto operator| (const R & r, const ApplyTag<Function> & tag)
 		    -> decltype (apply (r, tag.function)) {
 			return apply (r, tag.function);
 		}
@@ -327,6 +340,8 @@ namespace Range {
 
 		constexpr CountedIterator () = default;
 		constexpr CountedIterator (It it, IntType index) : d_ (it, index) {}
+
+		constexpr It base () const { return d_.it; }
 
 		// Input / output
 		CountedIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
@@ -392,7 +407,6 @@ namespace Range {
 		using typename Base<Counted<R, IntType>>::SizeType;
 
 		constexpr Counted (const R & r) : inner_ (r) {}
-		constexpr Counted (R && r) : inner_ (std::move (r)) {}
 
 		constexpr Iterator begin () const { return {inner_.begin (), 0}; }
 		constexpr Iterator end () const {
@@ -405,14 +419,14 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename IntType, typename R> Counted<R, IntType> counted (const R & r) {
+		template <typename IntType, typename R> constexpr Counted<R, IntType> counted (const R & r) {
 			return {r};
 		}
 
-		template <typename IntType> struct CountedTag {};
-		template <typename IntType> CountedTag<IntType> counted () { return {}; }
+		template <typename IntType> struct CountedTag { constexpr CountedTag () = default; };
+		template <typename IntType> constexpr CountedTag<IntType> counted () { return {}; }
 		template <typename IntType, typename R>
-		auto operator| (const R & r, CountedTag<IntType>) -> decltype (counted<IntType> (r)) {
+		constexpr auto operator| (const R & r, CountedTag<IntType>) -> decltype (counted<IntType> (r)) {
 			return counted<IntType> (r);
 		}
 	} // namespace Combinator
