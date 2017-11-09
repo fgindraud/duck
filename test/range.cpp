@@ -141,3 +141,17 @@ TEST_CASE ("container value range") {
 	CHECK (r.size () == 4);
 	CHECK (*r.begin () == 1);
 }
+
+TEST_CASE ("strings & arrays") {
+	auto & literal = "hello world";
+
+	auto s = std::string{literal};
+
+	// String literal is just an array for range
+	auto r_lit = duck::range (literal);
+	CHECK (r_lit.size () == s.size() + 1); // Includes '\0'
+
+	// Use char_range to consider it as null_terminated
+	auto cr_lit = duck::char_range(literal);
+	CHECK (cr_lit.size () == s.size ());
+}

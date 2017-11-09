@@ -10,6 +10,7 @@
 #include <duck/type_traits.h>
 #include <initializer_list> // init list overload
 #include <iterator>
+#include <string> // char_range
 #include <utility>
 #include <vector> // init list overload
 
@@ -153,8 +154,7 @@ namespace Range {
 		static_assert (IsIterator<It>::value, "IteratorPair<It>: It must be a valid iterator type");
 
 	public:
-		constexpr IteratorPair (It begin_it, It end_it)
-		    : begin_ (std::move (begin_it)), end_ (std::move (end_it)) {}
+		constexpr IteratorPair (It begin_it, It end_it) : begin_ (begin_it), end_ (end_it) {}
 
 		constexpr It begin () const { return begin_; }
 		constexpr It end () const { return end_; }
@@ -164,9 +164,19 @@ namespace Range {
 		It end_;
 	};
 
+	// range() overload
 	template <typename It, typename = EnableIfV<IsIterator<It>>>
 	constexpr IteratorPair<It> range (It begin_it, It end_it) {
-		return {std::move (begin_it), std::move (end_it)};
+		return {begin_it, end_it};
+	}
+
+	// Array situation:
+	// T[N] -> matched by Iterable<T>
+	// (T*, T*) -> matched by IteratorPair<It>
+	// (T*, N) -> below
+	template <typename T, typename IntType, typename = EnableIfV<std::is_integral<IntType>>>
+	IteratorPair<T *> range (T * base, IntType size) {
+		return {base, base + size};
 	}
 
 	/**********************************************************************************
@@ -354,6 +364,20 @@ namespace Range {
 	}
 
 	/**********************************************************************************
+	 * String range.
+	 * range() only cares about storage : "hello" is considered as char[6] "hello\0".
+	 * char_range () removes the null terminator
+	 * FIXME fragile
+	 */
+	template <std::size_t N, typename = EnableIf<(N > 0)>>
+	constexpr IteratorPair<const char *> char_range (const char (&str)[N]) {
+		return {&str[0], &str[N - 1]};
+	}
+	inline IteratorPair<const char *> char_range (const char * str) {
+		return {str, str + std::char_traits<char>::length (str)};
+	}
+
+	/**********************************************************************************
 	 * Utils.
 	 */
 
@@ -395,6 +419,7 @@ namespace Range {
 #endif
 } // namespace Range
 
-// Pull main range() function in namespace duck::
+// Pull range() functions in namespace duck
+using Range::char_range;
 using Range::range;
 } // namespace duck
