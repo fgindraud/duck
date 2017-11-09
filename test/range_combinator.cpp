@@ -1,11 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <algorithm>
 #include <duck/range/combinator.h>
 #include <duck/range/range.h>
 #include <list>
 #include <vector>
+#include <algorithm>
 
 // FIXME
 #include <iostream>
@@ -30,15 +30,15 @@ TEST_CASE ("tests") {
 	for (auto & iv : c_r) {
 		CHECK (iv.index == iv.value ());
 	}
+
+	auto f_r = r | filter ([](int i) { return i % 2 == 0; });
+	CHECK (f_r.size () == 3);
 }
 
 #if 0
 TEST_CASE ("filled vector") {
 	std::vector<int> v = {1, 2, 3, 4};
 	auto r = duck::range (v);
-
-	// Reversed
-	auto reversed = r.reverse ();
 
 	// Filter
 	auto filtered = r.filter ([](int i) { return i % 2 == 0; });

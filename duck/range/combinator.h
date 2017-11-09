@@ -3,6 +3,7 @@
 // Range V2
 // STATUS: WIP
 
+#include <algorithm>
 #include <duck/range/range.h>
 #include <limits>
 
@@ -18,7 +19,6 @@ namespace Range {
 
 	/********************************************************************************
 	 * Reverse order.
-	 * Same rules as
 	 */
 	template <typename R> class Reversed;
 
@@ -56,10 +56,137 @@ namespace Range {
 	} // namespace Combinator
 
 	/********************************************************************************
+	 * Filter with a predicate.
+	 */
+	template <typename R, typename Predicate> class FilterIterator;
+	template <typename R, typename Predicate> class Filter;
+
+	template <typename R, typename Predicate> struct RangeTraits<Filter<R, Predicate>> {
+		using Iterator = FilterIterator<R, Predicate>;
+		using SizeType = typename std::iterator_traits<Iterator>::difference_type;
+	};
+
+	template <typename R, typename Predicate> class Filter : public Base<Filter<R, Predicate>> {
+		static_assert (IsRange<R>::value, "Filter<R, Predicate>: R must be a range");
+		// TODO predicate is invocable on value
+
+	public:
+		using typename Base<Filter<R, Predicate>>::Iterator;
+
+		constexpr Filter (const R & r, const Predicate & predicate)
+		    : inner_ (r), predicate_ (predicate) {}
+
+		Iterator begin () const;
+		Iterator end () const;
+
+	private:
+		friend class FilterIterator<R, Predicate>;
+
+		using InnerIterator = typename RangeTraits<R>::Iterator;
+		InnerIterator next (InnerIterator from) const {
+			return std::find_if (from, inner_.end (), predicate_);
+		}
+		InnerIterator next_after (InnerIterator from) const {
+			if (from == inner_.end ())
+				return from;
+			else
+				return next (++from);
+		}
+		InnerIterator previous_before (InnerIterator from) const {
+			if (from == inner_.begin ()) {
+				return from;
+			} else {
+				// Try to find a match before from
+				// If this fails, from was first, return it
+				using RevIt = std::reverse_iterator<InnerIterator>;
+				auto rev_end = RevIt{inner_.begin ()};
+				auto rev_next = std::find_if (RevIt{--from}, rev_end, predicate_);
+				if (rev_next != rev_end)
+					return rev_next.base ();
+				else
+					return from;
+			}
+		}
+
+		R inner_;
+		Predicate predicate_;
+	};
+
+	template <typename R, typename Predicate> class FilterIterator {
+		static_assert (IsRange<R>::value, "FilterIterator<R, Predicate>: R must be a range");
+
+	public:
+		using InnerIterator = typename RangeTraits<R>::Iterator;
+
+		// At most this is a bidirectional_iterator
+		using iterator_category = typename std::common_type<
+		    std::bidirectional_iterator_tag,
+		    typename std::iterator_traits<InnerIterator>::iterator_category>::type;
+		using value_type = typename std::iterator_traits<InnerIterator>::value_type;
+		using difference_type = typename std::iterator_traits<InnerIterator>::difference_type;
+		using pointer = typename std::iterator_traits<InnerIterator>::pointer;
+		using reference = typename std::iterator_traits<InnerIterator>::reference;
+
+		constexpr FilterIterator () = default;
+		constexpr FilterIterator (InnerIterator it, const Filter<R, Predicate> & range)
+		    : it_ (it), range_ (&range) {}
+
+		// Input / output
+		FilterIterator & operator++ () { return it_ = range_->next_after (it_), *this; }
+		constexpr reference operator* () const { return *it_; }
+		constexpr pointer operator-> () const { return it_.operator-> (); }
+		constexpr bool operator== (const FilterIterator & o) const { return it_ == o.it_; }
+		constexpr bool operator!= (const FilterIterator & o) const { return it_ != o.it_; }
+
+		// Forward
+		FilterIterator operator++ (int) {
+			FilterIterator tmp (*this);
+			++*this;
+			return tmp;
+		}
+
+		// Bidir
+		FilterIterator & operator-- () { return it_ = range_->previous_before (it_), *this; }
+		FilterIterator operator-- (int) {
+			FilterIterator tmp (*this);
+			--*this;
+			return tmp;
+		}
+
+	private:
+		InnerIterator it_{};
+		const Filter<R, Predicate> * range_{nullptr};
+	};
+
+	template <typename R, typename Predicate> auto Filter<R, Predicate>::begin () const -> Iterator {
+		return {next (inner_.begin ()), *this};
+	}
+	template <typename R, typename Predicate> auto Filter<R, Predicate>::end () const -> Iterator {
+		return {inner_.end (), *this};
+	}
+
+	namespace Combinator {
+		template <typename R, typename Predicate>
+		Filter<R, Predicate> filter (const R & r, const Predicate & predicate) {
+			return {r, predicate};
+		}
+
+		template <typename Predicate> struct FilterTag { Predicate predicate; };
+		template <typename Predicate> FilterTag<Predicate> filter (const Predicate & predicate) {
+			return {predicate};
+		}
+		template <typename R, typename Predicate>
+		auto operator| (const R & r, const FilterTag<Predicate> & tag)
+		    -> decltype (filter (r, tag.predicate)) {
+			return filter (r, tag.predicate);
+		}
+	} // namespace Combinator
+
+	/********************************************************************************
 	 * Counted range.
+	 * Returned value_type has an index field, and a value() member.
 	 *
 	 * end() pointer index is UB.
-	 * TODO finish, be careful of ref/pointers to temporaries
 	 */
 	template <typename It, typename IntType> class CountedIterator {
 		static_assert (IsIterator<It>::value, "It must be an iterator type");
@@ -136,6 +263,10 @@ namespace Range {
 	};
 
 	template <typename R, typename IntType> class Counted : public Base<Counted<R, IntType>> {
+		static_assert (IsRange<R>::value, "Counted<R, IntType>: R must be a range");
+		static_assert (std::is_integral<IntType>::value,
+		               "Counted<R, IntType>: IntType must be an integral type");
+
 	public:
 		using typename Base<Counted<R, IntType>>::Iterator;
 		using typename Base<Counted<R, IntType>>::SizeType;
