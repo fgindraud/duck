@@ -5,7 +5,6 @@
 #include <duck/range/range.h>
 #include <list>
 #include <vector>
-#include <algorithm>
 
 // FIXME
 #include <iostream>
@@ -24,7 +23,7 @@ TEST_CASE ("tests") {
 
 	auto r_r = r | reversed ();
 	CHECK (r_r.size () == r.size ());
-	CHECK (std::equal (r_r.begin (), r_r.end (), vec.rbegin ()));
+	CHECK (r_r == duck::range (vec.rbegin (), vec.rend ()));
 
 	auto c_r = r | counted<int> ();
 	for (auto & iv : c_r) {
@@ -33,24 +32,8 @@ TEST_CASE ("tests") {
 
 	auto f_r = r | filter ([](int i) { return i % 2 == 0; });
 	CHECK (f_r.size () == 3);
+	CHECK (f_r == duck::range ({0, 2, 4}));
+	auto chained_f_r = r | filter ([](int i) { return i < 2; }) | filter ([](int i) { return i > 0; });
+	CHECK (chained_f_r.size () == 1);
+	CHECK (chained_f_r.front () == 1);
 }
-
-#if 0
-TEST_CASE ("filled vector") {
-	std::vector<int> v = {1, 2, 3, 4};
-	auto r = duck::range (v);
-
-	// Filter
-	auto filtered = r.filter ([](int i) { return i % 2 == 0; });
-	CHECK (sizeof (filtered) == sizeof (r)); // Should be the same size
-	CHECK (filtered.size () == r.size () / 2);
-	std::vector<int> filtered_result = {2, 4};
-	CHECK (filtered.to_container<std::vector<int>> () == filtered_result);
-
-	// Chained filter
-	auto chained_filter = r.filter ([](int i) { return i < 2; }).filter ([](int i) { return i > 0; });
-	CHECK (sizeof (chained_filter) == sizeof (r));
-	CHECK (chained_filter.size () == 1);
-	CHECK (chained_filter.front () == 1);
-}
-#endif

@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+#include <algorithm>
 #include <duck/range/range.h>
 #include <list>
 #include <type_traits>
@@ -103,15 +104,23 @@ TEST_CASE ("integer iterator") {
 	CHECK (*it == 43);
 }
 
-TEST_CASE ("integer range") {
+TEST_CASE ("integer range & range basic primitives") {
 	auto r = duck::range (4, 10);
 	CHECK (*r.begin () == 4);
-	CHECK (*r.end () == 10);
+	CHECK (r.front () == 4);
+	CHECK (*r.end () == 10); // Not UB as IntegerIterator is friendly :)
+	CHECK (r.back () == 9);
+	CHECK (r[2] == 6);
 	CHECK_FALSE (r.empty ());
 	CHECK (r.size () == 6);
+
 	auto r2 = duck::range (0);
 	CHECK (r2.empty ());
 	CHECK (r2.size () == 0);
+
+	CHECK (r2 == r2);
+	CHECK_FALSE (r == r2);
+	CHECK (r == r);
 }
 
 TEST_CASE ("container ref range") {

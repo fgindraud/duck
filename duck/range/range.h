@@ -3,11 +3,19 @@
 // Range V2
 // STATUS: WIP
 
+#ifndef HAS_CPP14
+#define HAS_CPP14 (__cpluplus >= 201402L)
+#endif
+
 #include <duck/type_traits.h>
 #include <initializer_list> // init list overload
 #include <iterator>
 #include <utility>
 #include <vector> // init list overload
+
+#if HAS_CPP14
+#include <algorithm> // operator==
+#endif
 
 namespace duck {
 namespace Range {
@@ -98,7 +106,10 @@ namespace Range {
 	 */
 	template <typename Derived> class Base : public RangeTraits<Derived> {
 	public:
+		using typename RangeTraits<Derived>::Iterator;
 		using typename RangeTraits<Derived>::SizeType;
+
+		using ReferenceType = typename std::iterator_traits<Iterator>::reference;
 
 		constexpr const Derived & derived () const { return static_cast<const Derived &> (*this); }
 
@@ -107,8 +118,26 @@ namespace Range {
 			return std::distance (derived ().begin (), derived ().end ());
 		}
 
+		// Accesses (UB if empty or out of range ; available if Iterator supports it)
+		ReferenceType front () const { return *derived ().begin (); }
+		ReferenceType back () const { return *std::prev (derived ().end ()); }
+		template <typename Difference> ReferenceType operator[] (Difference n) const {
+			return derived ().begin ()[n];
+		}
+
+		// Build a container from this range
+		template <typename Container> Container to_container () const {
+			return Container{derived ().begin (), derived ().end ()};
+		}
+
 		// TODO add interface of old Range which does not generate ranges
 	};
+
+	// range() overload: forwards ranges as is
+	template <typename R, typename = EnableIfV<IsRange<R>>>
+	auto range (R && r) -> decltype (std::forward<R> (r)) {
+		return std::forward<R> (r);
+	}
 
 	/**********************************************************************************
 	 * IteratorPair: most basic range, stores a pair of iterator.
@@ -152,7 +181,7 @@ namespace Range {
 		using value_type = Int;
 		using difference_type = std::ptrdiff_t;
 		using pointer = const value_type *;
-		using reference = const value_type &;
+		using reference = value_type;
 
 		constexpr IntegerIterator () noexcept = default;
 		constexpr IntegerIterator (Int n) noexcept : n_ (n) {}
@@ -160,7 +189,7 @@ namespace Range {
 		// Input / output
 		IntegerIterator & operator++ () noexcept { return ++n_, *this; }
 		constexpr reference operator* () const noexcept { return n_; }
-		constexpr pointer operator-> () const noexcept { return &n_; }
+		constexpr pointer operator-> () const & noexcept { return &n_; }
 		constexpr bool operator== (const IntegerIterator & o) const noexcept { return n_ == o.n_; }
 		constexpr bool operator!= (const IntegerIterator & o) const noexcept { return n_ != o.n_; }
 
@@ -195,7 +224,7 @@ namespace Range {
 		constexpr difference_type operator- (const IntegerIterator & o) const noexcept {
 			return n_ - o.n_;
 		}
-		constexpr value_type operator[] (difference_type n) const noexcept { return n_ + n; }
+		constexpr reference operator[] (difference_type n) const noexcept { return n_ + n; }
 		constexpr bool operator< (const IntegerIterator & o) const noexcept { return n_ < o.n_; }
 		constexpr bool operator> (const IntegerIterator & o) const noexcept { return n_ > o.n_; }
 		constexpr bool operator<= (const IntegerIterator & o) const noexcept { return n_ <= o.n_; }
@@ -205,6 +234,7 @@ namespace Range {
 		Int n_{};
 	};
 
+	// range() overloads
 	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
 	constexpr IteratorPair<IntegerIterator<Int>> range (Int from, Int to) {
 		return {IntegerIterator<Int>{from}, IntegerIterator<Int>{to}};
@@ -323,45 +353,45 @@ namespace Range {
 		return {ilist};
 	}
 
+	/**********************************************************************************
+	 * Utils.
+	 */
+
+	// operator== returns true if values are equal and range have same length
+	template <typename R1, typename R2, typename = EnableIf<IsRange<R1>::value && IsRange<R2>::value>>
+	bool operator== (const R1 & r1, const R2 & r2) {
+#if HAS_CPP14
+		return std::equal (r1.begin (), r1.end (), r2.begin (), r2.end ());
+#else
+		typename R1::Iterator r1_it = r1.begin ();
+		typename R1::Iterator r1_end = r1.end ();
+		typename R2::Iterator r2_it = r2.begin ();
+		typename R2::Iterator r2_end = r2.end ();
+		for (; r1_it != r1_end && r2_it != r2_end; ++r1_it, ++r2_it)
+			if (!(*r1_it == *r2_it))
+				return false;
+		return r1_it == r1_end && r2_it == r2_end;
+#endif
+	}
+
 		// TODO ubounded range
-		// TODO add special case to just propagate ranges in range()
-		// repeated (T, n);
-
+		// repeated (T, n)
 #if 0
-		// Input/forward iterator
-		constexpr ReferenceType front () const { return *begin (); }
-		Range pop_front () const { return Base<It>{std::next (begin ()), end ()}; }
+	// Interval-like API
+	constexpr bool contains (It it) const { return begin () <= it && it < end (); }
+	DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
 
-		// Bidirectional iterator
-		ReferenceType back () const { return *std::prev (end ()); }
-		Range pop_back () const { return Base<It>{begin (), std::prev (end ())}; }
-
-		// Random access iterator
-		ReferenceType operator[] (DifferenceType n) const { return begin ()[n]; }
-		Range pop_front (DifferenceType n) const { return Base<It>{std::next (begin (), n), end ()}; }
-		Range pop_back (DifferenceType n) const { return Base<It>{begin (), std::prev (end (), n)}; }
-
-		// Interval-like API
-		constexpr bool contains (It it) const { return begin () <= it && it < end (); }
-		DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
-
-		// "nicer" api (python like slice ; but at(size ()) return end ())
-		// TODO improve...
-		It at (DifferenceType n) const {
-			auto index = n < 0 ? n + size () : n;
-			return std::next (begin (), index);
-		}
-		Range slice (DifferenceType from, DifferenceType to) const {
-			return Base<It>{at (from), at (to)};
-		}
-		Range slice_to (DifferenceType to) const { return Base<It>{begin (), at (to)}; }
-		Range slice_from (DifferenceType from) const { return Base<It>{at (from), end ()}; }
-
-		// Build a container from this range
-		template <typename Container> Container to_container () const {
-			return Container (begin (), end ());
-		}
-	};
+	// "nicer" api (python like slice ; but at(size ()) return end ())
+	// TODO improve...
+	It at (DifferenceType n) const {
+		auto index = n < 0 ? n + size () : n;
+		return std::next (begin (), index);
+	}
+	Range slice (DifferenceType from, DifferenceType to) const {
+		return Base<It>{at (from), at (to)};
+	}
+	Range slice_to (DifferenceType to) const { return Base<It>{begin (), at (to)}; }
+	Range slice_from (DifferenceType from) const { return Base<It>{at (from), end ()}; }
 #endif
 } // namespace Range
 
