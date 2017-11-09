@@ -9,8 +9,6 @@
 namespace duck {
 namespace Range {
 	/* Ranges base combinators lib.
-	 *
-	 * TODO improve generation : use tags with operator| overloads ?
 	 */
 
 	/********************************************************************************
@@ -30,6 +28,8 @@ namespace Range {
 	};
 
 	template <typename R> class Reversed : public Base<Reversed<R>> {
+		static_assert (IsRange<R>::value, "Reversed<R>: R must be a range");
+
 	public:
 		using typename Base<Reversed<R>>::Iterator;
 		using typename Base<Reversed<R>>::SizeType;
@@ -45,7 +45,15 @@ namespace Range {
 		R inner_;
 	};
 
-	template <typename R> Reversed<R> reversed (const R & r) { return {r}; }
+	namespace Combinator {
+		template <typename R> Reversed<R> reversed (const R & r) { return {r}; }
+
+		struct ReversedTag {};
+		inline ReversedTag reversed () { return {}; }
+		template <typename R> auto operator| (const R & r, ReversedTag) -> decltype (reversed (r)) {
+			return reversed (r);
+		}
+	} // namespace Combinator
 
 	/********************************************************************************
 	 * Counted range.
@@ -145,6 +153,17 @@ namespace Range {
 		R inner_;
 	};
 
-	template <typename IntType, typename R> Counted<R, IntType> counted (const R & r) { return {r}; }
+	namespace Combinator {
+		template <typename IntType, typename R> Counted<R, IntType> counted (const R & r) {
+			return {r};
+		}
+
+		template <typename IntType> struct CountedTag {};
+		template <typename IntType> CountedTag<IntType> counted () { return {}; }
+		template <typename IntType, typename R>
+		auto operator| (const R & r, CountedTag<IntType>) -> decltype (counted<IntType> (r)) {
+			return counted<IntType> (r);
+		}
+	} // namespace Combinator
 } // namespace Range
 } // namespace duck

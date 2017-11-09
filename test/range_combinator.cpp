@@ -18,14 +18,15 @@ static std::ostream & operator<< (std::ostream & os, const duck::Range::Base<Der
 }
 
 TEST_CASE ("tests") {
+	using namespace duck::Range::Combinator;
 	std::vector<int> vec{0, 1, 2, 3, 4};
 	auto r = duck::range (vec);
 
-	auto reversed = duck::Range::reversed (r);
-	CHECK (reversed.size () == r.size ());
-	CHECK (std::equal (reversed.begin (), reversed.end (), vec.rbegin ()));
+	auto r_r = r | reversed ();
+	CHECK (r_r.size () == r.size ());
+	CHECK (std::equal (r_r.begin (), r_r.end (), vec.rbegin ()));
 
-	auto c_r = duck::Range::counted<int> (r);
+	auto c_r = r | counted<int> ();
 	for (auto & iv : c_r) {
 		CHECK (iv.index == iv.value ());
 	}
