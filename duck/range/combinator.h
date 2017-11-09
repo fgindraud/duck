@@ -10,6 +10,7 @@
 namespace duck {
 namespace Range {
 	/* Ranges base combinators lib.
+	 * TODO get inner accessor (base () like reverse it ?)
 	 */
 
 	/********************************************************************************
@@ -183,9 +184,128 @@ namespace Range {
 	} // namespace Combinator
 
 	/********************************************************************************
+	 * Processed range.
+	 * Apply function f to each element.
+	 */
+	template <typename R, typename Function> class ApplyIterator;
+	template <typename R, typename Function> class Apply;
+
+	template <typename R, typename Function> struct RangeTraits<Apply<R, Function>> {
+		using Iterator = ApplyIterator<R, Function>;
+		using SizeType = typename RangeTraits<R>::SizeType;
+	};
+
+	template <typename R, typename Function> class Apply : public Base<Apply<R, Function>> {
+		static_assert (IsRange<R>::value, "Apply<R, Function>: R must be a range");
+		// TODO function is invocable on value
+
+	public:
+		using typename Base<Apply<R, Function>>::Iterator;
+		using typename Base<Apply<R, Function>>::SizeType;
+
+		constexpr Apply (const R & r, const Function & function) : inner_ (r), function_ (function) {}
+
+		Iterator begin () const;
+		Iterator end () const;
+		SizeType size () const { return inner_.size (); }
+
+	private:
+		friend class ApplyIterator<R, Function>;
+		R inner_;
+		Function function_;
+	};
+
+	template <typename R, typename Function> class ApplyIterator {
+		static_assert (IsRange<R>::value, "ApplyIterator<R, Function>: R must be a range");
+
+	public:
+		using InnerIterator = typename RangeTraits<R>::Iterator;
+
+		using iterator_category = typename std::iterator_traits<InnerIterator>::iterator_category;
+		using value_type = decltype (std::declval<const Function &> () (
+		    std::declval<typename std::iterator_traits<InnerIterator>::reference> ()));
+		using difference_type = typename std::iterator_traits<InnerIterator>::difference_type;
+		using pointer = void;
+		using reference = value_type; // No way to take references on function_ result
+
+		constexpr ApplyIterator () = default;
+		constexpr ApplyIterator (InnerIterator it, const Apply<R, Function> & range)
+		    : it_ (it), range_ (&range) {}
+
+		// Input / output
+		ApplyIterator & operator++ () { return ++it_, *this; }
+		constexpr reference operator* () const { return range_->function_ (*it_); }
+		// No operator->
+		constexpr bool operator== (const ApplyIterator & o) const { return it_ == o.it_; }
+		constexpr bool operator!= (const ApplyIterator & o) const { return it_ != o.it_; }
+
+		// Forward
+		ApplyIterator operator++ (int) {
+			ApplyIterator tmp (*this);
+			++*this;
+			return tmp;
+		}
+
+		// Bidir
+		ApplyIterator & operator-- () { return --it_, *this; }
+		ApplyIterator operator-- (int) {
+			ApplyIterator tmp (*this);
+			--*this;
+			return tmp;
+		}
+
+		// Random access
+		ApplyIterator & operator+= (difference_type n) { return it_ += n, *this; }
+		constexpr ApplyIterator operator+ (difference_type n) const {
+			return ApplyIterator (it_ + n, range_);
+		}
+		friend constexpr ApplyIterator operator+ (difference_type n, const ApplyIterator & it) {
+			return it + n;
+		}
+		ApplyIterator & operator-= (difference_type n) { return it_ -= n, *this; }
+		constexpr ApplyIterator operator- (difference_type n) const {
+			return ApplyIterator (it_ - n, range_);
+		}
+		constexpr difference_type operator- (const ApplyIterator & o) const { return it_ - o.it_; }
+		constexpr reference operator[] (difference_type n) const { return *(*this + n); }
+		constexpr bool operator< (const ApplyIterator & o) const { return it_ < o.it_; }
+		constexpr bool operator> (const ApplyIterator & o) const { return it_ > o.it_; }
+		constexpr bool operator<= (const ApplyIterator & o) const { return it_ <= o.it_; }
+		constexpr bool operator>= (const ApplyIterator & o) const { return it_ >= o.it_; }
+
+	private:
+		InnerIterator it_{};
+		const Apply<R, Function> * range_{nullptr};
+	};
+
+	template <typename R, typename Function> auto Apply<R, Function>::begin () const -> Iterator {
+		return {inner_.begin (), *this};
+	}
+	template <typename R, typename Function> auto Apply<R, Function>::end () const -> Iterator {
+		return {inner_.end (), *this};
+	}
+
+	namespace Combinator {
+		template <typename R, typename Function>
+		Apply<R, Function> apply (const R & r, const Function & function) {
+			return {r, function};
+		}
+
+		template <typename Function> struct ApplyTag { Function function; };
+		template <typename Function> ApplyTag<Function> apply (const Function & function) {
+			return {function};
+		}
+		template <typename R, typename Function>
+		auto operator| (const R & r, const ApplyTag<Function> & tag)
+		    -> decltype (apply (r, tag.function)) {
+			return apply (r, tag.function);
+		}
+	} // namespace Combinator
+
+	/********************************************************************************
 	 * Counted range.
 	 * Returned value_type has an index field, and a value() member.
-	 *
+	 * FIXME reference type...
 	 * end() pointer index is UB.
 	 */
 	template <typename It, typename IntType> class CountedIterator {

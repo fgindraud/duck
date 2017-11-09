@@ -181,7 +181,7 @@ namespace Range {
 		using value_type = Int;
 		using difference_type = std::ptrdiff_t;
 		using pointer = const value_type *;
-		using reference = value_type;
+		using reference = value_type; // Force copying the int
 
 		constexpr IntegerIterator () noexcept = default;
 		constexpr IntegerIterator (Int n) noexcept : n_ (n) {}
@@ -189,7 +189,7 @@ namespace Range {
 		// Input / output
 		IntegerIterator & operator++ () noexcept { return ++n_, *this; }
 		constexpr reference operator* () const noexcept { return n_; }
-		constexpr pointer operator-> () const & noexcept { return &n_; }
+		constexpr pointer operator-> () const noexcept { return &n_; }
 		constexpr bool operator== (const IntegerIterator & o) const noexcept { return n_ == o.n_; }
 		constexpr bool operator!= (const IntegerIterator & o) const noexcept { return n_ != o.n_; }
 

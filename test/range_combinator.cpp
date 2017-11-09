@@ -33,7 +33,12 @@ TEST_CASE ("tests") {
 	auto f_r = r | filter ([](int i) { return i % 2 == 0; });
 	CHECK (f_r.size () == 3);
 	CHECK (f_r == duck::range ({0, 2, 4}));
-	auto chained_f_r = r | filter ([](int i) { return i < 2; }) | filter ([](int i) { return i > 0; });
+	auto chained_f_r =
+	    r | filter ([](int i) { return i < 2; }) | filter ([](int i) { return i > 0; });
 	CHECK (chained_f_r.size () == 1);
 	CHECK (chained_f_r.front () == 1);
+
+	auto a_r = r | apply ([](int i) { return i - 2; }) | filter ([](int i) { return i >= 0; });
+	CHECK (a_r.size () == 3);
+	CHECK (a_r == duck::range (0, 3));
 }
