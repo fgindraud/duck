@@ -3,6 +3,8 @@
 
 #include <duck/range/combinator.h>
 #include <duck/range/range.h>
+#include <forward_list>
+#include <iterator>
 #include <list>
 #include <vector>
 
@@ -18,32 +20,50 @@ static std::ostream & operator<< (std::ostream & os, const duck::Range::Base<Der
 
 TYPE_TO_STRING (std::vector<int>);
 TYPE_TO_STRING (std::list<int>);
-using TestedContainerTypes = doctest::Types<std::vector<int>, std::list<int>>;
+TYPE_TO_STRING (std::forward_list<int>);
 
-TEST_CASE_TEMPLATE ("reverse, counted, filter, apply", Container, TestedContainerTypes) {
-	using namespace duck::Range::Combinator;
-	Container vec{0, 1, 2, 3, 4};
-	auto r = duck::range (vec);
+using BidirContainers = doctest::Types<std::vector<int>, std::list<int>>;
+using ForwardContainers = doctest::Types<std::vector<int>, std::list<int>, std::forward_list<int>>;
 
-	auto reversed_range = r | reversed ();
-	CHECK (reversed_range.size () == r.size ());
-	CHECK (reversed_range == duck::range (vec.rbegin (), vec.rend ()));
+namespace DRC = duck::Range::Combinator;
+const auto values = {0, 1, 2, 3, 4};
 
-	auto counted_range = r | counted<int> ();
-	for (auto & iv : counted_range) {
+TEST_CASE_TEMPLATE ("reverse", Container, BidirContainers) {
+	auto range = duck::range (Container{values}) | DRC::reversed ();
+	CHECK (range.size () == values.size ());
+	using RevIt = std::reverse_iterator<typename std::initializer_list<int>::iterator>;
+	CHECK (range == duck::range (RevIt{values.end ()}, RevIt{values.begin ()}));
+
+	CHECK ((duck::range (Container{}) | DRC::reversed ()).empty ());
+}
+
+TEST_CASE_TEMPLATE ("counted", Container, ForwardContainers) {
+	for (auto & iv : duck::range (Container{values}) | DRC::counted<int> ()) {
 		CHECK (iv.index == iv.value ());
 	}
+	CHECK ((duck::range (Container{}) | DRC::counted<int> ()).empty ());
+}
 
-	auto filtered_range = r | filter ([](int i) { return i % 2 == 0; });
+TEST_CASE_TEMPLATE ("filter", Container, ForwardContainers) {
+	auto r = duck::range (Container{values});
+
+	auto filtered_range = r | DRC::filter ([](int i) { return i % 2 == 0; });
 	CHECK (filtered_range.size () == 3);
 	CHECK (filtered_range == duck::range ({0, 2, 4}));
+
 	auto chained_filtered_range =
-	    r | filter ([](int i) { return i < 2; }) | filter ([](int i) { return i > 0; });
+	    r | DRC::filter ([](int i) { return i < 2; }) | DRC::filter ([](int i) { return i > 0; });
 	CHECK (chained_filtered_range.size () == 1);
 	CHECK (chained_filtered_range.front () == 1);
 
-	auto applied_range =
-	    r | apply ([](int i) { return i - 2; }) | filter ([](int i) { return i >= 0; });
+	CHECK ((duck::range (Container{}) | DRC::filter ([](int) { return true; })).empty ());
+}
+
+TEST_CASE_TEMPLATE ("apply", Container, ForwardContainers) {
+	auto applied_range = duck::range (Container{values}) | DRC::apply ([](int i) { return i - 2; }) |
+	                     DRC::filter ([](int i) { return i >= 0; });
 	CHECK (applied_range.size () == 3);
 	CHECK (applied_range == duck::range (0, 3));
+
+	CHECK ((duck::range (Container{}) | DRC::apply ([](int i) { return i; })).empty ());
 }
