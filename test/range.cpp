@@ -11,7 +11,7 @@
 struct DummyIteratorTraits {
 	using iterator_category = std::random_access_iterator_tag;
 	using value_type = void;
-	using difference_type = void;
+	using difference_type = std::ptrdiff_t;
 	using reference = void;
 	using pointer = void;
 };
@@ -113,6 +113,8 @@ TEST_CASE ("integer range & range basic primitives") {
 	CHECK (r[2] == 6);
 	CHECK_FALSE (r.empty ());
 	CHECK (r.size () == 6);
+	CHECK (*r.at (1) == 5);
+	CHECK (*r.at (-3) == 7);
 
 	auto r2 = duck::range (0);
 	CHECK (r2.empty ());
@@ -133,6 +135,7 @@ TEST_CASE ("container ref range") {
 	*vec_r.begin () = 42;
 	CHECK (vec[0] == 42);
 	CHECK (std::equal (vec.begin (), vec.end (), vec_r.begin ()));
+	CHECK (vec_r.to_container<std::vector<int>> () == vec);
 }
 
 TEST_CASE ("container value range") {
@@ -149,9 +152,9 @@ TEST_CASE ("strings & arrays") {
 
 	// String literal is just an array for range
 	auto r_lit = duck::range (literal);
-	CHECK (r_lit.size () == s.size() + 1); // Includes '\0'
+	CHECK (r_lit.size () == s.size () + 1); // Includes '\0'
 
 	// Use char_range to consider it as null_terminated
-	auto cr_lit = duck::char_range(literal);
+	auto cr_lit = duck::char_range (literal);
 	CHECK (cr_lit.size () == s.size ());
 }

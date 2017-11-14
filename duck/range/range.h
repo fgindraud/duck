@@ -109,6 +109,7 @@ namespace Range {
 		using typename RangeTraits<Derived>::SizeType;
 
 		using ReferenceType = typename std::iterator_traits<Iterator>::reference;
+		using DifferenceType = typename std::iterator_traits<Iterator>::difference_type;
 
 		constexpr const Derived & derived () const { return static_cast<const Derived &> (*this); }
 
@@ -120,16 +121,22 @@ namespace Range {
 		// Accesses (UB if empty or out of range ; available if Iterator supports it)
 		ReferenceType front () const { return *derived ().begin (); }
 		ReferenceType back () const { return *std::prev (derived ().end ()); }
-		template <typename Difference> ReferenceType operator[] (Difference n) const {
-			return derived ().begin ()[n];
+		ReferenceType operator[] (DifferenceType n) const { return derived ().begin ()[n]; }
+
+		// TODO provide a std::distance(it, first, last)
+		bool contains (Iterator it) const;
+		DifferenceType offset_of (Iterator it) const;
+
+		// Python like referencing: -1 is last, etc.
+		Iterator at (DifferenceType n) const {
+			auto index = n < 0 ? n + derived ().size () : n;
+			return std::next (derived ().begin (), index);
 		}
 
 		// Build a container from this range
 		template <typename Container> Container to_container () const {
 			return Container{derived ().begin (), derived ().end ()};
 		}
-
-		// TODO add interface of old Range which does not generate ranges
 	};
 
 	// range() overload: forwards ranges as is
@@ -395,26 +402,6 @@ namespace Range {
 		return r1_it == r1_end && r2_it == r2_end;
 #endif
 	}
-
-		// TODO ubounded range
-		// repeated (T, n)
-#if 0
-	// Interval-like API
-	constexpr bool contains (It it) const { return begin () <= it && it < end (); }
-	DifferenceType offset_of (It it) const { return std::distance (begin (), it); }
-
-	// "nicer" api (python like slice ; but at(size ()) return end ())
-	// TODO improve...
-	It at (DifferenceType n) const {
-		auto index = n < 0 ? n + size () : n;
-		return std::next (begin (), index);
-	}
-	Range slice (DifferenceType from, DifferenceType to) const {
-		return Base<It>{at (from), at (to)};
-	}
-	Range slice_to (DifferenceType to) const { return Base<It>{begin (), at (to)}; }
-	Range slice_from (DifferenceType from) const { return Base<It>{at (from), end ()}; }
-#endif
 } // namespace Range
 
 // Pull range() functions in namespace duck

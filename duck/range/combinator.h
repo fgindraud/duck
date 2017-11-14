@@ -102,10 +102,9 @@ namespace Range {
 
 	template <typename R, typename Predicate> class Filter : public Base<Filter<R, Predicate>> {
 		static_assert (IsRange<R>::value, "Filter<R, Predicate>: R must be a range");
-		static_assert (
-		    IsPredicate<Predicate, typename std::iterator_traits<
-		                               typename RangeTraits<R>::Iterator>::value_type>::value,
-		    "Filter<R, Predicate>: Predicate must be callable on R values");
+		static_assert (IsPredicate<Predicate, typename std::iterator_traits<
+		                                          typename RangeTraits<R>::Iterator>::reference>::value,
+		               "Filter<R, Predicate>: Predicate must be callable on R values");
 
 	public:
 		using typename Base<Filter<R, Predicate>>::Iterator;
@@ -157,10 +156,9 @@ namespace Range {
 
 	template <typename R, typename Predicate> class FilterIterator {
 		static_assert (IsRange<R>::value, "FilterIterator<R, Predicate>: R must be a range");
-		static_assert (
-		    IsPredicate<Predicate, typename std::iterator_traits<
-		                               typename RangeTraits<R>::Iterator>::value_type>::value,
-		    "Filter<R, Predicate>: Predicate must be callable on R values");
+		static_assert (IsPredicate<Predicate, typename std::iterator_traits<
+		                                          typename RangeTraits<R>::Iterator>::reference>::value,
+		               "Filter<R, Predicate>: Predicate must be callable on R values");
 
 	public:
 		using InnerIterator = typename RangeTraits<R>::Iterator;
@@ -253,7 +251,7 @@ namespace Range {
 	template <typename R, typename Function> class Apply : public Base<Apply<R, Function>> {
 		static_assert (IsRange<R>::value, "Apply<R, Function>: R must be a range");
 		static_assert (IsCallable<Function, typename std::iterator_traits<
-		                                        typename RangeTraits<R>::Iterator>::value_type>::value,
+		                                        typename RangeTraits<R>::Iterator>::reference>::value,
 		               "Apply<R, Function>: Function must be callable on R values");
 
 	public:
@@ -281,7 +279,7 @@ namespace Range {
 	template <typename R, typename Function> class ApplyIterator {
 		static_assert (IsRange<R>::value, "ApplyIterator<R, Function>: R must be a range");
 		static_assert (IsCallable<Function, typename std::iterator_traits<
-		                                        typename RangeTraits<R>::Iterator>::value_type>::value,
+		                                        typename RangeTraits<R>::Iterator>::reference>::value,
 		               "ApplyIterator<R, Function>: Function must be callable on R values");
 
 	public:
