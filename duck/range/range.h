@@ -37,9 +37,6 @@ namespace Range {
 	 * Some store the object itself (range of a temporary object).
 	 * The object in this case becomes constant and cannot be retrieved.
 	 * To retrieve the object, store the temporary then call range on it (reference).
-	 *
-	 * TODO combinators.
-	 * TODO algorithm.
 	 */
 
 	/**********************************************************************************
@@ -95,16 +92,6 @@ namespace Range {
 	    : IsIterable<T> {};
 	template <typename T>
 	using IsBaseTypeContainer = IsContainer<typename std::remove_reference<T>::type>;
-
-	// Test if we at least support RequiredCategory
-	template <typename Category, typename RequiredCategory>
-	using HasRequiredCategory = std::is_base_of<RequiredCategory, Category>;
-	template <typename It, typename RequiredCategory>
-	using IteratorHasRequiredCategory =
-	    HasRequiredCategory<typename std::iterator_traits<It>::iterator_category, RequiredCategory>;
-	template <typename R, typename RequiredCategory>
-	using RangeHasRequiredCategory =
-	    IteratorHasRequiredCategory<typename RangeTraits<R>::Iterator, RequiredCategory>;
 
 	/**********************************************************************************
 	 * Common base interface for range types.

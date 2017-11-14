@@ -13,6 +13,37 @@ namespace Range {
 	 */
 
 	/********************************************************************************
+	 * Type traits.
+	 */
+
+	// Test if we at least support RequiredCategory
+	template <typename Category, typename RequiredCategory>
+	using HasRequiredCategory = std::is_base_of<RequiredCategory, Category>;
+	template <typename It, typename RequiredCategory>
+	using IteratorHasRequiredCategory =
+	    HasRequiredCategory<typename std::iterator_traits<It>::iterator_category, RequiredCategory>;
+	template <typename R, typename RequiredCategory>
+	using RangeHasRequiredCategory =
+	    IteratorHasRequiredCategory<typename RangeTraits<R>::Iterator, RequiredCategory>;
+
+	// Is callable
+	template <typename Callable, typename Arg, typename = void>
+	struct IsCallable : std::false_type {};
+	template <typename Callable, typename Arg>
+	struct IsCallable<Callable, Arg,
+	                  VoidT<decltype (std::declval<Callable &> () (std::declval<Arg> ()))>>
+	    : std::true_type {};
+
+	// Is predicate
+	template <typename Predicate, typename Arg, typename = void>
+	struct IsPredicate : std::false_type {};
+	template <typename Predicate, typename Arg>
+	struct IsPredicate<
+	    Predicate, Arg,
+	    VoidT<decltype (static_cast<bool> (std::declval<Predicate &> () (std::declval<Arg> ())))>>
+	    : std::true_type {};
+
+	/********************************************************************************
 	 * Slicing. TODO
 	 * Just pack lambdas that transform iterators ?
 	 */
@@ -71,7 +102,10 @@ namespace Range {
 
 	template <typename R, typename Predicate> class Filter : public Base<Filter<R, Predicate>> {
 		static_assert (IsRange<R>::value, "Filter<R, Predicate>: R must be a range");
-		// TODO predicate is invocable on value
+		static_assert (
+		    IsPredicate<Predicate, typename std::iterator_traits<
+		                               typename RangeTraits<R>::Iterator>::value_type>::value,
+		    "Filter<R, Predicate>: Predicate must be callable on R values");
 
 	public:
 		using typename Base<Filter<R, Predicate>>::Iterator;
@@ -123,6 +157,10 @@ namespace Range {
 
 	template <typename R, typename Predicate> class FilterIterator {
 		static_assert (IsRange<R>::value, "FilterIterator<R, Predicate>: R must be a range");
+		static_assert (
+		    IsPredicate<Predicate, typename std::iterator_traits<
+		                               typename RangeTraits<R>::Iterator>::value_type>::value,
+		    "Filter<R, Predicate>: Predicate must be callable on R values");
 
 	public:
 		using InnerIterator = typename RangeTraits<R>::Iterator;
@@ -214,7 +252,9 @@ namespace Range {
 
 	template <typename R, typename Function> class Apply : public Base<Apply<R, Function>> {
 		static_assert (IsRange<R>::value, "Apply<R, Function>: R must be a range");
-		// TODO function is invocable on value
+		static_assert (IsCallable<Function, typename std::iterator_traits<
+		                                        typename RangeTraits<R>::Iterator>::value_type>::value,
+		               "Apply<R, Function>: Function must be callable on R values");
 
 	public:
 		using typename Base<Apply<R, Function>>::Iterator;
@@ -240,6 +280,9 @@ namespace Range {
 
 	template <typename R, typename Function> class ApplyIterator {
 		static_assert (IsRange<R>::value, "ApplyIterator<R, Function>: R must be a range");
+		static_assert (IsCallable<Function, typename std::iterator_traits<
+		                                        typename RangeTraits<R>::Iterator>::value_type>::value,
+		               "ApplyIterator<R, Function>: Function must be callable on R values");
 
 	public:
 		using InnerIterator = typename RangeTraits<R>::Iterator;
@@ -339,8 +382,10 @@ namespace Range {
 	 * end() iterator index is UB.
 	 */
 	template <typename It, typename IntType> class IndexIterator {
-		static_assert (IsIterator<It>::value, "It must be an iterator type");
-		static_assert (std::is_integral<IntType>::value, "IntType must be integral");
+		static_assert (IsIterator<It>::value,
+		               "IndexIterator<It, IntType>: It must be an iterator type");
+		static_assert (std::is_integral<IntType>::value,
+		               "IndexIterator<It, IntType>: IntType must be integral");
 
 	public:
 		using iterator_category = typename std::iterator_traits<It>::iterator_category;
