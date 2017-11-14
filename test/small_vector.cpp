@@ -55,7 +55,7 @@ TEST_CASE ("push_back, resize, clear (T=int, testing size, capacity, is_allocate
 	CHECK (a.back () == 33);
 	CHECK (a[1] == -1);
 	CHECK (a.at (2) == 33);
-	CHECK_THROWS_AS (a.at (3), const std::out_of_range &);
+	CHECK_THROWS_AS (a.at (3), std::out_of_range);
 
 	a.resize (5);
 	CHECK (a.size () == 5);

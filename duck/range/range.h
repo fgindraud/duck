@@ -42,8 +42,23 @@ namespace Range {
 	 * TODO algorithm.
 	 */
 
+	/**********************************************************************************
+	 * Provides typedefs for Range types (must be specialised).
+	 * Member typedefs:
+	 * - Iterator: iterator type
+	 * - SizeType: type returned by size() method
+	 */
+	template <typename RangeType> struct RangeTraits;
+
+	/* Type trait to test if this is a range type.
+	 * Impl: tests if RangeTraits is defined.
+	 */
+	template <typename T, typename = void> struct IsRange : std::false_type {};
+	template <typename T>
+	struct IsRange<T, VoidT<typename RangeTraits<T>::Iterator>> : std::true_type {};
+
 	/*********************************************************************************
-	 * Type traits.
+	 * Other useful type traits.
 	 */
 
 	// Is an iterator: std::iterator_traits<It> is SFINAE compatible
@@ -81,22 +96,18 @@ namespace Range {
 	template <typename T>
 	using IsBaseTypeContainer = IsContainer<typename std::remove_reference<T>::type>;
 
+	// Test if we at least support RequiredCategory
+	template <typename Category, typename RequiredCategory>
+	using HasRequiredCategory = std::is_base_of<RequiredCategory, Category>;
+	template <typename It, typename RequiredCategory>
+	using IteratorHasRequiredCategory =
+	    HasRequiredCategory<typename std::iterator_traits<It>::iterator_category, RequiredCategory>;
+	template <typename R, typename RequiredCategory>
+	using RangeHasRequiredCategory =
+	    IteratorHasRequiredCategory<typename RangeTraits<R>::Iterator, RequiredCategory>;
+
 	/**********************************************************************************
-	 * Provides typedefs for Range types (must be specialised).
-	 * Member typedefs:
-	 * - Iterator: iterator type
-	 * - SizeType: type returned by size() method
-	 */
-	template <typename RangeType> struct RangeTraits;
-
-	/* Type trait to test if this is a range type.
-	 * Impl: tests if RangeTraits is defined.
-	 */
-	template <typename T, typename = void> struct IsRange : std::false_type {};
-	template <typename T>
-	struct IsRange<T, VoidT<typename RangeTraits<T>::Iterator>> : std::true_type {};
-
-	/* Common base interface for range types.
+	 * Common base interface for range types.
 	 * Intended to be used in a CRTP pattern extending a derived range class.
 	 * Derived classes can override these functions if they have a better implementation.
 	 *

@@ -29,6 +29,8 @@ namespace Range {
 
 	template <typename R> class Reversed : public Base<Reversed<R>> {
 		static_assert (IsRange<R>::value, "Reversed<R>: R must be a range");
+		static_assert (RangeHasRequiredCategory<R, std::bidirectional_iterator_tag>::value,
+		               "Reversed<R>: R must be at least bidirectional_iterator");
 
 	public:
 		using typename Base<Reversed<R>>::Iterator;
