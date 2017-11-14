@@ -26,7 +26,7 @@ using BidirContainers = doctest::Types<std::vector<int>, std::list<int>>;
 using ForwardContainers = doctest::Types<std::vector<int>, std::list<int>, std::forward_list<int>>;
 
 namespace DRC = duck::Range::Combinator;
-const auto values = {0, 1, 2, 3, 4};
+auto values = {0, 1, 2, 3, 4};
 
 TEST_CASE_TEMPLATE ("reverse", Container, BidirContainers) {
 	auto range = duck::range (Container{values}) | DRC::reverse ();
