@@ -18,12 +18,33 @@ static std::ostream & operator<< (std::ostream & os, const duck::Range::Base<Der
 	return os << ")";
 }
 
+// Lousy wrapper of std vector which is move only : test move construction of ranges
+class UniqIntVector {
+private:
+	std::vector<int> v;
+
+public:
+	UniqIntVector () = default;
+	UniqIntVector (std::initializer_list<int> l) : v (l) {}
+
+	UniqIntVector (const UniqIntVector &) = delete;
+	UniqIntVector (UniqIntVector &&) = default;
+	UniqIntVector & operator= (const UniqIntVector &) = delete;
+	UniqIntVector & operator= (UniqIntVector &&) = default;
+
+	typename std::vector<int>::const_iterator begin () const { return v.begin (); }
+	typename std::vector<int>::const_iterator end () const { return v.end (); }
+};
+
+// Testing combinators with multiple containers, to test different iterator categories
 TYPE_TO_STRING (std::vector<int>);
+TYPE_TO_STRING (UniqIntVector);
 TYPE_TO_STRING (std::list<int>);
 TYPE_TO_STRING (std::forward_list<int>);
 
-using BidirContainers = doctest::Types<std::vector<int>, std::list<int>>;
-using ForwardContainers = doctest::Types<std::vector<int>, std::list<int>, std::forward_list<int>>;
+using BidirContainers = doctest::Types<std::vector<int>, UniqIntVector, std::list<int>>;
+using ForwardContainers =
+    doctest::Types<std::vector<int>, UniqIntVector, std::list<int>, std::forward_list<int>>;
 
 namespace DRC = duck::Range::Combinator;
 auto values = {0, 1, 2, 3, 4};
@@ -46,14 +67,14 @@ TEST_CASE_TEMPLATE ("index", Container, ForwardContainers) {
 }
 
 TEST_CASE_TEMPLATE ("filter", Container, ForwardContainers) {
-	auto r = duck::range (Container{values});
-
-	auto filtered_range = r | DRC::filter ([](int i) { return i % 2 == 0; });
+	auto filtered_range =
+	    duck::range (Container{values}) | DRC::filter ([](int i) { return i % 2 == 0; });
 	CHECK (filtered_range.size () == 3);
 	CHECK (filtered_range == duck::range ({0, 2, 4}));
 
-	auto chained_filtered_range =
-	    r | DRC::filter ([](int i) { return i < 2; }) | DRC::filter ([](int i) { return i > 0; });
+	auto chained_filtered_range = duck::range (Container{values}) |
+	                              DRC::filter ([](int i) { return i < 2; }) |
+	                              DRC::filter ([](int i) { return i > 0; });
 	CHECK (chained_filtered_range.size () == 1);
 	CHECK (chained_filtered_range.front () == 1);
 

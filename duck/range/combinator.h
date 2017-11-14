@@ -37,6 +37,7 @@ namespace Range {
 		using typename Base<Reverse<R>>::SizeType;
 
 		constexpr Reverse (const R & r) : inner_ (r) {}
+		constexpr Reverse (R && r) : inner_ (std::move (r)) {}
 
 		constexpr Iterator begin () const { return Iterator{inner_.end ()}; }
 		constexpr Iterator end () const { return Iterator{inner_.begin ()}; }
@@ -47,12 +48,13 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename R> Reverse<R> reverse (const R & r) { return {r}; }
+		template <typename R> Reverse<DecayT<R>> reverse (R && r) { return {std::forward<R> (r)}; }
 
 		struct ReverseTag {};
 		inline ReverseTag reverse () { return {}; }
-		template <typename R> auto operator| (const R & r, ReverseTag) -> decltype (reverse (r)) {
-			return reverse (r);
+		template <typename R>
+		auto operator| (R && r, ReverseTag) -> decltype (reverse (std::forward<R> (r))) {
+			return reverse (std::forward<R> (r));
 		}
 	} // namespace Combinator
 
@@ -76,6 +78,12 @@ namespace Range {
 
 		constexpr Filter (const R & r, const Predicate & predicate)
 		    : inner_ (r), predicate_ (predicate) {}
+		constexpr Filter (const R & r, Predicate && predicate)
+		    : inner_ (r), predicate_ (std::move (predicate)) {}
+		constexpr Filter (R && r, const Predicate & predicate)
+		    : inner_ (std::move (r)), predicate_ (predicate) {}
+		constexpr Filter (R && r, Predicate && predicate)
+		    : inner_ (std::move (r)), predicate_ (std::move (predicate)) {}
 
 		constexpr Iterator begin () const;
 		constexpr Iterator end () const;
@@ -172,22 +180,23 @@ namespace Range {
 
 	namespace Combinator {
 		template <typename R, typename Predicate>
-		constexpr Filter<R, Predicate> filter (const R & r, const Predicate & predicate) {
-			return {r, predicate};
+		constexpr Filter<DecayT<R>, DecayT<Predicate>> filter (R && r, Predicate && predicate) {
+			return {std::forward<R> (r), std::forward<Predicate> (predicate)};
 		}
 
 		template <typename Predicate> struct FilterTag {
 			constexpr FilterTag (const Predicate & p) : predicate (p) {}
+			constexpr FilterTag (Predicate && p) : predicate (std::move (p)) {}
 			Predicate predicate;
 		};
 		template <typename Predicate>
-		constexpr FilterTag<Predicate> filter (const Predicate & predicate) {
-			return {predicate};
+		constexpr FilterTag<DecayT<Predicate>> filter (Predicate && predicate) {
+			return {std::forward<Predicate> (predicate)};
 		}
 		template <typename R, typename Predicate>
-		constexpr auto operator| (const R & r, const FilterTag<Predicate> & tag)
-		    -> decltype (filter (r, tag.predicate)) {
-			return filter (r, tag.predicate);
+		constexpr auto operator| (R && r, FilterTag<Predicate> tag)
+		    -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
+			return filter (std::forward<R> (r), std::move (tag.predicate));
 		}
 	} // namespace Combinator
 
@@ -212,6 +221,12 @@ namespace Range {
 		using typename Base<Apply<R, Function>>::SizeType;
 
 		constexpr Apply (const R & r, const Function & function) : inner_ (r), function_ (function) {}
+		constexpr Apply (const R & r, Function && function)
+		    : inner_ (r), function_ (std::move (function)) {}
+		constexpr Apply (R && r, const Function & function)
+		    : inner_ (std::move (r)), function_ (function) {}
+		constexpr Apply (R && r, Function && function)
+		    : inner_ (std::move (r)), function_ (std::move (function)) {}
 
 		constexpr Iterator begin () const;
 		constexpr Iterator end () const;
@@ -299,21 +314,22 @@ namespace Range {
 
 	namespace Combinator {
 		template <typename R, typename Function>
-		constexpr Apply<R, Function> apply (const R & r, const Function & function) {
-			return {r, function};
+		constexpr Apply<DecayT<R>, DecayT<Function>> apply (R && r, Function && function) {
+			return {std::forward<R> (r), std::forward<Function> (function)};
 		}
 
 		template <typename Function> struct ApplyTag {
-			constexpr ApplyTag (const Function & f) : function (f) {}
+			constexpr ApplyTag (const Function & p) : function (p) {}
+			constexpr ApplyTag (Function && p) : function (std::move (p)) {}
 			Function function;
 		};
-		template <typename Function> constexpr ApplyTag<Function> apply (const Function & function) {
-			return {function};
+		template <typename Function> constexpr ApplyTag<DecayT<Function>> apply (Function && function) {
+			return {std::forward<Function> (function)};
 		}
 		template <typename R, typename Function>
-		constexpr auto operator| (const R & r, const ApplyTag<Function> & tag)
-		    -> decltype (apply (r, tag.function)) {
-			return apply (r, tag.function);
+		constexpr auto operator| (R && r, ApplyTag<Function> tag)
+		    -> decltype (apply (std::forward<R> (r), std::move (tag.function))) {
+			return apply (std::forward<R> (r), std::move (tag.function));
 		}
 	} // namespace Combinator
 
@@ -406,6 +422,7 @@ namespace Range {
 		using typename Base<Index<R, IntType>>::SizeType;
 
 		constexpr Index (const R & r) : inner_ (r) {}
+		constexpr Index (R && r) : inner_ (std::move (r)) {}
 
 		constexpr Iterator begin () const { return {inner_.begin (), 0}; }
 		constexpr Iterator end () const {
@@ -418,15 +435,16 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename IntType, typename R> constexpr Index<R, IntType> index (const R & r) {
-			return {r};
+		template <typename IntType, typename R> constexpr Index<DecayT<R>, IntType> index (R && r) {
+			return {std::forward<R> (r)};
 		}
 
 		template <typename IntType> struct IndexTag { constexpr IndexTag () = default; };
 		template <typename IntType = int> constexpr IndexTag<IntType> index () { return {}; }
 		template <typename IntType, typename R>
-		constexpr auto operator| (const R & r, IndexTag<IntType>) -> decltype (index<IntType> (r)) {
-			return index<IntType> (r);
+		constexpr auto operator| (R && r, IndexTag<IntType>)
+		    -> decltype (index<IntType> (std::forward<R> (r))) {
+			return index<IntType> (std::forward<R> (r));
 		}
 	} // namespace Combinator
 } // namespace Range
