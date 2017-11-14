@@ -20,23 +20,23 @@ namespace Range {
 	/********************************************************************************
 	 * Reverse order.
 	 */
-	template <typename R> class Reversed;
+	template <typename R> class Reverse;
 
-	template <typename R> struct RangeTraits<Reversed<R>> {
+	template <typename R> struct RangeTraits<Reverse<R>> {
 		using Iterator = std::reverse_iterator<typename RangeTraits<R>::Iterator>;
 		using SizeType = typename RangeTraits<R>::SizeType;
 	};
 
-	template <typename R> class Reversed : public Base<Reversed<R>> {
-		static_assert (IsRange<R>::value, "Reversed<R>: R must be a range");
+	template <typename R> class Reverse : public Base<Reverse<R>> {
+		static_assert (IsRange<R>::value, "Reverse<R>: R must be a range");
 		static_assert (RangeHasRequiredCategory<R, std::bidirectional_iterator_tag>::value,
-		               "Reversed<R>: R must be at least bidirectional_iterator");
+		               "Reverse<R>: R must be at least bidirectional_iterator");
 
 	public:
-		using typename Base<Reversed<R>>::Iterator;
-		using typename Base<Reversed<R>>::SizeType;
+		using typename Base<Reverse<R>>::Iterator;
+		using typename Base<Reverse<R>>::SizeType;
 
-		constexpr Reversed (const R & r) : inner_ (r) {}
+		constexpr Reverse (const R & r) : inner_ (r) {}
 
 		constexpr Iterator begin () const { return Iterator{inner_.end ()}; }
 		constexpr Iterator end () const { return Iterator{inner_.begin ()}; }
@@ -47,12 +47,12 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename R> Reversed<R> reversed (const R & r) { return {r}; }
+		template <typename R> Reverse<R> reverse (const R & r) { return {r}; }
 
-		struct ReversedTag {};
-		inline ReversedTag reversed () { return {}; }
-		template <typename R> auto operator| (const R & r, ReversedTag) -> decltype (reversed (r)) {
-			return reversed (r);
+		struct ReverseTag {};
+		inline ReverseTag reverse () { return {}; }
+		template <typename R> auto operator| (const R & r, ReverseTag) -> decltype (reverse (r)) {
+			return reverse (r);
 		}
 	} // namespace Combinator
 
@@ -318,12 +318,11 @@ namespace Range {
 	} // namespace Combinator
 
 	/********************************************************************************
-	 * Counted range.
+	 * Indexed range.
 	 * Returned value_type has an index field, and a value() member.
-	 * FIXME reference type...
-	 * end() pointer index is UB.
+	 * end() iterator index is UB.
 	 */
-	template <typename It, typename IntType> class CountedIterator {
+	template <typename It, typename IntType> class IndexIterator {
 		static_assert (IsIterator<It>::value, "It must be an iterator type");
 		static_assert (std::is_integral<IntType>::value, "IntType must be integral");
 
@@ -340,75 +339,73 @@ namespace Range {
 		using pointer = const value_type *;
 		using reference = const value_type &;
 
-		constexpr CountedIterator () = default;
-		constexpr CountedIterator (It it, IntType index) : d_ (it, index) {}
+		constexpr IndexIterator () = default;
+		constexpr IndexIterator (It it, IntType index) : d_ (it, index) {}
 
 		constexpr It base () const { return d_.it; }
 
 		// Input / output
-		CountedIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
+		IndexIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
 		constexpr reference operator* () const { return d_; }
 		constexpr pointer operator-> () const { return &d_; }
-		constexpr bool operator== (const CountedIterator & o) const { return d_.it == o.d_.it; }
-		constexpr bool operator!= (const CountedIterator & o) const { return d_.it != o.d_.it; }
+		constexpr bool operator== (const IndexIterator & o) const { return d_.it == o.d_.it; }
+		constexpr bool operator!= (const IndexIterator & o) const { return d_.it != o.d_.it; }
 
 		// Forward
-		CountedIterator operator++ (int) {
-			CountedIterator tmp (*this);
+		IndexIterator operator++ (int) {
+			IndexIterator tmp (*this);
 			++*this;
 			return tmp;
 		}
 
 		// Bidir
-		CountedIterator & operator-- () { return --d_.it, --d_.index, *this; }
-		CountedIterator operator-- (int) {
-			CountedIterator tmp (*this);
+		IndexIterator & operator-- () { return --d_.it, --d_.index, *this; }
+		IndexIterator operator-- (int) {
+			IndexIterator tmp (*this);
 			--*this;
 			return tmp;
 		}
 
 		// Random access
-		CountedIterator & operator+= (difference_type n) { return d_.it += n, d_.index += n, *this; }
-		constexpr CountedIterator operator+ (difference_type n) const {
-			return CountedIterator (d_.it + n, d_.index + n);
+		IndexIterator & operator+= (difference_type n) { return d_.it += n, d_.index += n, *this; }
+		constexpr IndexIterator operator+ (difference_type n) const {
+			return IndexIterator (d_.it + n, d_.index + n);
 		}
-		friend constexpr CountedIterator operator+ (difference_type n, const CountedIterator & it) {
+		friend constexpr IndexIterator operator+ (difference_type n, const IndexIterator & it) {
 			return it + n;
 		}
-		CountedIterator & operator-= (difference_type n) { return d_.it -= n, d_.index -= n, *this; }
-		constexpr CountedIterator operator- (difference_type n) const {
-			return CountedIterator (d_.it - n, d_.index - n);
+		IndexIterator & operator-= (difference_type n) { return d_.it -= n, d_.index -= n, *this; }
+		constexpr IndexIterator operator- (difference_type n) const {
+			return IndexIterator (d_.it - n, d_.index - n);
 		}
-		constexpr difference_type operator- (const CountedIterator & o) const {
-			return d_.it - o.d_.it;
-		}
+		constexpr difference_type operator- (const IndexIterator & o) const { return d_.it - o.d_.it; }
 		constexpr value_type operator[] (difference_type n) const { return *(*this + n); }
-		constexpr bool operator< (const CountedIterator & o) const { return d_.it < o.d_.it; }
-		constexpr bool operator> (const CountedIterator & o) const { return d_.it > o.d_.it; }
-		constexpr bool operator<= (const CountedIterator & o) const { return d_.it <= o.d_.it; }
-		constexpr bool operator>= (const CountedIterator & o) const { return d_.it >= o.d_.it; }
+		constexpr bool operator< (const IndexIterator & o) const { return d_.it < o.d_.it; }
+		constexpr bool operator> (const IndexIterator & o) const { return d_.it > o.d_.it; }
+		constexpr bool operator<= (const IndexIterator & o) const { return d_.it <= o.d_.it; }
+		constexpr bool operator>= (const IndexIterator & o) const { return d_.it >= o.d_.it; }
 
 	private:
 		value_type d_{};
 	};
 
-	template <typename R, typename IntType> class Counted;
+	template <typename R, typename IntType> class Index;
 
-	template <typename R, typename IntType> struct RangeTraits<Counted<R, IntType>> {
-		using Iterator = CountedIterator<typename RangeTraits<R>::Iterator, IntType>;
+	template <typename R, typename IntType> struct RangeTraits<Index<R, IntType>> {
+		using Iterator = IndexIterator<typename RangeTraits<R>::Iterator, IntType>;
 		using SizeType = typename RangeTraits<R>::SizeType;
 	};
 
-	template <typename R, typename IntType> class Counted : public Base<Counted<R, IntType>> {
-		static_assert (IsRange<R>::value, "Counted<R, IntType>: R must be a range");
+	template <typename R, typename IntType> class Index : public Base<Index<R, IntType>> {
+		static_assert (IsRange<R>::value, "Index<R, IntType>: R must be a range");
 		static_assert (std::is_integral<IntType>::value,
-		               "Counted<R, IntType>: IntType must be an integral type");
+		               "Index<R, IntType>: IntType must be an integral type");
 
 	public:
-		using typename Base<Counted<R, IntType>>::Iterator;
-		using typename Base<Counted<R, IntType>>::SizeType;
+		using typename Base<Index<R, IntType>>::Iterator;
+		using typename Base<Index<R, IntType>>::SizeType;
 
-		constexpr Counted (const R & r) : inner_ (r) {}
+		constexpr Index (const R & r) : inner_ (r) {}
 
 		constexpr Iterator begin () const { return {inner_.begin (), 0}; }
 		constexpr Iterator end () const {
@@ -421,15 +418,15 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename IntType, typename R> constexpr Counted<R, IntType> counted (const R & r) {
+		template <typename IntType, typename R> constexpr Index<R, IntType> index (const R & r) {
 			return {r};
 		}
 
-		template <typename IntType> struct CountedTag { constexpr CountedTag () = default; };
-		template <typename IntType> constexpr CountedTag<IntType> counted () { return {}; }
+		template <typename IntType> struct IndexTag { constexpr IndexTag () = default; };
+		template <typename IntType = int> constexpr IndexTag<IntType> index () { return {}; }
 		template <typename IntType, typename R>
-		constexpr auto operator| (const R & r, CountedTag<IntType>) -> decltype (counted<IntType> (r)) {
-			return counted<IntType> (r);
+		constexpr auto operator| (const R & r, IndexTag<IntType>) -> decltype (index<IntType> (r)) {
+			return index<IntType> (r);
 		}
 	} // namespace Combinator
 } // namespace Range

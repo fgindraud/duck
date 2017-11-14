@@ -29,19 +29,20 @@ namespace DRC = duck::Range::Combinator;
 const auto values = {0, 1, 2, 3, 4};
 
 TEST_CASE_TEMPLATE ("reverse", Container, BidirContainers) {
-	auto range = duck::range (Container{values}) | DRC::reversed ();
+	auto range = duck::range (Container{values}) | DRC::reverse ();
 	CHECK (range.size () == values.size ());
 	using RevIt = std::reverse_iterator<typename std::initializer_list<int>::iterator>;
 	CHECK (range == duck::range (RevIt{values.end ()}, RevIt{values.begin ()}));
 
-	CHECK ((duck::range (Container{}) | DRC::reversed ()).empty ());
+	CHECK ((duck::range (Container{}) | DRC::reverse ()).empty ());
 }
 
-TEST_CASE_TEMPLATE ("counted", Container, ForwardContainers) {
-	for (auto & iv : duck::range (Container{values}) | DRC::counted<int> ()) {
+TEST_CASE_TEMPLATE ("index", Container, ForwardContainers) {
+	for (auto & iv : duck::range (Container{values}) | DRC::index<int> ()) {
 		CHECK (iv.index == iv.value ());
 	}
-	CHECK ((duck::range (Container{}) | DRC::counted<int> ()).empty ());
+	// Empty, also check that index<Int> has a default
+	CHECK ((duck::range (Container{}) | DRC::index ()).empty ());
 }
 
 TEST_CASE_TEMPLATE ("filter", Container, ForwardContainers) {
