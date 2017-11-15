@@ -111,12 +111,10 @@ namespace Range {
 		using ReferenceType = typename std::iterator_traits<Iterator>::reference;
 		using DifferenceType = typename std::iterator_traits<Iterator>::difference_type;
 
-		constexpr const Derived & derived () const { return static_cast<const Derived &> (*this); }
+		const Derived & derived () const { return static_cast<const Derived &> (*this); }
 
-		constexpr bool empty () const { return derived ().begin () == derived ().end (); }
-		constexpr SizeType size () const {
-			return std::distance (derived ().begin (), derived ().end ());
-		}
+		bool empty () const { return derived ().begin () == derived ().end (); }
+		SizeType size () const { return std::distance (derived ().begin (), derived ().end ()); }
 
 		// Accesses (UB if empty or out of range ; available if Iterator supports it)
 		ReferenceType front () const { return *derived ().begin (); }
@@ -159,10 +157,10 @@ namespace Range {
 		static_assert (IsIterator<It>::value, "IteratorPair<It>: It must be a valid iterator type");
 
 	public:
-		constexpr IteratorPair (It begin_it, It end_it) : begin_ (begin_it), end_ (end_it) {}
+		IteratorPair (It begin_it, It end_it) : begin_ (begin_it), end_ (end_it) {}
 
-		constexpr It begin () const { return begin_; }
-		constexpr It end () const { return end_; }
+		It begin () const { return begin_; }
+		It end () const { return end_; }
 
 	private:
 		It begin_;
@@ -171,7 +169,7 @@ namespace Range {
 
 	// range() overload
 	template <typename It, typename = EnableIfV<IsIterator<It>>>
-	constexpr IteratorPair<It> range (It begin_it, It end_it) {
+	IteratorPair<It> range (It begin_it, It end_it) {
 		return {begin_it, end_it};
 	}
 
@@ -198,15 +196,15 @@ namespace Range {
 		using pointer = const value_type *;
 		using reference = value_type; // Force copying the int
 
-		constexpr IntegerIterator () noexcept = default;
-		constexpr IntegerIterator (Int n) noexcept : n_ (n) {}
+		IntegerIterator () noexcept = default;
+		IntegerIterator (Int n) noexcept : n_ (n) {}
 
 		// Input / output
 		IntegerIterator & operator++ () noexcept { return ++n_, *this; }
-		constexpr reference operator* () const noexcept { return n_; }
-		constexpr pointer operator-> () const noexcept { return &n_; }
-		constexpr bool operator== (const IntegerIterator & o) const noexcept { return n_ == o.n_; }
-		constexpr bool operator!= (const IntegerIterator & o) const noexcept { return n_ != o.n_; }
+		reference operator* () const noexcept { return n_; }
+		pointer operator-> () const noexcept { return &n_; }
+		bool operator== (const IntegerIterator & o) const noexcept { return n_ == o.n_; }
+		bool operator!= (const IntegerIterator & o) const noexcept { return n_ != o.n_; }
 
 		// Forward
 		IntegerIterator operator++ (int) noexcept {
@@ -225,25 +223,22 @@ namespace Range {
 
 		// Random access
 		IntegerIterator & operator+= (difference_type n) noexcept { return n_ += n, *this; }
-		constexpr IntegerIterator operator+ (difference_type n) const noexcept {
+		IntegerIterator operator+ (difference_type n) const noexcept {
 			return IntegerIterator (n_ + n);
 		}
-		friend constexpr IntegerIterator operator+ (difference_type n,
-		                                            const IntegerIterator & it) noexcept {
+		friend IntegerIterator operator+ (difference_type n, const IntegerIterator & it) noexcept {
 			return it + n;
 		}
 		IntegerIterator & operator-= (difference_type n) noexcept { return n_ -= n, *this; }
-		constexpr IntegerIterator operator- (difference_type n) const noexcept {
+		IntegerIterator operator- (difference_type n) const noexcept {
 			return IntegerIterator (n_ - n);
 		}
-		constexpr difference_type operator- (const IntegerIterator & o) const noexcept {
-			return n_ - o.n_;
-		}
-		constexpr reference operator[] (difference_type n) const noexcept { return n_ + n; }
-		constexpr bool operator< (const IntegerIterator & o) const noexcept { return n_ < o.n_; }
-		constexpr bool operator> (const IntegerIterator & o) const noexcept { return n_ > o.n_; }
-		constexpr bool operator<= (const IntegerIterator & o) const noexcept { return n_ <= o.n_; }
-		constexpr bool operator>= (const IntegerIterator & o) const noexcept { return n_ >= o.n_; }
+		difference_type operator- (const IntegerIterator & o) const noexcept { return n_ - o.n_; }
+		reference operator[] (difference_type n) const noexcept { return n_ + n; }
+		bool operator< (const IntegerIterator & o) const noexcept { return n_ < o.n_; }
+		bool operator> (const IntegerIterator & o) const noexcept { return n_ > o.n_; }
+		bool operator<= (const IntegerIterator & o) const noexcept { return n_ <= o.n_; }
+		bool operator>= (const IntegerIterator & o) const noexcept { return n_ >= o.n_; }
 
 	private:
 		Int n_{};
@@ -251,11 +246,11 @@ namespace Range {
 
 	// range() overloads
 	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
-	constexpr IteratorPair<IntegerIterator<Int>> range (Int from, Int to) {
+	IteratorPair<IntegerIterator<Int>> range (Int from, Int to) {
 		return {IntegerIterator<Int>{from}, IntegerIterator<Int>{to}};
 	}
 	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
-	constexpr IteratorPair<IntegerIterator<Int>> range (Int to) {
+	IteratorPair<IntegerIterator<Int>> range (Int to) {
 		return range (Int{0}, to);
 	}
 
@@ -292,15 +287,15 @@ namespace Range {
 
 		// T = const I& / I& : T&& -> const I& / I &, just copy reference (reference collapsing)
 		// T = I : T&& -> I&&, construct I by move
-		constexpr Iterable (T && t) : iterable_ (std::forward<T> (t)) {}
+		Iterable (T && t) : iterable_ (std::forward<T> (t)) {}
 
 		// T = const I& / I& : returns I::const_iterator / I::iterator
 		// T = I : returns const_iterator, object is constant
-		constexpr Iterator begin () const {
+		Iterator begin () const {
 			using std::begin;
 			return begin (iterable_);
 		}
-		constexpr Iterator end () const {
+		Iterator end () const {
 			using std::end;
 			return end (iterable_);
 		}
@@ -313,7 +308,7 @@ namespace Range {
 	// Matchings: const I& -> Iterable<const I&> ; I& -> Iterable<I&> ; I&& -> Iterable<I>.
 	template <typename T,
 	          typename = EnableIf<IsBaseTypeIterable<T>::value && !IsBaseTypeContainer<T>::value>>
-	constexpr Iterable<T> range (T && iterable) {
+	Iterable<T> range (T && iterable) {
 		return {std::forward<T> (iterable)};
 	}
 
@@ -339,17 +334,17 @@ namespace Range {
 		using typename Base<Container<C>>::Iterator;
 		using typename Base<Container<C>>::SizeType;
 
-		constexpr Container (C && c) : container_ (std::forward<C> (c)) {}
+		Container (C && c) : container_ (std::forward<C> (c)) {}
 
-		constexpr Iterator begin () const {
+		Iterator begin () const {
 			using std::begin;
 			return begin (container_);
 		}
-		constexpr Iterator end () const {
+		Iterator end () const {
 			using std::end;
 			return end (container_);
 		}
-		constexpr SizeType size () const { return container_.size (); }
+		SizeType size () const { return container_.size (); }
 
 	private:
 		C container_;
@@ -357,10 +352,10 @@ namespace Range {
 
 	// range () overloads
 	template <typename C, typename = EnableIfV<IsBaseTypeContainer<C>>>
-	constexpr Container<C> range (C && container) {
+	Container<C> range (C && container) {
 		return {std::forward<C> (container)};
 	}
-	template <typename T> constexpr Container<std::vector<T>> range (std::initializer_list<T> ilist) {
+	template <typename T> Container<std::vector<T>> range (std::initializer_list<T> ilist) {
 		// Range overload for initializer_list<T>.
 		// initializer_list are somewhat equivalent to reference to const temporary.
 		// Thus they cannot be stored (lifetime will not be extended enough).
@@ -375,7 +370,7 @@ namespace Range {
 	 * FIXME fragile
 	 */
 	template <std::size_t N, typename = EnableIf<(N > 0)>>
-	constexpr IteratorPair<const char *> char_range (const char (&str)[N]) {
+	IteratorPair<const char *> char_range (const char (&str)[N]) {
 		return {&str[0], &str[N - 1]};
 	}
 	inline IteratorPair<const char *> char_range (const char * str) {

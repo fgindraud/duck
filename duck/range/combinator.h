@@ -67,12 +67,12 @@ namespace Range {
 		using typename Base<Reverse<R>>::Iterator;
 		using typename Base<Reverse<R>>::SizeType;
 
-		constexpr Reverse (const R & r) : inner_ (r) {}
-		constexpr Reverse (R && r) : inner_ (std::move (r)) {}
+		Reverse (const R & r) : inner_ (r) {}
+		Reverse (R && r) : inner_ (std::move (r)) {}
 
-		constexpr Iterator begin () const { return Iterator{inner_.end ()}; }
-		constexpr Iterator end () const { return Iterator{inner_.begin ()}; }
-		constexpr SizeType size () const { return inner_.size (); }
+		Iterator begin () const { return Iterator{inner_.end ()}; }
+		Iterator end () const { return Iterator{inner_.begin ()}; }
+		SizeType size () const { return inner_.size (); }
 
 	private:
 		R inner_;
@@ -109,17 +109,14 @@ namespace Range {
 	public:
 		using typename Base<Filter<R, Predicate>>::Iterator;
 
-		constexpr Filter (const R & r, const Predicate & predicate)
-		    : inner_ (r), predicate_ (predicate) {}
-		constexpr Filter (const R & r, Predicate && predicate)
-		    : inner_ (r), predicate_ (std::move (predicate)) {}
-		constexpr Filter (R && r, const Predicate & predicate)
-		    : inner_ (std::move (r)), predicate_ (predicate) {}
-		constexpr Filter (R && r, Predicate && predicate)
+		Filter (const R & r, const Predicate & predicate) : inner_ (r), predicate_ (predicate) {}
+		Filter (const R & r, Predicate && predicate) : inner_ (r), predicate_ (std::move (predicate)) {}
+		Filter (R && r, const Predicate & predicate) : inner_ (std::move (r)), predicate_ (predicate) {}
+		Filter (R && r, Predicate && predicate)
 		    : inner_ (std::move (r)), predicate_ (std::move (predicate)) {}
 
-		constexpr Iterator begin () const;
-		constexpr Iterator end () const;
+		Iterator begin () const;
+		Iterator end () const;
 
 	private:
 		friend class FilterIterator<R, Predicate>;
@@ -172,18 +169,18 @@ namespace Range {
 		using pointer = typename std::iterator_traits<InnerIterator>::pointer;
 		using reference = typename std::iterator_traits<InnerIterator>::reference;
 
-		constexpr FilterIterator () = default;
-		constexpr FilterIterator (InnerIterator it, const Filter<R, Predicate> & range)
+		FilterIterator () = default;
+		FilterIterator (InnerIterator it, const Filter<R, Predicate> & range)
 		    : it_ (it), range_ (&range) {}
 
-		constexpr InnerIterator base () const { return it_; }
+		InnerIterator base () const { return it_; }
 
 		// Input / output
 		FilterIterator & operator++ () { return it_ = range_->next_after (it_), *this; }
-		constexpr reference operator* () const { return *it_; }
-		constexpr pointer operator-> () const { return it_.operator-> (); }
-		constexpr bool operator== (const FilterIterator & o) const { return it_ == o.it_; }
-		constexpr bool operator!= (const FilterIterator & o) const { return it_ != o.it_; }
+		reference operator* () const { return *it_; }
+		pointer operator-> () const { return it_.operator-> (); }
+		bool operator== (const FilterIterator & o) const { return it_ == o.it_; }
+		bool operator!= (const FilterIterator & o) const { return it_ != o.it_; }
 
 		// Forward
 		FilterIterator operator++ (int) {
@@ -205,32 +202,29 @@ namespace Range {
 		const Filter<R, Predicate> * range_{nullptr};
 	};
 
-	template <typename R, typename Predicate>
-	constexpr auto Filter<R, Predicate>::begin () const -> Iterator {
+	template <typename R, typename Predicate> auto Filter<R, Predicate>::begin () const -> Iterator {
 		return {next (inner_.begin ()), *this};
 	}
-	template <typename R, typename Predicate>
-	constexpr auto Filter<R, Predicate>::end () const -> Iterator {
+	template <typename R, typename Predicate> auto Filter<R, Predicate>::end () const -> Iterator {
 		return {inner_.end (), *this};
 	}
 
 	namespace Combinator {
 		template <typename R, typename Predicate>
-		constexpr Filter<DecayT<R>, DecayT<Predicate>> filter (R && r, Predicate && predicate) {
+		Filter<DecayT<R>, DecayT<Predicate>> filter (R && r, Predicate && predicate) {
 			return {std::forward<R> (r), std::forward<Predicate> (predicate)};
 		}
 
 		template <typename Predicate> struct FilterTag {
-			constexpr FilterTag (const Predicate & p) : predicate (p) {}
-			constexpr FilterTag (Predicate && p) : predicate (std::move (p)) {}
+			FilterTag (const Predicate & p) : predicate (p) {}
+			FilterTag (Predicate && p) : predicate (std::move (p)) {}
 			Predicate predicate;
 		};
-		template <typename Predicate>
-		constexpr FilterTag<DecayT<Predicate>> filter (Predicate && predicate) {
+		template <typename Predicate> FilterTag<DecayT<Predicate>> filter (Predicate && predicate) {
 			return {std::forward<Predicate> (predicate)};
 		}
 		template <typename R, typename Predicate>
-		constexpr auto operator| (R && r, FilterTag<Predicate> tag)
+		auto operator| (R && r, FilterTag<Predicate> tag)
 		    -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
 			return filter (std::forward<R> (r), std::move (tag.predicate));
 		}
@@ -258,17 +252,15 @@ namespace Range {
 		using typename Base<Apply<R, Function>>::Iterator;
 		using typename Base<Apply<R, Function>>::SizeType;
 
-		constexpr Apply (const R & r, const Function & function) : inner_ (r), function_ (function) {}
-		constexpr Apply (const R & r, Function && function)
-		    : inner_ (r), function_ (std::move (function)) {}
-		constexpr Apply (R && r, const Function & function)
-		    : inner_ (std::move (r)), function_ (function) {}
-		constexpr Apply (R && r, Function && function)
+		Apply (const R & r, const Function & function) : inner_ (r), function_ (function) {}
+		Apply (const R & r, Function && function) : inner_ (r), function_ (std::move (function)) {}
+		Apply (R && r, const Function & function) : inner_ (std::move (r)), function_ (function) {}
+		Apply (R && r, Function && function)
 		    : inner_ (std::move (r)), function_ (std::move (function)) {}
 
-		constexpr Iterator begin () const;
-		constexpr Iterator end () const;
-		constexpr SizeType size () const { return inner_.size (); }
+		Iterator begin () const;
+		Iterator end () const;
+		SizeType size () const { return inner_.size (); }
 
 	private:
 		friend class ApplyIterator<R, Function>;
@@ -292,18 +284,18 @@ namespace Range {
 		using pointer = void;
 		using reference = value_type; // No way to take references on function_ result
 
-		constexpr ApplyIterator () = default;
-		constexpr ApplyIterator (InnerIterator it, const Apply<R, Function> & range)
+		ApplyIterator () = default;
+		ApplyIterator (InnerIterator it, const Apply<R, Function> & range)
 		    : it_ (it), range_ (&range) {}
 
-		constexpr InnerIterator base () const { return it_; }
+		InnerIterator base () const { return it_; }
 
 		// Input / output
 		ApplyIterator & operator++ () { return ++it_, *this; }
-		constexpr reference operator* () const { return range_->function_ (*it_); }
+		reference operator* () const { return range_->function_ (*it_); }
 		// No operator->
-		constexpr bool operator== (const ApplyIterator & o) const { return it_ == o.it_; }
-		constexpr bool operator!= (const ApplyIterator & o) const { return it_ != o.it_; }
+		bool operator== (const ApplyIterator & o) const { return it_ == o.it_; }
+		bool operator!= (const ApplyIterator & o) const { return it_ != o.it_; }
 
 		// Forward
 		ApplyIterator operator++ (int) {
@@ -322,53 +314,45 @@ namespace Range {
 
 		// Random access
 		ApplyIterator & operator+= (difference_type n) { return it_ += n, *this; }
-		constexpr ApplyIterator operator+ (difference_type n) const {
-			return ApplyIterator (it_ + n, range_);
-		}
-		friend constexpr ApplyIterator operator+ (difference_type n, const ApplyIterator & it) {
-			return it + n;
-		}
+		ApplyIterator operator+ (difference_type n) const { return ApplyIterator (it_ + n, range_); }
+		friend ApplyIterator operator+ (difference_type n, const ApplyIterator & it) { return it + n; }
 		ApplyIterator & operator-= (difference_type n) { return it_ -= n, *this; }
-		constexpr ApplyIterator operator- (difference_type n) const {
-			return ApplyIterator (it_ - n, range_);
-		}
-		constexpr difference_type operator- (const ApplyIterator & o) const { return it_ - o.it_; }
-		constexpr reference operator[] (difference_type n) const { return *(*this + n); }
-		constexpr bool operator< (const ApplyIterator & o) const { return it_ < o.it_; }
-		constexpr bool operator> (const ApplyIterator & o) const { return it_ > o.it_; }
-		constexpr bool operator<= (const ApplyIterator & o) const { return it_ <= o.it_; }
-		constexpr bool operator>= (const ApplyIterator & o) const { return it_ >= o.it_; }
+		ApplyIterator operator- (difference_type n) const { return ApplyIterator (it_ - n, range_); }
+		difference_type operator- (const ApplyIterator & o) const { return it_ - o.it_; }
+		reference operator[] (difference_type n) const { return *(*this + n); }
+		bool operator< (const ApplyIterator & o) const { return it_ < o.it_; }
+		bool operator> (const ApplyIterator & o) const { return it_ > o.it_; }
+		bool operator<= (const ApplyIterator & o) const { return it_ <= o.it_; }
+		bool operator>= (const ApplyIterator & o) const { return it_ >= o.it_; }
 
 	private:
 		InnerIterator it_{};
 		const Apply<R, Function> * range_{nullptr};
 	};
 
-	template <typename R, typename Function>
-	constexpr auto Apply<R, Function>::begin () const -> Iterator {
+	template <typename R, typename Function> auto Apply<R, Function>::begin () const -> Iterator {
 		return {inner_.begin (), *this};
 	}
-	template <typename R, typename Function>
-	constexpr auto Apply<R, Function>::end () const -> Iterator {
+	template <typename R, typename Function> auto Apply<R, Function>::end () const -> Iterator {
 		return {inner_.end (), *this};
 	}
 
 	namespace Combinator {
 		template <typename R, typename Function>
-		constexpr Apply<DecayT<R>, DecayT<Function>> apply (R && r, Function && function) {
+		Apply<DecayT<R>, DecayT<Function>> apply (R && r, Function && function) {
 			return {std::forward<R> (r), std::forward<Function> (function)};
 		}
 
 		template <typename Function> struct ApplyTag {
-			constexpr ApplyTag (const Function & p) : function (p) {}
-			constexpr ApplyTag (Function && p) : function (std::move (p)) {}
+			ApplyTag (const Function & p) : function (p) {}
+			ApplyTag (Function && p) : function (std::move (p)) {}
 			Function function;
 		};
-		template <typename Function> constexpr ApplyTag<DecayT<Function>> apply (Function && function) {
+		template <typename Function> ApplyTag<DecayT<Function>> apply (Function && function) {
 			return {std::forward<Function> (function)};
 		}
 		template <typename R, typename Function>
-		constexpr auto operator| (R && r, ApplyTag<Function> tag)
+		auto operator| (R && r, ApplyTag<Function> tag)
 		    -> decltype (apply (std::forward<R> (r), std::move (tag.function))) {
 			return apply (std::forward<R> (r), std::move (tag.function));
 		}
@@ -390,25 +374,25 @@ namespace Range {
 		struct value_type {
 			It it;
 			IntType index;
-			constexpr value_type () = default;
-			constexpr value_type (It it_arg, IntType index_arg) : it (it_arg), index (index_arg) {}
+			value_type () = default;
+			value_type (It it_arg, IntType index_arg) : it (it_arg), index (index_arg) {}
 			typename std::iterator_traits<It>::reference value () const { return *it; }
 		};
 		using difference_type = typename std::iterator_traits<It>::difference_type;
 		using pointer = const value_type *;
 		using reference = const value_type &;
 
-		constexpr IndexIterator () = default;
-		constexpr IndexIterator (It it, IntType index) : d_ (it, index) {}
+		IndexIterator () = default;
+		IndexIterator (It it, IntType index) : d_ (it, index) {}
 
-		constexpr It base () const { return d_.it; }
+		It base () const { return d_.it; }
 
 		// Input / output
 		IndexIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
-		constexpr reference operator* () const { return d_; }
-		constexpr pointer operator-> () const { return &d_; }
-		constexpr bool operator== (const IndexIterator & o) const { return d_.it == o.d_.it; }
-		constexpr bool operator!= (const IndexIterator & o) const { return d_.it != o.d_.it; }
+		reference operator* () const { return d_; }
+		pointer operator-> () const { return &d_; }
+		bool operator== (const IndexIterator & o) const { return d_.it == o.d_.it; }
+		bool operator!= (const IndexIterator & o) const { return d_.it != o.d_.it; }
 
 		// Forward
 		IndexIterator operator++ (int) {
@@ -427,22 +411,20 @@ namespace Range {
 
 		// Random access
 		IndexIterator & operator+= (difference_type n) { return d_.it += n, d_.index += n, *this; }
-		constexpr IndexIterator operator+ (difference_type n) const {
+		IndexIterator operator+ (difference_type n) const {
 			return IndexIterator (d_.it + n, d_.index + n);
 		}
-		friend constexpr IndexIterator operator+ (difference_type n, const IndexIterator & it) {
-			return it + n;
-		}
+		friend IndexIterator operator+ (difference_type n, const IndexIterator & it) { return it + n; }
 		IndexIterator & operator-= (difference_type n) { return d_.it -= n, d_.index -= n, *this; }
-		constexpr IndexIterator operator- (difference_type n) const {
+		IndexIterator operator- (difference_type n) const {
 			return IndexIterator (d_.it - n, d_.index - n);
 		}
-		constexpr difference_type operator- (const IndexIterator & o) const { return d_.it - o.d_.it; }
-		constexpr value_type operator[] (difference_type n) const { return *(*this + n); }
-		constexpr bool operator< (const IndexIterator & o) const { return d_.it < o.d_.it; }
-		constexpr bool operator> (const IndexIterator & o) const { return d_.it > o.d_.it; }
-		constexpr bool operator<= (const IndexIterator & o) const { return d_.it <= o.d_.it; }
-		constexpr bool operator>= (const IndexIterator & o) const { return d_.it >= o.d_.it; }
+		difference_type operator- (const IndexIterator & o) const { return d_.it - o.d_.it; }
+		value_type operator[] (difference_type n) const { return *(*this + n); }
+		bool operator< (const IndexIterator & o) const { return d_.it < o.d_.it; }
+		bool operator> (const IndexIterator & o) const { return d_.it > o.d_.it; }
+		bool operator<= (const IndexIterator & o) const { return d_.it <= o.d_.it; }
+		bool operator>= (const IndexIterator & o) const { return d_.it >= o.d_.it; }
 
 	private:
 		value_type d_{};
@@ -464,29 +446,26 @@ namespace Range {
 		using typename Base<Index<R, IntType>>::Iterator;
 		using typename Base<Index<R, IntType>>::SizeType;
 
-		constexpr Index (const R & r) : inner_ (r) {}
-		constexpr Index (R && r) : inner_ (std::move (r)) {}
+		Index (const R & r) : inner_ (r) {}
+		Index (R && r) : inner_ (std::move (r)) {}
 
-		constexpr Iterator begin () const { return {inner_.begin (), 0}; }
-		constexpr Iterator end () const {
-			return {inner_.end (), std::numeric_limits<IntType>::max ()};
-		}
-		constexpr SizeType size () const { return inner_.size (); }
+		Iterator begin () const { return {inner_.begin (), 0}; }
+		Iterator end () const { return {inner_.end (), std::numeric_limits<IntType>::max ()}; }
+		SizeType size () const { return inner_.size (); }
 
 	private:
 		R inner_;
 	};
 
 	namespace Combinator {
-		template <typename IntType, typename R> constexpr Index<DecayT<R>, IntType> index (R && r) {
+		template <typename IntType, typename R> Index<DecayT<R>, IntType> index (R && r) {
 			return {std::forward<R> (r)};
 		}
 
-		template <typename IntType> struct IndexTag { constexpr IndexTag () = default; };
-		template <typename IntType = int> constexpr IndexTag<IntType> index () { return {}; }
+		template <typename IntType> struct IndexTag {};
+		template <typename IntType = int> IndexTag<IntType> index () { return {}; }
 		template <typename IntType, typename R>
-		constexpr auto operator| (R && r, IndexTag<IntType>)
-		    -> decltype (index<IntType> (std::forward<R> (r))) {
+		auto operator| (R && r, IndexTag<IntType>) -> decltype (index<IntType> (std::forward<R> (r))) {
 			return index<IntType> (std::forward<R> (r));
 		}
 	} // namespace Combinator
