@@ -20,6 +20,8 @@ struct IntVector {
 	using MutableIteratorType = typename Type::iterator;
 	using ConstIteratorType = typename Type::const_iterator;
 	using HasEmpty = std::true_type;
+	using HasSize = std::true_type;
+	using SizeType = typename Type::size_type;
 
 	// Create instances
 	static Type make_empty () { return {}; }
@@ -34,7 +36,7 @@ struct DummyIntRange {
 	int end_;
 };
 struct DummyIntIterator {
-	using iterator_category = std::random_access_iterator_tag;
+	using iterator_category = std::forward_iterator_tag;
 	using value_type = int;
 	using reference = int;
 	using difference_type = int;
@@ -59,6 +61,8 @@ struct ADLDummyIntRange {
 	using ConstIteratorType = TestADL::DummyIntIterator;
 	using MutableIteratorType = TestADL::DummyIntIterator;
 	using HasEmpty = std::false_type;
+	using HasSize = std::false_type;
+	using SizeType = typename TestADL::DummyIntIterator::difference_type;
 
 	static Type make_empty () { return {0}; }
 	static Type make_0_4 () { return {5}; }
@@ -79,7 +83,10 @@ TEST_CASE_TEMPLATE ("test", Container, RangeTypes) {
 		               "Container is of unexpected type");
 		static_assert (duck::Internal::HasEmptyMethod<decltype (range)>::value ==
 		                   Container::HasEmpty::value,
-		               "HasEmptyMethod traits failed");
+		               "HasEmptyMethod trait failed");
+		static_assert (duck::Internal::HasSizeMethod<decltype (range)>::value ==
+		                   Container::HasSize::value,
+		               "HasSizeMethod trait failed");
 		{
 			auto & mut = range; // Mutable
 			auto b = duck::begin (mut);
@@ -88,6 +95,10 @@ TEST_CASE_TEMPLATE ("test", Container, RangeTypes) {
 			               "begin (Container &) is not Container::MutableIteratorType");
 			CHECK (b == e);
 			CHECK (duck::empty (mut));
+			auto s = duck::size (mut);
+			static_assert (std::is_same<decltype (s), typename Container::SizeType>::value,
+			               "size (Container &) is not Container::SizeType");
+			CHECK (s == 0);
 		}
 		{
 			const auto & konst = range; // Const
@@ -97,6 +108,10 @@ TEST_CASE_TEMPLATE ("test", Container, RangeTypes) {
 			               "begin (const Container &) is not Container::ConstIteratorType");
 			CHECK (b == e);
 			CHECK (duck::empty (konst));
+			auto s = duck::size (konst);
+			static_assert (std::is_same<decltype (s), typename Container::SizeType>::value,
+			               "size (const Container &) is not Container::SizeType");
+			CHECK (s == 0);
 		}
 	}
 	{
@@ -107,6 +122,7 @@ TEST_CASE_TEMPLATE ("test", Container, RangeTypes) {
 			auto e = duck::end (mut);
 			CHECK (b != e);
 			CHECK_FALSE (duck::empty (mut));
+			CHECK (duck::size (mut) == 5);
 		}
 		{
 			const auto & konst = range; // Const
@@ -114,6 +130,7 @@ TEST_CASE_TEMPLATE ("test", Container, RangeTypes) {
 			auto e = duck::end (konst);
 			CHECK (b != e);
 			CHECK_FALSE (duck::empty (konst));
+			CHECK (duck::size (konst) == 5);
 		}
 	}
 }
