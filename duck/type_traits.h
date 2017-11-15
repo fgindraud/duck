@@ -30,9 +30,11 @@ template <typename... Types> using VoidT = typename MakeVoid<Types...>::Type;
 template <bool condition> using EnableIf = typename std::enable_if<condition>::type;
 template <typename ConditionType> using EnableIfV = EnableIf<ConditionType::value>;
 
-/* Missing c++14 shortening typedefs
+/* Missing shortening typedefs
  */
-template<typename T> using DecayT = typename std::decay<T>::type;
+template <typename T> using DecayT = typename std::decay<T>::type;
+template <typename T>
+using RemoveCvRefT = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
 // Common type tags
 template <typename T> struct InPlace { constexpr InPlace () = default; };
