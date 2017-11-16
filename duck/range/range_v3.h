@@ -10,29 +10,43 @@
 #include <utility>
 
 namespace duck {
+/* Import std::begin and std::end in namespace duck.
+ *
+ * std::begin and std::end are supposed to be used as follows:
+ * > using std::begin;
+ * > it = begin (obj);
+ * This unqualified calls will fetch both ADL and std:: overloads of begin().
+ *
+ * By importing std::begin and std::end, namespace duck is now a context where unqualified calls
+ * catch the same overloads as this usage pattern.
+ *
+ * Calls external to namespace duck are supposed to call begin with the same pattern.
+ * "using std::begin" is equivalent to "using duck::begin".
+ */
+using std::begin;
+using std::end;
+
 /*********************************************************************************
  * Type traits.
  */
-namespace internal_range {
-	namespace adl_call {
-		// namespace representing the "using std::sth; sth(object);" pattern.
-		using std::begin;
-		using std::end;
-		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
-		template <typename T> auto call_end (T && t) -> decltype (end (std::forward<T> (t)));
-	} // namespace adl_call
-} // namespace internal_range
 
 // Iterator type deduced from begin(T / T&)
-template <typename T>
-using range_iterator_t = decltype (internal_range::adl_call::call_begin (std::declval<T &> ()));
+template <typename T> using range_iterator_t = decltype (begin (std::declval<T &> ()));
 
 // A Range is anything iterable, with begin and end
 template <typename T, typename = void> struct is_range : std::false_type {};
 template <typename T>
-struct is_range<T, void_t<decltype (internal_range::adl_call::call_begin (std::declval<T &> ())),
-                          decltype (internal_range::adl_call::call_end (std::declval<T &> ()))>>
+struct is_range<
+    T, void_t<decltype (begin (std::declval<T &> ())), decltype (end (std::declval<T &> ()))>>
     : std::true_type {};
+
+// Typedefs
+template <typename It>
+using iterator_category_t = typename std::iterator_traits<It>::iterator_category;
+template <typename It> using iterator_value_type_t = typename std::iterator_traits<It>::value_type;
+template <typename It> using iterator_reference_t = typename std::iterator_traits<It>::reference;
+template <typename It> using iterator_pointer_t = typename std::iterator_traits<It>::pointer;
+template <typename It> using iterator_difference_t = typename std::iterator_traits<It>::difference;
 
 // Has empty() method
 template <typename T, typename = void> struct has_empty_method : std::false_type {};
@@ -47,19 +61,20 @@ struct has_size_method<T, void_t<decltype (std::declval<const T &> ().size ())>>
 };
 
 /*********************************************************************************
+ * ADL versions of begin / end.
+ * Alternative to the "using std::begin; begin (t)" pattern, in one line.
+ */
+template <typename T> auto adl_begin (T & t) -> range_iterator_t<T> {
+	return begin (t);
+}
+template <typename T> auto adl_end (T & t) -> range_iterator_t<T> {
+	return end (t);
+}
+
+/*********************************************************************************
  * Free functions operating on iterable objects.
  * With optimised cases for containers.
  */
-
-// begin / end
-template <typename T> auto begin (T & t) -> range_iterator_t<T &> {
-	using std::begin;
-	return begin (t);
-}
-template <typename T> auto end (T & t) -> range_iterator_t<T &> {
-	using std::end;
-	return end (t);
-}
 
 // empty
 namespace internal_range {
@@ -87,11 +102,19 @@ auto size (const T & t) -> decltype (internal_range::size_impl (t, has_size_meth
 	return internal_range::size_impl (t, has_size_method<T>{});
 }
 
-// front / back
-template <typename T> auto front (T & t) -> decltype (*begin (t)) {
+// front / back : with rvalues overloads which force copying the value.
+template <typename T> auto front (T & t) -> iterator_reference_t<range_iterator_t<T>> {
 	return *begin (t);
 }
-template <typename T> auto back (T & t) -> decltype (*std::prev (end (t))) {
+template <typename T>
+auto front (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
+	return *begin (t);
+}
+
+template <typename T> auto back (T & t) -> iterator_reference_t<range_iterator_t<T>> {
+	return *std::prev (end (t));
+}
+template <typename T> auto back (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
 	return *std::prev (end (t));
 }
 
