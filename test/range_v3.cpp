@@ -70,14 +70,14 @@ struct adl_dummy_int_range {
 TYPE_TO_STRING (adl_dummy_int_range);
 
 // List of tested type cases
-using RangeTypes = doctest::Types<int_vector, adl_dummy_int_range>;
+using AllRangeTypes = doctest::Types<int_vector, adl_dummy_int_range>;
+using BidirRangeTypes = doctest::Types<int_vector, adl_dummy_int_range>;
 
 /* Template test cases.
  * Test properties like returned types, and properties on iterators.
  * Tested for const T&, T&, with empty or non empty T.
- * TODO decompose in subtests
  */
-TEST_CASE_TEMPLATE ("typedefs", C, RangeTypes) {
+TEST_CASE_TEMPLATE ("typedefs", C, AllRangeTypes) {
 	auto empty = C::make_empty ();
 	static_assert (std::is_same<decltype (empty), typename C::range_type>::value,
 	               "empty C is of unexpected type");
@@ -91,54 +91,67 @@ TEST_CASE_TEMPLATE ("typedefs", C, RangeTypes) {
 	               "has_size_method trait failed");
 }
 
-TEST_CASE_TEMPLATE ("test", C, RangeTypes) {
+TEST_CASE_TEMPLATE ("const C& - begin / end / empty / size", C, AllRangeTypes) {
 	{
-		auto range = C::make_empty (); // Empty range
-		{
-			auto & mut = range; // Mutable
-			auto b = duck::begin (mut);
-			auto e = duck::end (mut);
-			static_assert (std::is_same<decltype (b), typename C::mutable_iterator>::value,
-			               "begin (C &) is not C::mutable_iterator");
-			CHECK (b == e);
-			CHECK (duck::empty (mut));
-			auto s = duck::size (mut);
-			static_assert (std::is_same<decltype (s), typename C::size_type>::value,
-			               "size (C &) is not C::size_type");
-			CHECK (s == 0);
-		}
-		{
-			const auto & konst = range; // Const
-			auto b = duck::begin (konst);
-			auto e = duck::end (konst);
-			static_assert (std::is_same<decltype (b), typename C::const_iterator>::value,
-			               "begin (const C &) is not C::const_iterator");
-			CHECK (b == e);
-			CHECK (duck::empty (konst));
-			auto s = duck::size (konst);
-			static_assert (std::is_same<decltype (s), typename C::size_type>::value,
-			               "size (const C &) is not C::size_type");
-			CHECK (s == 0);
-		}
+		auto empty_range = C::make_empty ();
+		const auto & empty_ref = empty_range;
+		auto b = duck::begin (empty_ref);
+		auto e = duck::end (empty_ref);
+		static_assert (std::is_same<decltype (b), typename C::const_iterator>::value,
+		               "begin (const C &) is not C::const_iterator");
+		CHECK (b == e);
+		CHECK (duck::empty (empty_ref));
+		auto s = duck::size (empty_ref);
+		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
+		               "size (const C &) is not C::size_type");
+		CHECK (s == 0);
 	}
 	{
-		auto range = C::make_0_4 (); // Non empty
-		{
-			auto & mut = range; // Mutable
-			auto b = duck::begin (mut);
-			auto e = duck::end (mut);
-			CHECK (b != e);
-			CHECK_FALSE (duck::empty (mut));
-			CHECK (duck::size (mut) == 5);
-		}
-		{
-			const auto & konst = range; // Const
-			auto b = duck::begin (konst);
-			auto e = duck::end (konst);
-			CHECK (b != e);
-			CHECK_FALSE (duck::empty (konst));
-			CHECK (duck::size (konst) == 5);
-		}
+		auto non_empty_range = C::make_0_4 ();
+		const auto & ref = non_empty_range;
+		auto b = duck::begin (ref);
+		auto e = duck::end (ref);
+		CHECK (b != e);
+		CHECK_FALSE (duck::empty (ref));
+		CHECK (duck::size (ref) == 5);
+	}
+}
+TEST_CASE_TEMPLATE ("C& - begin / end / empty / size", C, AllRangeTypes) {
+	{
+		auto empty_range = C::make_empty ();
+		auto & empty_ref = empty_range;
+		auto b = duck::begin (empty_ref);
+		auto e = duck::end (empty_ref);
+		static_assert (std::is_same<decltype (b), typename C::mutable_iterator>::value,
+		               "begin (C &) is not C::mutable_iterator");
+		CHECK (b == e);
+		CHECK (duck::empty (empty_ref));
+		auto s = duck::size (empty_ref);
+		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
+		               "size (C &) is not C::size_type");
+		CHECK (s == 0);
+	}
+	{
+		auto non_empty_range = C::make_0_4 ();
+		auto & ref = non_empty_range;
+		auto b = duck::begin (ref);
+		auto e = duck::end (ref);
+		CHECK (b != e);
+		CHECK_FALSE (duck::empty (ref));
+		CHECK (duck::size (ref) == 5);
+	}
+}
+TEST_CASE_TEMPLATE ("C&& - empty / size", C, AllRangeTypes) {
+	{
+		CHECK (duck::empty (C::make_empty ()));
+		auto s = duck::size (C::make_empty ());
+		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
+		               "size (C &&) is not C::size_type");
+		CHECK (s == 0);
+	}
+	{
+		CHECK_FALSE (duck::empty (C::make_0_4 ()));
+		CHECK (duck::size (C::make_0_4 ()) == 5);
 	}
 }
 
