@@ -1,11 +1,9 @@
 #pragma once
 
 // Range V3
-// STATUS: WIP
+// STATUS: WIP, new_syntax_convention
 
-#ifndef HAS_CPP14
-#define HAS_CPP14 (__cpluplus >= 201402L)
-#endif
+// __cpluplus >= 201402L
 
 #include <duck/type_traits.h>
 #include <iterator>
@@ -15,46 +13,38 @@ namespace duck {
 /*********************************************************************************
  * Type traits.
  */
-namespace Internal {
-	namespace ADLCall {
+namespace internal_range {
+	namespace adl_call {
 		// namespace representing the "using std::sth; sth(object);" pattern.
 		using std::begin;
 		using std::end;
 		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
 		template <typename T> auto call_end (T && t) -> decltype (end (std::forward<T> (t)));
-	} // namespace ADLCall
+	} // namespace adl_call
+} // namespace internal_range
 
-	// Iterator type deduced from begin(T / T&)
-	template <typename T>
-	using DeducedIteratorType = decltype (ADLCall::call_begin (std::declval<T &> ()));
-
-	// Has empty() method
-	template <typename T, typename = void> struct HasEmptyMethod : std::false_type {};
-	template <typename T>
-	struct HasEmptyMethod<T, void_t<decltype (std::declval<const T &> ().empty ())>>
-	    : std::true_type {};
-
-	// Has size() method
-	template <typename T, typename = void> struct HasSizeMethod : std::false_type {};
-	template <typename T>
-	struct HasSizeMethod<T, void_t<decltype (std::declval<const T &> ().size ())>> : std::true_type {
-	};
-
-	// Iterator has at least category
-	template <typename RefCategory, typename TestedCategory>
-	using HasCategory = std::is_base_of<RefCategory, TestedCategory>;
-
-} // namespace Internal
+// Iterator type deduced from begin(T / T&)
+template <typename T>
+using range_iterator_t = decltype (internal_range::adl_call::call_begin (std::declval<T &> ()));
 
 // A Range is anything iterable, with begin and end
-template <typename T, typename = void> struct IsRange : std::false_type {};
+template <typename T, typename = void> struct is_range : std::false_type {};
 template <typename T>
-struct IsRange<T, void_t<decltype (Internal::ADLCall::call_begin (std::declval<T &> ())),
-                         decltype (Internal::ADLCall::call_end (std::declval<T &> ()))>>
+struct is_range<T, void_t<decltype (internal_range::adl_call::call_begin (std::declval<T &> ())),
+                          decltype (internal_range::adl_call::call_end (std::declval<T &> ()))>>
     : std::true_type {};
 
-// Range iterator type
-template <typename T> using RangeIterator = Internal::DeducedIteratorType<T>;
+// Has empty() method
+template <typename T, typename = void> struct has_empty_method : std::false_type {};
+template <typename T>
+struct has_empty_method<T, void_t<decltype (std::declval<const T &> ().empty ())>>
+    : std::true_type {};
+
+// Has size() method
+template <typename T, typename = void> struct has_size_method : std::false_type {};
+template <typename T>
+struct has_size_method<T, void_t<decltype (std::declval<const T &> ().size ())>> : std::true_type {
+};
 
 /*********************************************************************************
  * Free functions operating on iterable objects.
@@ -62,28 +52,28 @@ template <typename T> using RangeIterator = Internal::DeducedIteratorType<T>;
  */
 
 // begin / end
-template <typename T> auto begin (T & t) -> RangeIterator<T &> {
+template <typename T> auto begin (T & t) -> range_iterator_t<T &> {
 	using std::begin;
 	return begin (t);
 }
-template <typename T> auto end (T & t) -> RangeIterator<T &> {
+template <typename T> auto end (T & t) -> range_iterator_t<T &> {
 	using std::end;
 	return end (t);
 }
 
 // empty
-namespace Internal {
+namespace internal_range {
 	template <typename T> bool empty_impl (const T & t, std::true_type) { return t.empty (); }
 	template <typename T> bool empty_impl (const T & t, std::false_type) {
 		return begin (t) == end (t);
 	}
-} // namespace Internal
+} // namespace internal_range
 template <typename T> bool empty (const T & t) {
-	return Internal::empty_impl (t, Internal::HasEmptyMethod<T>{});
+	return internal_range::empty_impl (t, has_empty_method<T>{});
 }
 
 // size
-namespace Internal {
+namespace internal_range {
 	template <typename T> auto size_impl (const T & t, std::true_type) -> decltype (t.size ()) {
 		return t.size ();
 	}
@@ -91,10 +81,10 @@ namespace Internal {
 	auto size_impl (const T & t, std::false_type) -> decltype (std::distance (begin (t), end (t))) {
 		return std::distance (begin (t), end (t));
 	}
-} // namespace Internal
+} // namespace internal_range
 template <typename T>
-auto size (const T & t) -> decltype (Internal::size_impl (t, Internal::HasSizeMethod<T>{})) {
-	return Internal::size_impl (t, Internal::HasSizeMethod<T>{});
+auto size (const T & t) -> decltype (internal_range::size_impl (t, has_size_method<T>{})) {
+	return internal_range::size_impl (t, has_size_method<T>{});
 }
 
 // front / back
@@ -105,7 +95,6 @@ template <typename T> auto back (T & t) -> decltype (*std::prev (end (t))) {
 	return *std::prev (end (t));
 }
 
-// TODO namespacing ?
 // TODO operator== may not benefit from ADL, or may clash...
 
 } // namespace duck
