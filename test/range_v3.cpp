@@ -75,18 +75,26 @@ using RangeTypes = doctest::Types<IntVector, ADLDummyIntRange>;
 /* Template test cases.
  * Test properties like returned types, and properties on iterators.
  * Tested for const T&, T&, with empty or non empty T.
+ * TODO decompose in subtests
  */
+TEST_CASE_TEMPLATE ("types", Container, RangeTypes) {
+	auto empty = Container::make_empty ();
+	static_assert (std::is_same<decltype (empty), typename Container::Type>::value,
+	               "empty Container is of unexpected type");
+	auto r_0_4 = Container::make_0_4 ();
+	static_assert (std::is_same<decltype (r_0_4), typename Container::Type>::value,
+	               "0_4 Container is of unexpected type");
+	static_assert (duck::Internal::HasEmptyMethod<decltype (empty)>::value ==
+	                   Container::HasEmpty::value,
+	               "HasEmptyMethod trait failed");
+	static_assert (duck::Internal::HasSizeMethod<decltype (empty)>::value ==
+	                   Container::HasSize::value,
+	               "HasSizeMethod trait failed");
+}
+
 TEST_CASE_TEMPLATE ("test", Container, RangeTypes) {
 	{
 		auto range = Container::make_empty (); // Empty range
-		static_assert (std::is_same<decltype (range), typename Container::Type>::value,
-		               "Container is of unexpected type");
-		static_assert (duck::Internal::HasEmptyMethod<decltype (range)>::value ==
-		                   Container::HasEmpty::value,
-		               "HasEmptyMethod trait failed");
-		static_assert (duck::Internal::HasSizeMethod<decltype (range)>::value ==
-		                   Container::HasSize::value,
-		               "HasSizeMethod trait failed");
 		{
 			auto & mut = range; // Mutable
 			auto b = duck::begin (mut);
