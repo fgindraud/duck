@@ -57,7 +57,7 @@ namespace Format {
 
 	/* Overload operator<< (std::ostream&) to output a formatter in a std::ostream.
 	 */
-	template <typename F, typename = typename std::enable_if<IsFormatter<F>::value>::type>
+	template <typename F, typename = enable_if_t<IsFormatter<F>::value>>
 	std::ostream & operator<< (std::ostream & os, const F & formatter) {
 		formatter.write (std::ostreambuf_iterator<char> (os));
 		return os;
@@ -75,7 +75,7 @@ namespace Format {
 	 */
 	struct AdlTag {};
 
-	template <typename F, typename = typename std::enable_if<IsFormatter<F>::value>::type>
+	template <typename F, typename = enable_if_t<IsFormatter<F>::value>>
 	constexpr F format_element (F f, AdlTag) noexcept {
 		return f;
 	}
@@ -227,7 +227,7 @@ namespace Format {
 	}
 
 	// operator<<
-	template <typename F, typename T, typename = typename std::enable_if<IsFormatter<F>::value>::type>
+	template <typename F, typename T, typename = enable_if_t<IsFormatter<F>::value>>
 	constexpr FormatTypeFor<F, T> operator<< (F && f, T && t) {
 		return format (std::forward<F> (f), std::forward<T> (t));
 	}
@@ -261,10 +261,9 @@ namespace Format {
 		Dynamic & operator= (Dynamic &&) = default;
 		~Dynamic () = default;
 
-		template <typename F,
-		          typename = typename std::enable_if<Traits::NonSelf<F, Dynamic>::value>::type>
+		template <typename F, typename = enable_if_t<does_not_match_constructor_of<Dynamic, F>::value>>
 		explicit Dynamic (F && formatter)
-		    : model_ (new Model<typename std::decay<F>::type> (std::forward<F> (formatter))) {}
+		    : model_ (new Model<remove_cvref_t<F>> (std::forward<F> (formatter))) {}
 
 		bool has_formatter () const noexcept { return bool(model_); }
 
@@ -300,8 +299,8 @@ namespace Format {
 		};
 		std::unique_ptr<Interface> model_{};
 	};
-}
+} // namespace Format
 
 using Format::format;
 using Format::placeholder;
-}
+} // namespace duck

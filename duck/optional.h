@@ -159,15 +159,14 @@ public:
 	}
 
 	// Map : Optional<T> -> Optional<U> with f : T -> U
-	template <typename Callable,
-	          typename ReturnType = typename std::result_of<Callable (const T &)>::type>
+	template <typename Callable, typename ReturnType = invoke_result_t<Callable, const T &>>
 	Optional<ReturnType> map (Callable && callable) const & {
 		if (has_value ())
 			return std::forward<Callable> (callable) (value ());
 		else
 			return {};
 	}
-	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &&)>::type>
+	template <typename Callable, typename ReturnType = invoke_result_t<Callable, T &&>>
 	Optional<ReturnType> map (Callable && callable) && {
 		if (has_value ())
 			return std::forward<Callable> (callable) (std::move (*this).value ());
@@ -229,7 +228,7 @@ private:
 
 	// Storage is "mutable" to support muting the object if the optional is const
 	T * value_ptr () const noexcept { return reinterpret_cast<T *> (&storage_); }
-	mutable typename std::aligned_storage<sizeof (T), alignof (T)>::type storage_;
+	mutable aligned_storage_t<sizeof (T), alignof (T)> storage_;
 	bool has_value_;
 };
 
@@ -302,7 +301,7 @@ public:
 	}
 
 	// Map : Optional<T &> -> Optional<U> with f : T & -> U
-	template <typename Callable, typename ReturnType = typename std::result_of<Callable (T &)>::type>
+	template <typename Callable, typename ReturnType = invoke_result_t<Callable, T &>>
 	Optional<ReturnType> map (Callable && callable) const {
 		if (has_value ())
 			return std::forward<Callable> (callable) (value ());
@@ -382,4 +381,4 @@ Optional<const typename Container::mapped_type &> optional_find (const Container
 	else
 		return {};
 }
-}
+} // namespace duck

@@ -5,9 +5,9 @@
 
 #include <algorithm> // std::copy
 #include <duck/format/core.h>
-#include <limits> // printing ints
-#include <string> // printing string
-#include <type_traits>
+#include <duck/type_traits.h>
+#include <limits>  // printing ints
+#include <string>  // printing string
 #include <utility> // forward / move
 
 namespace duck {
@@ -70,8 +70,7 @@ namespace Format {
 		const char * str_;
 		std::size_t len_;
 	};
-	template <typename T,
-	          typename = typename std::enable_if<std::is_convertible<T, const char *>::value>::type>
+	template <typename T, typename = enable_if_t<std::is_convertible<T, const char *>::value>>
 	CStringRef format_element (T str, AdlTag) {
 		return CStringRef{str};
 	}
@@ -147,7 +146,7 @@ namespace Format {
 		static constexpr int max_digits = std::numeric_limits<Int>::digits10 + 1;
 		Int i_;
 	};
-	template <typename T, typename = typename std::enable_if<std::is_integral<T>::value>::type>
+	template <typename T, typename = enable_if_t<std::is_integral<T>::value>>
 	DecimalInteger<T> format_element (T t, AdlTag) noexcept {
 		return DecimalInteger<T>{t};
 	}
@@ -177,5 +176,5 @@ namespace Format {
 	/* TODO join with seps ?
 	 * combinator, not easy
 	 */
-}
-}
+} // namespace Format
+} // namespace duck

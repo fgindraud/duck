@@ -52,7 +52,7 @@ namespace Range {
 	 */
 	template <typename T, typename = void> struct IsRange : std::false_type {};
 	template <typename T>
-	struct IsRange<T, VoidT<typename RangeTraits<T>::Iterator>> : std::true_type {};
+	struct IsRange<T, void_t<typename RangeTraits<T>::Iterator>> : std::true_type {};
 
 	/*********************************************************************************
 	 * Other useful type traits.
@@ -61,7 +61,7 @@ namespace Range {
 	// Is an iterator: std::iterator_traits<It> is SFINAE compatible
 	template <typename It, typename = void> struct IsIterator : std::false_type {};
 	template <typename It>
-	struct IsIterator<It, VoidT<typename std::iterator_traits<It>::iterator_category>>
+	struct IsIterator<It, void_t<typename std::iterator_traits<It>::iterator_category>>
 	    : std::true_type {};
 
 	namespace UnifiedCall {
@@ -79,19 +79,17 @@ namespace Range {
 	// Is iterable: if we can call begin & end on the object
 	template <typename T, typename = void> struct IsIterable : std::false_type {};
 	template <typename T>
-	struct IsIterable<T, VoidT<decltype (UnifiedCall::call_begin (std::declval<T &> ())),
-	                           decltype (UnifiedCall::call_end (std::declval<T &> ()))>>
+	struct IsIterable<T, void_t<decltype (UnifiedCall::call_begin (std::declval<T &> ())),
+	                            decltype (UnifiedCall::call_end (std::declval<T &> ()))>>
 	    : std::true_type {};
-	template <typename T>
-	using IsBaseTypeIterable = IsIterable<typename std::remove_reference<T>::type>;
+	template <typename T> using IsBaseTypeIterable = IsIterable<remove_reference_t<T>>;
 
 	// Is container: has empty(), size() methods and is Iterable.
 	template <typename T, typename = void> struct IsContainer : std::false_type {};
 	template <typename T>
-	struct IsContainer<T, VoidT<decltype (std::declval<T &> ().size ()), typename T::size_type>>
+	struct IsContainer<T, void_t<decltype (std::declval<T &> ().size ()), typename T::size_type>>
 	    : IsIterable<T> {};
-	template <typename T>
-	using IsBaseTypeContainer = IsContainer<typename std::remove_reference<T>::type>;
+	template <typename T> using IsBaseTypeContainer = IsContainer<remove_reference_t<T>>;
 
 	/**********************************************************************************
 	 * Common base interface for range types.
@@ -138,7 +136,7 @@ namespace Range {
 	};
 
 	// range() overload: forwards ranges as is
-	template <typename R, typename = EnableIfV<IsRange<R>>>
+	template <typename R, typename = enable_if_t<IsRange<R>::value>>
 	auto range (R && r) -> decltype (std::forward<R> (r)) {
 		return std::forward<R> (r);
 	}
@@ -168,7 +166,7 @@ namespace Range {
 	};
 
 	// range() overload
-	template <typename It, typename = EnableIfV<IsIterator<It>>>
+	template <typename It, typename = enable_if_t<IsIterator<It>::value>>
 	IteratorPair<It> range (It begin_it, It end_it) {
 		return {begin_it, end_it};
 	}
@@ -177,7 +175,7 @@ namespace Range {
 	// T[N] -> matched by Iterable<T>
 	// (T*, T*) -> matched by IteratorPair<It>
 	// (T*, N) -> below
-	template <typename T, typename IntType, typename = EnableIfV<std::is_integral<IntType>>>
+	template <typename T, typename IntType, typename = enable_if_t<std::is_integral<IntType>::value>>
 	IteratorPair<T *> range (T * base, IntType size) {
 		return {base, base + size};
 	}
@@ -245,11 +243,11 @@ namespace Range {
 	};
 
 	// range() overloads
-	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
+	template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
 	IteratorPair<IntegerIterator<Int>> range (Int from, Int to) {
 		return {IntegerIterator<Int>{from}, IntegerIterator<Int>{to}};
 	}
-	template <typename Int, typename = EnableIfV<std::is_integral<Int>>>
+	template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
 	IteratorPair<IntegerIterator<Int>> range (Int to) {
 		return range (Int{0}, to);
 	}
@@ -267,8 +265,7 @@ namespace Range {
 	// T = I -> const I (a stored temporary is considered constant)
 	template <typename T>
 	using IterableBaseType = typename std::conditional<std::is_reference<T>::value,
-	                                                   typename std::remove_reference<T>::type,
-	                                                   typename std::add_const<T>::type>::type;
+	                                                   remove_reference_t<T>, add_const_t<T>>::type;
 
 	// Same traits as the iterator pair.
 	// std::remove_reference<T> gives us const I or I, to select I::const_iterator or I::iterator
@@ -307,7 +304,7 @@ namespace Range {
 	// range() overload
 	// Matchings: const I& -> Iterable<const I&> ; I& -> Iterable<I&> ; I&& -> Iterable<I>.
 	template <typename T,
-	          typename = EnableIf<IsBaseTypeIterable<T>::value && !IsBaseTypeContainer<T>::value>>
+	          typename = enable_if_t<IsBaseTypeIterable<T>::value && !IsBaseTypeContainer<T>::value>>
 	Iterable<T> range (T && iterable) {
 		return {std::forward<T> (iterable)};
 	}
@@ -351,7 +348,7 @@ namespace Range {
 	};
 
 	// range () overloads
-	template <typename C, typename = EnableIfV<IsBaseTypeContainer<C>>>
+	template <typename C, typename = enable_if_t<IsBaseTypeContainer<C>::value>>
 	Container<C> range (C && container) {
 		return {std::forward<C> (container)};
 	}
@@ -369,7 +366,7 @@ namespace Range {
 	 * char_range () removes the null terminator
 	 * FIXME fragile
 	 */
-	template <std::size_t N, typename = EnableIf<(N > 0)>>
+	template <std::size_t N, typename = enable_if_t<(N > 0)>>
 	IteratorPair<const char *> char_range (const char (&str)[N]) {
 		return {&str[0], &str[N - 1]};
 	}
@@ -382,7 +379,8 @@ namespace Range {
 	 */
 
 	// operator== returns true if values are equal and range have same length
-	template <typename R1, typename R2, typename = EnableIf<IsRange<R1>::value && IsRange<R2>::value>>
+	template <typename R1, typename R2,
+	          typename = enable_if_t<IsRange<R1>::value && IsRange<R2>::value>>
 	bool operator== (const R1 & r1, const R2 & r2) {
 #if HAS_CPP14
 		return std::equal (r1.begin (), r1.end (), r2.begin (), r2.end ());

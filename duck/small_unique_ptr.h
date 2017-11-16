@@ -49,7 +49,7 @@ struct SmallUniquePtrMakeMovableBase {
 };
 #define DUCK_SMALL_UNIQUE_PTR_MAKE_MOVABLE                                                         \
 	void small_unique_ptr_move (void * storage) noexcept override {                                  \
-		new (storage) typename std::remove_reference<decltype (*this)>::type (std::move (*this));      \
+		new (storage) duck::remove_reference_t<decltype (*this)> (std::move (*this));                  \
 	}
 
 template <typename T, std::size_t StorageSize> class SmallUniquePtr {
@@ -167,7 +167,7 @@ public:
 	constexpr pointer get () const noexcept { return data_; }
 	constexpr operator bool () const noexcept { return data_; }
 	pointer operator-> () const noexcept { return data_; }
-	typename std::add_lvalue_reference<type>::type operator* () const noexcept { return *data_; }
+	add_lvalue_reference_t<type> operator* () const noexcept { return *data_; }
 
 	// Both functions are undefined is pointer is null
 	bool is_inline () const noexcept {
@@ -205,8 +205,7 @@ private:
 	 * (for example if result of a move)
 	 */
 	template <std::size_t Size, std::size_t Align>
-	using BuildInline =
-	    std::integral_constant<bool, (Size <= storage_size && Align <= storage_align)>;
+	using BuildInline = bool_constant<(Size <= storage_size && Align <= storage_align)>;
 	template <typename U> using BuildTypeInline = BuildInline<sizeof (U), alignof (U)>;
 
 	// create_storage_helper(alloc_size, use_inline_storage)

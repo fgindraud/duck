@@ -3,8 +3,8 @@
 // Single writer, then multiple readers pointer type.
 // STATUS: mature
 
+#include <duck/type_traits.h>
 #include <memory>
-#include <type_traits>
 #include <utility>
 
 namespace duck {
@@ -48,12 +48,10 @@ public:
 	 * - can upcast if convertible.
 	 * - can extract the shared_ptr from here (useful for conversion)
 	 */
-	template <typename U,
-	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	template <typename U, typename = enable_if_t<std::is_convertible<U *, T *>::value>>
 	explicit FreezablePtr (FreezablePtr<U> && ptr) noexcept
 	    : ptr_ (static_cast<std::shared_ptr<U>> (std::move (ptr))) {}
-	template <typename U,
-	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	template <typename U, typename = enable_if_t<std::is_convertible<U *, T *>::value>>
 	FreezablePtr & operator= (FreezablePtr<U> && ptr) noexcept {
 		ptr_ = static_cast<std::shared_ptr<U>> (std::move (ptr));
 		return *this;
@@ -82,7 +80,7 @@ template <typename T> class FrozenPtr {
 	/* A shared pointer to an immutable ressource.
 	 */
 public:
-	using ConstT = typename std::add_const<T>::type;
+	using ConstT = add_const_t<T>;
 
 	// All move/copy constructor/assignemnt default
 
@@ -102,20 +100,16 @@ public:
 	ConstT * operator-> () const noexcept { return get (); }
 
 	// Conversion: can upcast
-	template <typename U,
-	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	template <typename U, typename = enable_if_t<std::is_convertible<U *, T *>::value>>
 	explicit FrozenPtr (const FrozenPtr<U> & ptr) noexcept : ptr_ (ptr.get_shared ()) {}
-	template <typename U,
-	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	template <typename U, typename = enable_if_t<std::is_convertible<U *, T *>::value>>
 	explicit FrozenPtr (FrozenPtr<U> && ptr) noexcept : ptr_ (std::move (ptr).get_shared ()) {}
-	template <typename U,
-	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	template <typename U, typename = enable_if_t<std::is_convertible<U *, T *>::value>>
 	FrozenPtr & operator= (const FrozenPtr<U> & ptr) noexcept {
 		ptr_ = ptr.get_shared ();
 		return *this;
 	}
-	template <typename U,
-	          typename = typename std::enable_if<std::is_convertible<U *, T *>::value>::type>
+	template <typename U, typename = enable_if_t<std::is_convertible<U *, T *>::value>>
 	FrozenPtr & operator= (FrozenPtr<U> && ptr) noexcept {
 		ptr_ = std::move (ptr).get_shared ();
 		return *this;
@@ -151,4 +145,4 @@ template <typename T> FrozenPtr<T> make_frozen (T && t) {
 template <typename T> FrozenPtr<T> FreezablePtr<T>::freeze () && {
 	return FrozenPtr<T>{std::move (*this)};
 }
-}
+} // namespace duck

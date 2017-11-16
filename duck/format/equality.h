@@ -76,7 +76,7 @@ namespace Format {
 	}
 
 	// This iterator implements comparison of formatters with a fixed string.
-	template <typename F, typename T, typename = typename std::enable_if<IsFormatter<F>::value>::type>
+	template <typename F, typename T, typename = enable_if_t<IsFormatter<F>::value>>
 	constexpr bool operator== (const F & formatter, const T & t) {
 		return formatter.write (Detail::make_comparison_iterator (t));
 	}

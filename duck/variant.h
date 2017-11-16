@@ -67,8 +67,7 @@ namespace Variant {
 		 * - 0 <= i < sizeof...(Types) : i-th type in the list
 		 */
 		static constexpr int invalid_index = -1;
-		template <typename T>
-		using GetTypePos = Detail::GetTypePos<typename std::decay<T>::type, Types...>;
+		template <typename T> using GetTypePos = Detail::GetTypePos<remove_cvref_t<T>, Types...>;
 
 	public:
 		template <int index> using TypeForIndex = typename Detail::GetNthType<index, Types...>::Type;
@@ -78,7 +77,7 @@ namespace Variant {
 
 		template <typename T, int = GetTypePos<T>::value> explicit Static (T && t) {
 			// This constructor is SFINAE restricted to supported types
-			build<typename std::decay<T>::type> (std::forward<T> (t));
+			build<remove_cvref_t<T>> (std::forward<T> (t));
 		}
 		template <typename T, typename... Args> explicit Static (InPlace<T>, Args &&... args) {
 			build<T> (std::forward<Args> (args)...);
@@ -158,8 +157,8 @@ namespace Variant {
 		// TODO support stateful Visitor (by ref)
 		// TODO static check of case coverage already done, make it less obscure on error ?
 		template <typename Visitor>
-		using VisitorReturnType = typename std::common_type<decltype (
-		    std::declval<Visitor> () (std::declval<Types> ()))...>::type;
+		using VisitorReturnType =
+		    common_type_t<decltype (std::declval<Visitor> () (std::declval<Types> ()))...>;
 
 		template <typename Visitor> VisitorReturnType<Visitor> visit (Visitor visitor) {
 			using RetType = VisitorReturnType<Visitor>;
@@ -172,7 +171,7 @@ namespace Variant {
 
 	private:
 		int index_{invalid_index};
-		typename std::aligned_storage<size, alignment>::type storage_;
+		aligned_storage_t<size, alignment> storage_;
 
 		/* Table of type operations by index.
 		 * Computed at compile time.
@@ -205,7 +204,7 @@ namespace Variant {
 		// Variant with a fixed size, but no type restriction as long as it fits
 		// TODO improve
 	public:
-		template <typename T, typename = typename std::enable_if<Traits::NonSelf<T, Dynamic>::value>>
+		template <typename T, typename = enable_if_t<does_not_match_constructor_of<Dynamic, T>::value>>
 		explicit Dynamic (T && t) : destructor_ (Type::destroy<T>) {
 			static_assert (sizeof (T) <= len, "T must fit in reserved size");
 			static_assert (alignof (T) <= align, "T align requirement must fit in reserved storage");
@@ -231,7 +230,7 @@ namespace Variant {
 		~Dynamic () { destructor_ (&storage_); }
 
 	private:
-		typename std::aligned_storage<len, align>::type storage_;
+		aligned_storage_t<len, align> storage_;
 		void (*destructor_) (void *);
 	};
 } // namespace Variant

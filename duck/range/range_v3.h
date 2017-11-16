@@ -31,13 +31,14 @@ namespace Internal {
 	// Has empty() method
 	template <typename T, typename = void> struct HasEmptyMethod : std::false_type {};
 	template <typename T>
-	struct HasEmptyMethod<T, VoidT<decltype (std::declval<const T &> ().empty ())>> : std::true_type {
-	};
+	struct HasEmptyMethod<T, void_t<decltype (std::declval<const T &> ().empty ())>>
+	    : std::true_type {};
 
 	// Has size() method
 	template <typename T, typename = void> struct HasSizeMethod : std::false_type {};
 	template <typename T>
-	struct HasSizeMethod<T, VoidT<decltype (std::declval<const T &> ().size ())>> : std::true_type {};
+	struct HasSizeMethod<T, void_t<decltype (std::declval<const T &> ().size ())>> : std::true_type {
+	};
 
 	// Iterator has at least category
 	template <typename RefCategory, typename TestedCategory>
@@ -48,8 +49,8 @@ namespace Internal {
 // A Range is anything iterable, with begin and end
 template <typename T, typename = void> struct IsRange : std::false_type {};
 template <typename T>
-struct IsRange<T, VoidT<decltype (Internal::ADLCall::call_begin (std::declval<T &> ())),
-                        decltype (Internal::ADLCall::call_end (std::declval<T &> ()))>>
+struct IsRange<T, void_t<decltype (Internal::ADLCall::call_begin (std::declval<T &> ())),
+                         decltype (Internal::ADLCall::call_end (std::declval<T &> ()))>>
     : std::true_type {};
 
 // Range iterator type

@@ -31,7 +31,7 @@ namespace Range {
 	struct IsCallable : std::false_type {};
 	template <typename Callable, typename Arg>
 	struct IsCallable<Callable, Arg,
-	                  VoidT<decltype (std::declval<Callable &> () (std::declval<Arg> ()))>>
+	                  void_t<decltype (std::declval<Callable &> () (std::declval<Arg> ()))>>
 	    : std::true_type {};
 
 	// Is predicate
@@ -40,7 +40,7 @@ namespace Range {
 	template <typename Predicate, typename Arg>
 	struct IsPredicate<
 	    Predicate, Arg,
-	    VoidT<decltype (static_cast<bool> (std::declval<Predicate &> () (std::declval<Arg> ())))>>
+	    void_t<decltype (static_cast<bool> (std::declval<Predicate &> () (std::declval<Arg> ())))>>
 	    : std::true_type {};
 
 	/********************************************************************************
@@ -79,7 +79,7 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename R> Reverse<DecayT<R>> reverse (R && r) { return {std::forward<R> (r)}; }
+		template <typename R> Reverse<decay_t<R>> reverse (R && r) { return {std::forward<R> (r)}; }
 
 		struct ReverseTag {};
 		inline ReverseTag reverse () { return {}; }
@@ -161,9 +161,9 @@ namespace Range {
 		using InnerIterator = typename RangeTraits<R>::Iterator;
 
 		// At most this is a bidirectional_iterator
-		using iterator_category = typename std::common_type<
-		    std::bidirectional_iterator_tag,
-		    typename std::iterator_traits<InnerIterator>::iterator_category>::type;
+		using iterator_category =
+		    common_type_t<std::bidirectional_iterator_tag,
+		                  typename std::iterator_traits<InnerIterator>::iterator_category>;
 		using value_type = typename std::iterator_traits<InnerIterator>::value_type;
 		using difference_type = typename std::iterator_traits<InnerIterator>::difference_type;
 		using pointer = typename std::iterator_traits<InnerIterator>::pointer;
@@ -211,7 +211,7 @@ namespace Range {
 
 	namespace Combinator {
 		template <typename R, typename Predicate>
-		Filter<DecayT<R>, DecayT<Predicate>> filter (R && r, Predicate && predicate) {
+		Filter<decay_t<R>, decay_t<Predicate>> filter (R && r, Predicate && predicate) {
 			return {std::forward<R> (r), std::forward<Predicate> (predicate)};
 		}
 
@@ -220,7 +220,7 @@ namespace Range {
 			FilterTag (Predicate && p) : predicate (std::move (p)) {}
 			Predicate predicate;
 		};
-		template <typename Predicate> FilterTag<DecayT<Predicate>> filter (Predicate && predicate) {
+		template <typename Predicate> FilterTag<decay_t<Predicate>> filter (Predicate && predicate) {
 			return {std::forward<Predicate> (predicate)};
 		}
 		template <typename R, typename Predicate>
@@ -339,7 +339,7 @@ namespace Range {
 
 	namespace Combinator {
 		template <typename R, typename Function>
-		Apply<DecayT<R>, DecayT<Function>> apply (R && r, Function && function) {
+		Apply<decay_t<R>, decay_t<Function>> apply (R && r, Function && function) {
 			return {std::forward<R> (r), std::forward<Function> (function)};
 		}
 
@@ -348,7 +348,7 @@ namespace Range {
 			ApplyTag (Function && p) : function (std::move (p)) {}
 			Function function;
 		};
-		template <typename Function> ApplyTag<DecayT<Function>> apply (Function && function) {
+		template <typename Function> ApplyTag<decay_t<Function>> apply (Function && function) {
 			return {std::forward<Function> (function)};
 		}
 		template <typename R, typename Function>
@@ -458,7 +458,7 @@ namespace Range {
 	};
 
 	namespace Combinator {
-		template <typename IntType, typename R> Index<DecayT<R>, IntType> index (R && r) {
+		template <typename IntType, typename R> Index<decay_t<R>, IntType> index (R && r) {
 			return {std::forward<R> (r)};
 		}
 

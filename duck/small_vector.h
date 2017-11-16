@@ -330,7 +330,7 @@ public:
 	// Modifiers: all in SmallVectorBase
 
 private:
-	typename std::aligned_storage<N * sizeof (T), alignof (T)>::type inline_storage_;
+	aligned_storage_t<N * sizeof (T), alignof (T)> inline_storage_;
 };
 
 // Inline storage should be placed at the same address irrelevant of size.
