@@ -5,7 +5,7 @@
 // STATUS: mature
 
 #include <cassert>
-#include <duck/type_traits.h> // For InPlace<T> and <type_traits>
+#include <duck/type_traits.h> // For in_place_type_t<T> and <type_traits>
 #include <utility>
 
 namespace duck {
@@ -92,11 +92,11 @@ public:
 		move_from_other (std::move (other));
 	}
 
-	template <typename U, typename... Args> SmallUniquePtr (InPlace<U>, Args &&... args) {
+	template <typename U, typename... Args> SmallUniquePtr (in_place_type_t<U>, Args &&... args) {
 		build<U> (std::forward<Args> (args)...);
 	}
 	template <typename U, typename V, typename... Args>
-	SmallUniquePtr (InPlace<U>, std::initializer_list<V> ilist, Args &&... args) {
+	SmallUniquePtr (in_place_type_t<U>, std::initializer_list<V> ilist, Args &&... args) {
 		build<U> (ilist, std::forward<Args> (args)...);
 	}
 
@@ -145,11 +145,11 @@ public:
 		reset ();
 		data_ = p;
 	}
-	template <typename U = type, typename... Args> void reset (InPlace<U>, Args &&... args) {
+	template <typename U = type, typename... Args> void reset (in_place_type_t<U>, Args &&... args) {
 		emplace<U> (std::forward<Args> (args)...);
 	}
 	template <typename U = type, typename V, typename... Args>
-	void reset (InPlace<U>, std::initializer_list<V> ilist, Args &&... args) {
+	void reset (in_place_type_t<U>, std::initializer_list<V> ilist, Args &&... args) {
 		emplace<U> (ilist, std::forward<Args> (args)...);
 	}
 
@@ -265,6 +265,6 @@ private:
 // Creates a SmallUniquePtr<T, StorageSize> built in place (requires move support!)
 template <typename T, std::size_t StorageSize = sizeof (T), typename... Args>
 SmallUniquePtr<T, StorageSize> make_small_unique (Args &&... args) {
-	return SmallUniquePtr<T, StorageSize>{InPlace<T>{}, std::forward<Args> (args)...};
+	return SmallUniquePtr<T, StorageSize>{in_place_type_t<T>{}, std::forward<Args> (args)...};
 }
 } // namespace duck

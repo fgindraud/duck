@@ -47,11 +47,11 @@ public:
 	}
 	Optional (const T & t) : Optional () { create (t); }
 	Optional (T && t) : Optional () { create (std::move (t)); }
-	template <typename... Args> Optional (InPlace<void>, Args &&... args) : Optional () {
+	template <typename... Args> Optional (in_place_t, Args &&... args) : Optional () {
 		create (std::forward<Args> (args)...);
 	}
 	template <typename U, typename... Args>
-	Optional (InPlace<void>, std::initializer_list<U> ilist, Args &&... args) : Optional () {
+	Optional (in_place_t, std::initializer_list<U> ilist, Args &&... args) : Optional () {
 		create (ilist, std::forward<Args> (args)...);
 	}
 

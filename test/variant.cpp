@@ -27,7 +27,7 @@ TEST_CASE ("test") {
 
 	Var a{blah{}};
 	Var b{32};
-	Var c{duck::InPlace<std::string>{}, "hello"};
+	Var c{duck::in_place_type_t<std::string>{}, "hello"};
 	auto y = b.visit (ToStringVisitor{});
 	CHECK (y == "32");
 	auto z = c.visit (ToStringVisitor{});

@@ -1,6 +1,7 @@
 #pragma once
 
 // Additional useful type traits (and guaranteed to include <type_traits>)
+// STATUS: operational, new_syntax_convention
 
 #include <type_traits>
 
@@ -56,7 +57,18 @@ template <typename T> using remove_cvref_t = remove_cv_t<remove_reference_t<T>>;
 template <typename Class, typename T>
 struct does_not_match_constructor_of : bool_constant<!std::is_base_of<Class, decay_t<T>>::value> {};
 
-// Common type tags
-template <typename T> struct InPlace { constexpr InPlace () = default; };
-constexpr InPlace<void> in_place{};
+/* Type tags.
+ * Use those from C++17, or define them.
+ */
+#if __cplusplus >= 201703L
+using std::in_place;
+using std::in_place_t;
+using std::in_place_type_t;
+#else
+struct in_place_t {
+	constexpr in_place_t () = default;
+};
+constexpr in_place_t in_place{};
+template <typename T> struct in_place_type_t { constexpr in_place_type_t () = default; };
+#endif
 } // namespace Traits

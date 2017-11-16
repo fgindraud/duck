@@ -18,7 +18,7 @@ struct BigDerived : public Base {
 	int a_[4];
 	int f () const noexcept override { return -1; }
 };
-}
+} // namespace NoMoveSupport
 
 TEST_CASE ("construction and access (flat hierarchy)") {
 	using namespace NoMoveSupport;
@@ -28,7 +28,7 @@ TEST_CASE ("construction and access (flat hierarchy)") {
 	CHECK (!p);
 
 	// Reset in place
-	p.reset (duck::InPlace<SmallDerived>{}, 42);
+	p.reset (duck::in_place_type_t<SmallDerived>{}, 42);
 	CHECK (p);
 	CHECK (p.is_inline ());
 	CHECK (!p.is_allocated ());
@@ -42,13 +42,14 @@ TEST_CASE ("construction and access (flat hierarchy)") {
 	CHECK (p->f () == -1);
 
 	// Construction in place
-	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> inplace{duck::InPlace<SmallDerived>{}, 4};
+	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> inplace{duck::in_place_type_t<SmallDerived>{},
+	                                                          4};
 	CHECK (inplace);
 	CHECK (inplace.is_inline ());
 	CHECK (inplace->f () == 4);
 
 	// Construction allocated
-	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> allocated{duck::InPlace<BigDerived>{}};
+	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> allocated{duck::in_place_type_t<BigDerived>{}};
 	CHECK (allocated);
 	CHECK (allocated.is_allocated ());
 	CHECK (allocated->f () == -1);
@@ -70,7 +71,7 @@ struct BigDerived : public Base {
 	int a_[4];
 	int f () const noexcept override { return -1; }
 };
-}
+} // namespace SupportsMove
 
 TEST_CASE ("moves and releases (flat hierarchy)") {
 	/* Checks more than the API.
@@ -79,7 +80,7 @@ TEST_CASE ("moves and releases (flat hierarchy)") {
 	 */
 	using namespace SupportsMove;
 
-	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> small{duck::InPlace<SmallDerived>{}, 1};
+	duck::SmallUniquePtr<Base, sizeof (SmallDerived)> small{duck::in_place_type_t<SmallDerived>{}, 1};
 	CHECK (small);
 	CHECK (small->f ());
 

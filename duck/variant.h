@@ -79,7 +79,7 @@ namespace Variant {
 			// This constructor is SFINAE restricted to supported types
 			build<remove_cvref_t<T>> (std::forward<T> (t));
 		}
-		template <typename T, typename... Args> explicit Static (InPlace<T>, Args &&... args) {
+		template <typename T, typename... Args> explicit Static (in_place_type_t<T>, Args &&... args) {
 			build<T> (std::forward<Args> (args)...);
 		}
 
