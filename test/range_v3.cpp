@@ -12,7 +12,8 @@
  */
 namespace {
 template <typename T> std::true_type is_lvalue_ref (T &);
-template <typename T> std::false_type is_lvalue_ref (T &&);
+template <typename T, typename = duck::enable_if_t<!std::is_reference<T>::value>>
+std::false_type is_lvalue_ref (T &&);
 int i = 0;
 static_assert (decltype (is_lvalue_ref (i))::value, "");
 static_assert (decltype (is_lvalue_ref (static_cast<const int &> (i)))::value, "");
@@ -38,8 +39,8 @@ struct int_vector {
 	using size_type = typename range_type::size_type;
 
 	// Create instances
-	static range_type make_empty () { return {}; }
-	static range_type make_0_4 () { return {0, 1, 2, 3, 4}; }
+	static range_type make_empty () { return range_type{}; }
+	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
 };
 TYPE_TO_STRING (int_vector);
 
@@ -55,8 +56,8 @@ struct int_list {
 	using size_type = typename range_type::size_type;
 
 	// Create instances
-	static range_type make_empty () { return {}; }
-	static range_type make_0_4 () { return {0, 1, 2, 3, 4}; }
+	static range_type make_empty () { return range_type{}; }
+	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
 };
 TYPE_TO_STRING (int_list);
 
@@ -72,8 +73,8 @@ struct int_forward_list {
 	using size_type = typename range_type::difference_type;
 
 	// Create instances
-	static range_type make_empty () { return {}; }
-	static range_type make_0_4 () { return {0, 1, 2, 3, 4}; }
+	static range_type make_empty () { return range_type{}; }
+	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
 };
 TYPE_TO_STRING (int_forward_list);
 

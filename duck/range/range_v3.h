@@ -106,7 +106,7 @@ auto size (const T & t) -> decltype (internal_range::size_impl (t, has_size_meth
 template <typename T> auto front (T & t) -> iterator_reference_t<range_iterator_t<T>> {
 	return *begin (t);
 }
-template <typename T>
+template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
 auto front (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
 	return *begin (t);
 }
@@ -114,7 +114,8 @@ auto front (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
 template <typename T> auto back (T & t) -> iterator_reference_t<range_iterator_t<T>> {
 	return *std::prev (end (t));
 }
-template <typename T> auto back (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
+template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
+auto back (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
 	return *std::prev (end (t));
 }
 
