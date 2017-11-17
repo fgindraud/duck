@@ -19,13 +19,13 @@
 struct int_vector {
 	// Expected types
 	using range_type = std::vector<int>;
+	using empty_range_type = range_type;
 	using mutable_iterator = typename range_type::iterator;
 	using const_iterator = typename range_type::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
 	using size_type = typename range_type::size_type;
-
-	// Create instances
+	// Create values
 	static range_type make_empty () { return range_type{}; }
 	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
 };
@@ -34,15 +34,14 @@ TYPE_TO_STRING (int_vector);
 /* Integer list test case.
  */
 struct int_list {
-	// Expected types
 	using range_type = std::list<int>;
+	using empty_range_type = range_type;
 	using mutable_iterator = typename range_type::iterator;
 	using const_iterator = typename range_type::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
 	using size_type = typename range_type::size_type;
 
-	// Create instances
 	static range_type make_empty () { return range_type{}; }
 	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
 };
@@ -51,15 +50,14 @@ TYPE_TO_STRING (int_list);
 /* Integer forward_list test case.
  */
 struct int_forward_list {
-	// Expected types
 	using range_type = std::forward_list<int>;
+	using empty_range_type = range_type;
 	using mutable_iterator = typename range_type::iterator;
 	using const_iterator = typename range_type::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::false_type;
 	using size_type = typename range_type::difference_type;
 
-	// Create instances
 	static range_type make_empty () { return range_type{}; }
 	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
 };
@@ -95,6 +93,7 @@ inline dummy_int_iterator end (dummy_int_range r) {
 } // namespace test_adl
 struct adl_dummy_int_range {
 	using range_type = test_adl::dummy_int_range;
+	using empty_range_type = range_type;
 	using const_iterator = test_adl::dummy_int_iterator;
 	using mutable_iterator = test_adl::dummy_int_iterator;
 	using has_empty = std::false_type;
@@ -106,9 +105,68 @@ struct adl_dummy_int_range {
 };
 TYPE_TO_STRING (adl_dummy_int_range);
 
+// wrapper to const&, &, &&
+std::vector<int> empty_int_vector{};
+std::vector<int> non_empty_int_vector{0, 1, 2, 3, 4};
+const auto & empty_int_vector_const_ref = empty_int_vector;
+const auto & non_empty_int_vector_const_ref = non_empty_int_vector;
+auto & empty_int_vector_ref = empty_int_vector;
+auto & non_empty_int_vector_ref = non_empty_int_vector;
+
+struct const_lvalue_wrapper {
+	using range_type = duck::range_object_wrapper<const std::vector<int> &>;
+	using empty_range_type = range_type;
+	using const_iterator = typename std::vector<int>::const_iterator;
+	using mutable_iterator = typename std::vector<int>::const_iterator;
+	using has_empty = std::true_type;
+	using has_size = std::true_type;
+	using size_type = typename std::vector<int>::size_type;
+	static auto make_empty () -> decltype (duck::range_object (empty_int_vector_const_ref)) {
+		return duck::range_object (empty_int_vector_const_ref);
+	}
+	static auto make_0_4 () -> decltype (duck::range_object (non_empty_int_vector_const_ref)) {
+		return duck::range_object (non_empty_int_vector_const_ref);
+	}
+};
+TYPE_TO_STRING (const_lvalue_wrapper);
+struct lvalue_wrapper {
+	using range_type = duck::range_object_wrapper<std::vector<int> &>;
+	using empty_range_type = range_type;
+	using const_iterator = typename std::vector<int>::iterator;
+	using mutable_iterator = typename std::vector<int>::iterator;
+	using has_empty = std::true_type;
+	using has_size = std::true_type;
+	using size_type = typename std::vector<int>::size_type;
+	static auto make_empty () -> decltype (duck::range_object (empty_int_vector_ref)) {
+		return duck::range_object (empty_int_vector_ref);
+	}
+	static auto make_0_4 () -> decltype (duck::range_object (non_empty_int_vector_ref)) {
+		return duck::range_object (non_empty_int_vector_ref);
+	}
+};
+TYPE_TO_STRING (lvalue_wrapper);
+struct rvalue_wrapper {
+	using range_type = duck::range_object_wrapper<std::vector<int>>;
+	using empty_range_type = range_type;
+	using const_iterator = typename std::vector<int>::const_iterator;
+	using mutable_iterator = typename std::vector<int>::const_iterator;
+	using has_empty = std::true_type;
+	using has_size = std::true_type;
+	using size_type = typename std::vector<int>::size_type;
+	static auto make_empty () -> decltype (duck::range_object (int_vector::make_empty ())) {
+		return duck::range_object (int_vector::make_empty ());
+	}
+	static auto make_0_4 () -> decltype (duck::range_object (int_vector::make_0_4 ())) {
+		return duck::range_object (int_vector::make_0_4 ());
+	}
+};
+TYPE_TO_STRING (rvalue_wrapper);
+
 // List of tested type cases
-using AllRangeTypes = doctest::Types<int_vector, int_list, int_forward_list, adl_dummy_int_range>;
-using BidirRangeTypes = doctest::Types<int_vector, int_list, adl_dummy_int_range>;
+using AllRangeTypes = doctest::Types<int_vector, int_list, int_forward_list, adl_dummy_int_range,
+                                     const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper>;
+using BidirRangeTypes = doctest::Types<int_vector, int_list, adl_dummy_int_range,
+                                       const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper>;
 
 /* Template test cases.
  * Test properties like returned types, and properties on iterators.
@@ -116,7 +174,7 @@ using BidirRangeTypes = doctest::Types<int_vector, int_list, adl_dummy_int_range
  */
 TEST_CASE_TEMPLATE ("typedefs", C, AllRangeTypes) {
 	auto empty = C::make_empty ();
-	static_assert (std::is_same<decltype (empty), typename C::range_type>::value,
+	static_assert (std::is_same<decltype (empty), typename C::empty_range_type>::value,
 	               "empty C is of unexpected type");
 	auto r_0_4 = C::make_0_4 ();
 	static_assert (std::is_same<decltype (r_0_4), typename C::range_type>::value,

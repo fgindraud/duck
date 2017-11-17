@@ -46,7 +46,8 @@ using iterator_category_t = typename std::iterator_traits<It>::iterator_category
 template <typename It> using iterator_value_type_t = typename std::iterator_traits<It>::value_type;
 template <typename It> using iterator_reference_t = typename std::iterator_traits<It>::reference;
 template <typename It> using iterator_pointer_t = typename std::iterator_traits<It>::pointer;
-template <typename It> using iterator_difference_t = typename std::iterator_traits<It>::difference;
+template <typename It>
+using iterator_difference_t = typename std::iterator_traits<It>::difference_type;
 
 // Is iterator
 template <typename T, typename = void> struct is_iterator : std::false_type {};
@@ -143,12 +144,13 @@ private:
 
 /*******************************************************************************
  * range() function overloads
- * TODO WIP
+ * TODO WIP add int, add init_list
  * TODO find a semantic for temporaries
  */
 
-template <typename T, typename = enable_if_t<is_range<T>::value>> T & range (T & t) {
-	return t;
+template <typename T, typename = enable_if_t<is_range<T>::value>>
+auto range (T && t) -> decltype (std::forward<T> (t)) {
+	return std::forward<T> (t);
 }
 
 template <typename It, typename = enable_if_t<is_iterator<It>::value>>
@@ -157,12 +159,38 @@ iterator_pair<It> range (It begin_it, It end_it) {
 }
 
 // Array situation:
-// T[N] -> matched by std::begin, already range
+// T[N] -> matched by std::begin()
 // (T*, T*) -> matched by range (It, It)
 // (T*, N) -> below
 template <typename T, typename IntType, typename = enable_if_t<std::is_integral<IntType>::value>>
 iterator_pair<T *> range (T * base, IntType size) {
 	return {base, base + size};
+}
+
+/*******************************************************************************
+ * Range object.
+ * Wraps any range into a user friendly object where most range functions available as methods.
+ * FIXME try to have the same semantics with temporaries as free functions ?
+ */
+template <typename R> class range_object_wrapper {
+private:
+	R wrapped_;
+
+public:
+	range_object_wrapper (R && r) : wrapped_ (std::forward<R> (r)) {}
+
+	// Forced to use duck:: prefix: unqualified lookup stops at class level
+	auto begin () const -> decltype (duck::adl_begin (wrapped_)) {
+		return duck::adl_begin (wrapped_);
+	}
+	auto end () const -> decltype (duck::adl_end (wrapped_)) { return duck::adl_end (wrapped_); }
+	bool empty () const { return duck::empty (wrapped_); }
+	auto size () const -> decltype (duck::size (wrapped_)) { return duck::size (wrapped_); }
+	auto front () const -> decltype (duck::front (wrapped_)) { return duck::front (wrapped_); }
+	auto back () const -> decltype (duck::back (wrapped_)) { return duck::back (wrapped_); }
+};
+template <typename R> range_object_wrapper<R> range_object (R && r) {
+	return {std::forward<R> (r)};
 }
 
 // TODO operator== may not benefit from ADL, or may clash...
