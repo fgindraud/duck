@@ -8,19 +8,6 @@
 #include <type_traits>
 #include <vector>
 
-/* Basic sanity test for overloading.
- */
-namespace {
-template <typename T> std::true_type is_lvalue_ref (T &);
-template <typename T, typename = duck::enable_if_t<!std::is_reference<T>::value>>
-std::false_type is_lvalue_ref (T &&);
-int i = 0;
-static_assert (decltype (is_lvalue_ref (i))::value, "");
-static_assert (decltype (is_lvalue_ref (static_cast<const int &> (i)))::value, "");
-static_assert (decltype (is_lvalue_ref (static_cast<int &> (i)))::value, "");
-static_assert (!decltype (is_lvalue_ref (42))::value, "");
-} // namespace
-
 /* Define multiple type of containers to test with range.
  * Containers and expected properties are encoded as a struct.
  * -> how to build instances
@@ -147,12 +134,12 @@ TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front", C, AllRangeTypes) {
 		auto b = duck::adl_begin (empty_ref);
 		auto e = duck::adl_end (empty_ref);
 		static_assert (std::is_same<decltype (b), typename C::const_iterator>::value,
-		               "begin (const C &) is not C::const_iterator");
+		               "begin (const C&) is not C::const_iterator");
 		CHECK (b == e);
 		CHECK (duck::empty (empty_ref));
 		auto s = duck::size (empty_ref);
 		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
-		               "size (const C &) is not C::size_type");
+		               "size (const C&) is not C::size_type");
 		CHECK (s == 0);
 	}
 	{
@@ -176,12 +163,12 @@ TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front", C, AllRangeTypes) {
 		auto b = duck::adl_begin (empty_ref);
 		auto e = duck::adl_end (empty_ref);
 		static_assert (std::is_same<decltype (b), typename C::mutable_iterator>::value,
-		               "begin (C &) is not C::mutable_iterator");
+		               "begin (C&) is not C::mutable_iterator");
 		CHECK (b == e);
 		CHECK (duck::empty (empty_ref));
 		auto s = duck::size (empty_ref);
 		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
-		               "size (C &) is not C::size_type");
+		               "size (C&) is not C::size_type");
 		CHECK (s == 0);
 	}
 	{
@@ -203,7 +190,7 @@ TEST_CASE_TEMPLATE ("C&& - empty/size/front", C, AllRangeTypes) {
 		CHECK (duck::empty (C::make_empty ()));
 		auto s = duck::size (C::make_empty ());
 		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
-		               "size (C &&) is not C::size_type");
+		               "size (C&&) is not C::size_type");
 		CHECK (s == 0);
 	}
 	{
@@ -211,12 +198,39 @@ TEST_CASE_TEMPLATE ("C&& - empty/size/front", C, AllRangeTypes) {
 		CHECK (duck::size (C::make_0_4 ()) == 5);
 		static_assert (std::is_same<decltype (duck::front (C::make_0_4 ())),
 		                            duck::iterator_value_type_t<typename C::const_iterator>>::value,
-		               "front(C&) is not C::mutable_iterator::reference");
+		               "front(C&) is not C::mutable_iterator::value_type");
 		CHECK (duck::front (C::make_0_4 ()) == 0);
 	}
 }
 
-	// TODO back, in separate test case for bidirs only
+TEST_CASE_TEMPLATE ("const C& - back", C, BidirRangeTypes) {
+	{
+		auto non_empty_range = C::make_0_4 ();
+		const auto & ref = non_empty_range;
+		static_assert (std::is_same<decltype (duck::back (ref)),
+		                            duck::iterator_reference_t<typename C::const_iterator>>::value,
+		               "back(const C&) is not C::const_iterator::reference");
+		CHECK (duck::back (ref) == 4);
+	}
+}
+TEST_CASE_TEMPLATE ("C& - back", C, BidirRangeTypes) {
+	{
+		auto non_empty_range = C::make_0_4 ();
+		auto & ref = non_empty_range;
+		static_assert (std::is_same<decltype (duck::back (ref)),
+		                            duck::iterator_reference_t<typename C::mutable_iterator>>::value,
+		               "back(C&) is not C::mutable_iterator::reference");
+		CHECK (duck::back (ref) == 4);
+	}
+}
+TEST_CASE_TEMPLATE ("C&& - back", C, BidirRangeTypes) {
+	{
+		static_assert (std::is_same<decltype (duck::back (C::make_0_4 ())),
+		                            duck::iterator_value_type_t<typename C::mutable_iterator>>::value,
+		               "back(C&&) is not C::mutable_iterator::value_type");
+		CHECK (duck::back (C::make_0_4 ()) == 4);
+	}
+}
 
 #if 0
 TEST_CASE ("integer iterator") {
