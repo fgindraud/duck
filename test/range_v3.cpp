@@ -72,7 +72,7 @@ struct dummy_int_range {
 	int end_;
 };
 struct dummy_int_iterator {
-	using iterator_category = std::forward_iterator_tag;
+	using iterator_category = std::bidirectional_iterator_tag;
 	using value_type = int;
 	using reference = int;
 	using difference_type = int;
@@ -82,6 +82,7 @@ struct dummy_int_iterator {
 
 	int operator* () const { return i; }
 	dummy_int_iterator & operator++ () { return ++i, *this; }
+	dummy_int_iterator & operator-- () { return --i, *this; }
 	bool operator== (dummy_int_iterator o) const { return i == o.i; }
 	bool operator!= (dummy_int_iterator o) const { return i != o.i; }
 };

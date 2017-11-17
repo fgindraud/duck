@@ -48,6 +48,10 @@ template <typename It> using iterator_reference_t = typename std::iterator_trait
 template <typename It> using iterator_pointer_t = typename std::iterator_traits<It>::pointer;
 template <typename It> using iterator_difference_t = typename std::iterator_traits<It>::difference;
 
+// Is iterator
+template <typename T, typename = void> struct is_iterator : std::false_type {};
+template <typename T> struct is_iterator<T, void_t<iterator_category_t<T>>> : std::true_type {};
+
 // Has empty() method
 template <typename T, typename = void> struct has_empty_method : std::false_type {};
 template <typename T>
@@ -117,6 +121,48 @@ template <typename T> auto back (T & t) -> iterator_reference_t<range_iterator_t
 template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
 auto back (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
 	return *std::prev (end (t));
+}
+
+/*******************************************************************************
+ * iterator_pair:
+ * - eager range implementation, represents a pair of iterators
+ * - does not guarantee that the iterated ressource stays alive (no lifetime extension !)
+ */
+template <typename It> class iterator_pair {
+	static_assert (is_iterator<It>::value, "iterator_pair<It>: It must be an iterator type");
+
+public:
+	iterator_pair (It begin_it, It end_it) : begin_ (begin_it), end_ (end_it) {}
+	It begin () const { return begin_; }
+	It end () const { return end_; }
+
+private:
+	It begin_;
+	It end_;
+};
+
+/*******************************************************************************
+ * range() function overloads
+ * TODO WIP
+ * TODO find a semantic for temporaries
+ */
+
+template <typename T, typename = enable_if_t<is_range<T>::value>> T & range (T & t) {
+	return t;
+}
+
+template <typename It, typename = enable_if_t<is_iterator<It>::value>>
+iterator_pair<It> range (It begin_it, It end_it) {
+	return {begin_it, end_it};
+}
+
+// Array situation:
+// T[N] -> matched by std::begin, already range
+// (T*, T*) -> matched by range (It, It)
+// (T*, N) -> below
+template <typename T, typename IntType, typename = enable_if_t<std::is_integral<IntType>::value>>
+iterator_pair<T *> range (T * base, IntType size) {
+	return {base, base + size};
 }
 
 // TODO operator== may not benefit from ADL, or may clash...
