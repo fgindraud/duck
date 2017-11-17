@@ -105,7 +105,29 @@ struct adl_dummy_int_range {
 };
 TYPE_TO_STRING (adl_dummy_int_range);
 
-// wrapper to const&, &, &&
+/* Raw array as iterator_pair
+ */
+int raw_array[5] = {0, 1, 2, 3, 4};
+struct pointer_pair {
+	using range_type = duck::iterator_pair<int *>;
+	using empty_range_type = range_type;
+	using mutable_iterator = int *;
+	using const_iterator = int *;
+	using has_empty = std::false_type;
+	using has_size = std::false_type;
+	using size_type = duck::iterator_difference_t<int *>;
+
+	static auto make_empty () -> decltype (duck::range (raw_array, raw_array)) {
+		return duck::range (raw_array, raw_array);
+	}
+	static auto make_0_4 () -> decltype (duck::range (raw_array, raw_array + 5)) {
+		return duck::range (raw_array, raw_array + 5);
+	}
+};
+TYPE_TO_STRING (pointer_pair);
+
+/* wrapper to const&, &, &&
+ */
 std::vector<int> empty_int_vector{};
 std::vector<int> non_empty_int_vector{0, 1, 2, 3, 4};
 const auto & empty_int_vector_const_ref = empty_int_vector;
@@ -163,10 +185,12 @@ struct rvalue_wrapper {
 TYPE_TO_STRING (rvalue_wrapper);
 
 // List of tested type cases
-using AllRangeTypes = doctest::Types<int_vector, int_list, int_forward_list, adl_dummy_int_range,
-                                     const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper>;
-using BidirRangeTypes = doctest::Types<int_vector, int_list, adl_dummy_int_range,
-                                       const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper>;
+using AllRangeTypes =
+    doctest::Types<int_vector, int_list, int_forward_list, adl_dummy_int_range,
+                   const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper, pointer_pair>;
+using BidirRangeTypes =
+    doctest::Types<int_vector, int_list, adl_dummy_int_range, const_lvalue_wrapper, lvalue_wrapper,
+                   rvalue_wrapper, pointer_pair>;
 
 /* Template test cases.
  * Test properties like returned types, and properties on iterators.
