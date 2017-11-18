@@ -40,6 +40,13 @@ struct is_range<
     T, void_t<decltype (begin (std::declval<T &> ())), decltype (end (std::declval<T &> ()))>>
     : std::true_type {};
 
+// A lvalue_range is a range type referencing an external set of value:
+// T = [const] Container & : lvalue range, the container exists outside of the range.
+// T = Container : rvalue range, the container is owned by the range.
+// Other range classes (like combinators) should override this default impl.
+// (only for the non ref type, as a any T& is a lvalue range)
+template <typename T> struct is_lvalue_range : std::is_lvalue_reference<T> {};
+
 // Typedefs
 template <typename It>
 using iterator_category_t = typename std::iterator_traits<It>::iterator_category;
@@ -66,14 +73,32 @@ struct has_size_method<T, void_t<decltype (std::declval<const T &> ().size ())>>
 };
 
 /*********************************************************************************
+ * rvalue range begin && end.
+ * Only available if the rvalue range is in fact a wrapper for a lvalue object.
+ * Both version just call the lvalue versions of begin/end.
+ * This is not UB as the underlying iterators point to a lvalue object.
+ */
+template <typename T,
+          typename = enable_if_t<!std::is_reference<T>::value && is_lvalue_range<T>::value>>
+range_iterator_t<T> begin (T && t) {
+	return begin (t); // Calls the lvalue begin
+}
+template <typename T,
+          typename = enable_if_t<!std::is_reference<T>::value && is_lvalue_range<T>::value>>
+range_iterator_t<T> end (T && t) {
+	return end (t); // Calls the lvalue end
+}
+
+/*********************************************************************************
  * ADL versions of begin / end.
  * Alternative to the "using std::begin; begin (t)" pattern, in one line.
+ * Also support rvalue ranges with the same conditions as begin/end.
  */
-template <typename T> auto adl_begin (T & t) -> range_iterator_t<T> {
-	return begin (t);
+template <typename T> auto adl_begin (T && t) -> decltype (begin (std::forward<T> (t))) {
+	return begin (std::forward<T> (t));
 }
-template <typename T> auto adl_end (T & t) -> range_iterator_t<T> {
-	return end (t);
+template <typename T> auto adl_end (T && t) -> decltype (end (std::forward<T> (t))) {
+	return end (std::forward<T> (t));
 }
 
 /*********************************************************************************
@@ -108,20 +133,31 @@ auto size (const T & t) -> decltype (internal_range::size_impl (t, has_size_meth
 }
 
 // front / back : with rvalues overloads which force copying the value.
-template <typename T> auto front (T & t) -> iterator_reference_t<range_iterator_t<T>> {
-	return *begin (t);
+namespace internal_range {
+	template <typename T>
+	iterator_reference_t<range_iterator_t<T>> front_impl (T & t, std::true_type) {
+		return *begin (t);
+	}
+	template <typename T>
+	iterator_value_type_t<range_iterator_t<T>> front_impl (T & t, std::false_type) {
+		return std::move (*begin (t));
+	}
+	template <typename T>
+	iterator_reference_t<range_iterator_t<T>> back_impl (T & t, std::true_type) {
+		return *std::prev (end (t));
+	}
+	template <typename T>
+	iterator_value_type_t<range_iterator_t<T>> back_impl (T & t, std::false_type) {
+		return std::move (*std::prev (end (t)));
+	}
+} // namespace internal_range
+template <typename T>
+auto front (T && t) -> decltype (internal_range::front_impl (t, is_lvalue_range<T>{})) {
+	return internal_range::front_impl (t, is_lvalue_range<T>{});
 }
-template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
-auto front (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
-	return *begin (t);
-}
-
-template <typename T> auto back (T & t) -> iterator_reference_t<range_iterator_t<T>> {
-	return *std::prev (end (t));
-}
-template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
-auto back (const T && t) -> iterator_value_type_t<range_iterator_t<const T>> {
-	return *std::prev (end (t));
+template <typename T>
+auto back (T && t) -> decltype (internal_range::back_impl (t, is_lvalue_range<T>{})) {
+	return internal_range::back_impl (t, is_lvalue_range<T>{});
 }
 
 /*******************************************************************************
@@ -142,10 +178,12 @@ private:
 	It end_;
 };
 
+// iterator_pair nevers owns the iterated object, so always lvalue range
+template <typename It> struct is_lvalue_range<iterator_pair<It>> : std::true_type {};
+
 /*******************************************************************************
  * range() function overloads
  * TODO WIP add int, add init_list
- * TODO find a semantic for temporaries
  */
 
 template <typename T, typename = enable_if_t<is_range<T>::value>>
@@ -189,6 +227,10 @@ public:
 	auto front () const -> decltype (duck::front (wrapped_)) { return duck::front (wrapped_); }
 	auto back () const -> decltype (duck::back (wrapped_)) { return duck::back (wrapped_); }
 };
+
+// Just wraps R
+template <typename R> struct is_lvalue_range<range_object_wrapper<R>> : is_lvalue_range<R> {};
+
 template <typename R> range_object_wrapper<R> range_object (R && r) {
 	return {std::forward<R> (r)};
 }
