@@ -150,9 +150,71 @@ private:
 	It end_;
 };
 
+/**********************************************************************************
+ * Integer iterator for [i, j[ ranges
+ */
+template <typename Int> class integer_iterator {
+	static_assert (std::is_integral<Int>::value,
+	               "integer_iterator<Int>: Int must be an integer type");
+
+public:
+	using iterator_category = std::random_access_iterator_tag;
+	using value_type = Int;
+	using difference_type = std::ptrdiff_t;
+	using pointer = const value_type *;
+	using reference = value_type; // Force copying the int
+
+	integer_iterator () noexcept = default;
+	integer_iterator (Int n) noexcept : n_ (n) {}
+
+	// Input / output
+	integer_iterator & operator++ () noexcept { return ++n_, *this; }
+	reference operator* () const noexcept { return n_; }
+	pointer operator-> () const noexcept { return &n_; }
+	bool operator== (const integer_iterator & o) const noexcept { return n_ == o.n_; }
+	bool operator!= (const integer_iterator & o) const noexcept { return n_ != o.n_; }
+
+	// Forward
+	integer_iterator operator++ (int) noexcept {
+		integer_iterator tmp (*this);
+		++*this;
+		return tmp;
+	}
+
+	// Bidir
+	integer_iterator & operator-- () noexcept { return --n_, *this; }
+	integer_iterator operator-- (int) noexcept {
+		integer_iterator tmp (*this);
+		--*this;
+		return tmp;
+	}
+
+	// Random access
+	integer_iterator & operator+= (difference_type n) noexcept { return n_ += n, *this; }
+	integer_iterator operator+ (difference_type n) const noexcept {
+		return integer_iterator (n_ + n);
+	}
+	friend integer_iterator operator+ (difference_type n, const integer_iterator & it) noexcept {
+		return it + n;
+	}
+	integer_iterator & operator-= (difference_type n) noexcept { return n_ -= n, *this; }
+	integer_iterator operator- (difference_type n) const noexcept {
+		return integer_iterator (n_ - n);
+	}
+	difference_type operator- (const integer_iterator & o) const noexcept { return n_ - o.n_; }
+	reference operator[] (difference_type n) const noexcept { return n_ + n; }
+	bool operator< (const integer_iterator & o) const noexcept { return n_ < o.n_; }
+	bool operator> (const integer_iterator & o) const noexcept { return n_ > o.n_; }
+	bool operator<= (const integer_iterator & o) const noexcept { return n_ <= o.n_; }
+	bool operator>= (const integer_iterator & o) const noexcept { return n_ >= o.n_; }
+
+private:
+	Int n_{};
+};
+
 /*******************************************************************************
  * range() function overloads
- * TODO WIP add int, add init_list
+ * TODO add init_list (careful, init_list data only lives for the full expression)
  */
 
 template <typename T, typename = enable_if_t<is_range<T>::value>>
@@ -165,12 +227,21 @@ iterator_pair<It> range (It begin_it, It end_it) {
 	return {begin_it, end_it};
 }
 
+template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
+iterator_pair<integer_iterator<Int>> range (Int from, Int to) {
+	return {integer_iterator<Int>{from}, integer_iterator<Int>{to}};
+}
+template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
+iterator_pair<integer_iterator<Int>> range (Int to) {
+	return range (Int{}, to);
+}
+
 // Array situation:
 // T[N] -> matched by std::begin()
 // (T*, T*) -> matched by range (It, It)
 // (T*, N) -> below
-template <typename T, typename IntType, typename = enable_if_t<std::is_integral<IntType>::value>>
-iterator_pair<T *> range (T * base, IntType size) {
+template <typename T, typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
+iterator_pair<T *> range (T * base, Int size) {
 	return {base, base + size};
 }
 
@@ -201,5 +272,8 @@ template <typename R> range_object_wrapper<R> range_object (R && r) {
 }
 
 // TODO operator== may not benefit from ADL, or may clash...
+// TODO to_container
+// TODO operator[] in range object
+// TODO contains, offset_of
 
 } // namespace duck
