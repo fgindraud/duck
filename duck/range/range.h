@@ -1,403 +1,282 @@
 #pragma once
 
-// Range V2
-// STATUS: WIP
+// Range V3
+// STATUS: WIP, new_syntax_convention
 
-#ifndef HAS_CPP14
-#define HAS_CPP14 (__cpluplus >= 201402L)
-#endif
+// __cpluplus >= 201402L
 
 #include <duck/type_traits.h>
-#include <initializer_list> // init list overload
 #include <iterator>
-#include <string> // char_range
 #include <utility>
-#include <vector> // init list overload
-
-#if HAS_CPP14
-#include <algorithm> // operator==
-#endif
 
 namespace duck {
-namespace Range {
-	/* Ranges base header file.
-	 * Provide a common interface for iterables.
-	 *
-	 * A range represents something which can be iterated upon.
-	 * The range is constant : after creation, they cannot be modified.
-	 * The iterated objects can be modified however, if supported by the objects
-	 * (const_iterator VS iterator).
-	 * Some range may be assignable, but this is not guaranteed to be true.
-	 *
-	 * Ranges are created by calling range() on supported arguments.
-	 * range() will select the right range class to use.
-	 * This file provides most basic overloads of range().
-	 *
-	 * Most represent a reference to an iterable (range(vec)).
-	 * Some store the object itself (range of a temporary object).
-	 * The object in this case becomes constant and cannot be retrieved.
-	 * To retrieve the object, store the temporary then call range on it (reference).
-	 */
+/* Range
+ * TODO overall doc
+ * TODO adapt algorithm
+ * TODO adapt combinators
+ *
+ * rvalue note:
+ * Range based on lvalues (references to containers) are mostly safe.
+ * Range based on temporaries (rvalues) store the temporary objects internally.
+ * Thus, to guarantee the lifetime of the objects, the range must be stored.
+ * Some functions are still valid, as long as the expression builds a new object as result:
+ * > auto r = vec<int>{...}; f(begin(r)); // correct
+ * > auto it = begin (vec<int>{...}); // 'it' is dangling
+ * > auto & v = duck::front (vec<int>{...}); // 'int& v' is dangling
+ * > auto v = duck::front (vec<int>{...}); // correct
+ */
 
-	/**********************************************************************************
-	 * Provides typedefs for Range types (must be specialised).
-	 * Member typedefs:
-	 * - Iterator: iterator type
-	 * - SizeType: type returned by size() method
-	 */
-	template <typename RangeType> struct RangeTraits;
+/* Import std::begin and std::end in namespace duck.
+ *
+ * std::begin and std::end are supposed to be used as follows:
+ * > using std::begin;
+ * > it = begin (obj);
+ * This unqualified calls will fetch both ADL and std:: overloads of begin().
+ *
+ * By importing std::begin and std::end, namespace duck is now a context where unqualified calls
+ * catch the same overloads as this usage pattern.
+ *
+ * Calls external to namespace duck are supposed to call begin with the same pattern.
+ * "using std::begin" is equivalent to "using duck::begin".
+ *
+ * std::begin/end also catch rvlues by casting them to const&.
+ */
+using std::begin;
+using std::end;
 
-	/* Type trait to test if this is a range type.
-	 * Impl: tests if RangeTraits is defined.
-	 */
-	template <typename T, typename = void> struct IsRange : std::false_type {};
+/*********************************************************************************
+ * Type traits.
+ */
+
+// Iterator type deduced from begin(T / T&)
+template <typename T> using range_iterator_t = decltype (begin (std::declval<T &> ()));
+
+// A Range is anything iterable, with begin and end
+template <typename T, typename = void> struct is_range : std::false_type {};
+template <typename T>
+struct is_range<
+    T, void_t<decltype (begin (std::declval<T &> ())), decltype (end (std::declval<T &> ()))>>
+    : std::true_type {};
+
+// Typedefs
+template <typename It>
+using iterator_category_t = typename std::iterator_traits<It>::iterator_category;
+template <typename It> using iterator_value_type_t = typename std::iterator_traits<It>::value_type;
+template <typename It> using iterator_reference_t = typename std::iterator_traits<It>::reference;
+template <typename It> using iterator_pointer_t = typename std::iterator_traits<It>::pointer;
+template <typename It>
+using iterator_difference_t = typename std::iterator_traits<It>::difference_type;
+
+// Is iterator
+template <typename T, typename = void> struct is_iterator : std::false_type {};
+template <typename T> struct is_iterator<T, void_t<iterator_category_t<T>>> : std::true_type {};
+
+// Has empty() method
+template <typename T, typename = void> struct has_empty_method : std::false_type {};
+template <typename T>
+struct has_empty_method<T, void_t<decltype (std::declval<const T &> ().empty ())>>
+    : std::true_type {};
+
+// Has size() method
+template <typename T, typename = void> struct has_size_method : std::false_type {};
+template <typename T>
+struct has_size_method<T, void_t<decltype (std::declval<const T &> ().size ())>> : std::true_type {
+};
+
+/*********************************************************************************
+ * ADL versions of begin / end.
+ * Alternative to the "using std::begin; begin (t)" pattern, in one line.
+ * Also support rvalue ranges with the same conditions as begin/end.
+ */
+template <typename T> auto adl_begin (T && t) -> decltype (begin (std::forward<T> (t))) {
+	return begin (std::forward<T> (t));
+}
+template <typename T> auto adl_end (T && t) -> decltype (end (std::forward<T> (t))) {
+	return end (std::forward<T> (t));
+}
+
+/*********************************************************************************
+ * Free functions operating on iterable objects.
+ * With optimised cases for containers.
+ */
+
+// empty
+namespace internal_range {
+	template <typename T> bool empty_impl (const T & t, std::true_type) { return t.empty (); }
+	template <typename T> bool empty_impl (const T & t, std::false_type) {
+		return begin (t) == end (t);
+	}
+} // namespace internal_range
+template <typename T> bool empty (const T & t) {
+	return internal_range::empty_impl (t, has_empty_method<T>{});
+}
+
+// size
+namespace internal_range {
+	template <typename T> auto size_impl (const T & t, std::true_type) -> decltype (t.size ()) {
+		return t.size ();
+	}
 	template <typename T>
-	struct IsRange<T, void_t<typename RangeTraits<T>::Iterator>> : std::true_type {};
+	auto size_impl (const T & t, std::false_type) -> decltype (std::distance (begin (t), end (t))) {
+		return std::distance (begin (t), end (t));
+	}
+} // namespace internal_range
+template <typename T>
+auto size (const T & t) -> decltype (internal_range::size_impl (t, has_size_method<T>{})) {
+	return internal_range::size_impl (t, has_size_method<T>{});
+}
 
-	/*********************************************************************************
-	 * Other useful type traits.
-	 */
+// front / back
+template <typename T> auto front (T && t) -> decltype (*begin (std::forward<T> (t))) {
+	return *begin (std::forward<T> (t));
+}
+template <typename T> auto back (T && t) -> decltype (*std::prev (end (std::forward<T> (t)))) {
+	return *std::prev (end (std::forward<T> (t)));
+}
 
-	// Is an iterator: std::iterator_traits<It> is SFINAE compatible
-	template <typename It, typename = void> struct IsIterator : std::false_type {};
-	template <typename It>
-	struct IsIterator<It, void_t<typename std::iterator_traits<It>::iterator_category>>
-	    : std::true_type {};
+/*******************************************************************************
+ * iterator_pair:
+ * - eager range implementation, represents a pair of iterators
+ * - does not guarantee that the iterated ressource stays alive (no lifetime extension !)
+ */
+template <typename It> class iterator_pair {
+	static_assert (is_iterator<It>::value, "iterator_pair<It>: It must be an iterator type");
 
-	namespace UnifiedCall {
-		// namespace representing the "using std::sth; sth(object);" pattern.
-		using std::begin;
-		using std::end;
-		template <typename T> auto call_begin (T && t) -> decltype (begin (std::forward<T> (t)));
-		template <typename T> auto call_end (T && t) -> decltype (end (std::forward<T> (t)));
-	} // namespace UnifiedCall
+public:
+	iterator_pair (It begin_it, It end_it) : begin_ (begin_it), end_ (end_it) {}
+	It begin () const { return begin_; }
+	It end () const { return end_; }
 
-	// Supports both T& and T.
-	template <typename T>
-	using IteratorTypeOf = decltype (UnifiedCall::call_begin (std::declval<T &> ()));
+private:
+	It begin_;
+	It end_;
+};
 
-	// Is iterable: if we can call begin & end on the object
-	template <typename T, typename = void> struct IsIterable : std::false_type {};
-	template <typename T>
-	struct IsIterable<T, void_t<decltype (UnifiedCall::call_begin (std::declval<T &> ())),
-	                            decltype (UnifiedCall::call_end (std::declval<T &> ()))>>
-	    : std::true_type {};
-	template <typename T> using IsBaseTypeIterable = IsIterable<remove_reference_t<T>>;
+/**********************************************************************************
+ * Integer iterator for [i, j[ ranges
+ */
+template <typename Int> class integer_iterator {
+	static_assert (std::is_integral<Int>::value,
+	               "integer_iterator<Int>: Int must be an integer type");
 
-	// Is container: has empty(), size() methods and is Iterable.
-	template <typename T, typename = void> struct IsContainer : std::false_type {};
-	template <typename T>
-	struct IsContainer<T, void_t<decltype (std::declval<T &> ().size ()), typename T::size_type>>
-	    : IsIterable<T> {};
-	template <typename T> using IsBaseTypeContainer = IsContainer<remove_reference_t<T>>;
+public:
+	using iterator_category = std::random_access_iterator_tag;
+	using value_type = Int;
+	using difference_type = std::ptrdiff_t;
+	using pointer = const value_type *;
+	using reference = value_type; // Force copying the int
 
-	/**********************************************************************************
-	 * Common base interface for range types.
-	 * Intended to be used in a CRTP pattern extending a derived range class.
-	 * Derived classes can override these functions if they have a better implementation.
-	 *
-	 * Ranges must inherit from Base.
-	 * Ranges can be taken by reference through it (similar to eigen strategy).
-	 * Note that all methods should be called through derived().method ().
-	 * Base inherit from RangeTraits of type to have useful typedefs.
-	 */
-	template <typename Derived> class Base : public RangeTraits<Derived> {
-	public:
-		using typename RangeTraits<Derived>::Iterator;
-		using typename RangeTraits<Derived>::SizeType;
+	integer_iterator () noexcept = default;
+	integer_iterator (Int n) noexcept : n_ (n) {}
 
-		using ReferenceType = typename std::iterator_traits<Iterator>::reference;
-		using DifferenceType = typename std::iterator_traits<Iterator>::difference_type;
+	// Input / output
+	integer_iterator & operator++ () noexcept { return ++n_, *this; }
+	reference operator* () const noexcept { return n_; }
+	pointer operator-> () const noexcept { return &n_; }
+	bool operator== (const integer_iterator & o) const noexcept { return n_ == o.n_; }
+	bool operator!= (const integer_iterator & o) const noexcept { return n_ != o.n_; }
 
-		const Derived & derived () const { return static_cast<const Derived &> (*this); }
-
-		bool empty () const { return derived ().begin () == derived ().end (); }
-		SizeType size () const { return std::distance (derived ().begin (), derived ().end ()); }
-
-		// Accesses (UB if empty or out of range ; available if Iterator supports it)
-		ReferenceType front () const { return *derived ().begin (); }
-		ReferenceType back () const { return *std::prev (derived ().end ()); }
-		ReferenceType operator[] (DifferenceType n) const { return derived ().begin ()[n]; }
-
-		// TODO provide a std::distance(it, first, last)
-		bool contains (Iterator it) const;
-		DifferenceType offset_of (Iterator it) const;
-
-		// Python like referencing: -1 is last, etc.
-		Iterator at (DifferenceType n) const {
-			auto index = n < 0 ? n + derived ().size () : n;
-			return std::next (derived ().begin (), index);
-		}
-
-		// Build a container from this range
-		template <typename Container> Container to_container () const {
-			return Container{derived ().begin (), derived ().end ()};
-		}
-	};
-
-	// range() overload: forwards ranges as is
-	template <typename R, typename = enable_if_t<IsRange<R>::value>>
-	auto range (R && r) -> decltype (std::forward<R> (r)) {
-		return std::forward<R> (r);
+	// Forward
+	integer_iterator operator++ (int) noexcept {
+		integer_iterator tmp (*this);
+		++*this;
+		return tmp;
 	}
 
-	/**********************************************************************************
-	 * IteratorPair: most basic range, stores a pair of iterator.
-	 */
-	template <typename It> class IteratorPair;
-
-	template <typename It> struct RangeTraits<IteratorPair<It>> {
-		using Iterator = It;
-		using SizeType = typename std::iterator_traits<It>::difference_type;
-	};
-
-	template <typename It> class IteratorPair : public Base<IteratorPair<It>> {
-		static_assert (IsIterator<It>::value, "IteratorPair<It>: It must be a valid iterator type");
-
-	public:
-		IteratorPair (It begin_it, It end_it) : begin_ (begin_it), end_ (end_it) {}
-
-		It begin () const { return begin_; }
-		It end () const { return end_; }
-
-	private:
-		It begin_;
-		It end_;
-	};
-
-	// range() overload
-	template <typename It, typename = enable_if_t<IsIterator<It>::value>>
-	IteratorPair<It> range (It begin_it, It end_it) {
-		return {begin_it, end_it};
+	// Bidir
+	integer_iterator & operator-- () noexcept { return --n_, *this; }
+	integer_iterator operator-- (int) noexcept {
+		integer_iterator tmp (*this);
+		--*this;
+		return tmp;
 	}
 
-	// Array situation:
-	// T[N] -> matched by Iterable<T>
-	// (T*, T*) -> matched by IteratorPair<It>
-	// (T*, N) -> below
-	template <typename T, typename IntType, typename = enable_if_t<std::is_integral<IntType>::value>>
-	IteratorPair<T *> range (T * base, IntType size) {
-		return {base, base + size};
+	// Random access
+	integer_iterator & operator+= (difference_type n) noexcept { return n_ += n, *this; }
+	integer_iterator operator+ (difference_type n) const noexcept {
+		return integer_iterator (n_ + n);
 	}
-
-	/**********************************************************************************
-	 * Integer range: iterates on [i, j[
-	 */
-	template <typename Int> class IntegerIterator {
-		static_assert (std::is_integral<Int>::value,
-		               "IntegerIterator<Int>: Int must be an integer type");
-
-	public:
-		using iterator_category = std::random_access_iterator_tag;
-		using value_type = Int;
-		using difference_type = std::ptrdiff_t;
-		using pointer = const value_type *;
-		using reference = value_type; // Force copying the int
-
-		IntegerIterator () noexcept = default;
-		IntegerIterator (Int n) noexcept : n_ (n) {}
-
-		// Input / output
-		IntegerIterator & operator++ () noexcept { return ++n_, *this; }
-		reference operator* () const noexcept { return n_; }
-		pointer operator-> () const noexcept { return &n_; }
-		bool operator== (const IntegerIterator & o) const noexcept { return n_ == o.n_; }
-		bool operator!= (const IntegerIterator & o) const noexcept { return n_ != o.n_; }
-
-		// Forward
-		IntegerIterator operator++ (int) noexcept {
-			IntegerIterator tmp (*this);
-			++*this;
-			return tmp;
-		}
-
-		// Bidir
-		IntegerIterator & operator-- () noexcept { return --n_, *this; }
-		IntegerIterator operator-- (int) noexcept {
-			IntegerIterator tmp (*this);
-			--*this;
-			return tmp;
-		}
-
-		// Random access
-		IntegerIterator & operator+= (difference_type n) noexcept { return n_ += n, *this; }
-		IntegerIterator operator+ (difference_type n) const noexcept {
-			return IntegerIterator (n_ + n);
-		}
-		friend IntegerIterator operator+ (difference_type n, const IntegerIterator & it) noexcept {
-			return it + n;
-		}
-		IntegerIterator & operator-= (difference_type n) noexcept { return n_ -= n, *this; }
-		IntegerIterator operator- (difference_type n) const noexcept {
-			return IntegerIterator (n_ - n);
-		}
-		difference_type operator- (const IntegerIterator & o) const noexcept { return n_ - o.n_; }
-		reference operator[] (difference_type n) const noexcept { return n_ + n; }
-		bool operator< (const IntegerIterator & o) const noexcept { return n_ < o.n_; }
-		bool operator> (const IntegerIterator & o) const noexcept { return n_ > o.n_; }
-		bool operator<= (const IntegerIterator & o) const noexcept { return n_ <= o.n_; }
-		bool operator>= (const IntegerIterator & o) const noexcept { return n_ >= o.n_; }
-
-	private:
-		Int n_{};
-	};
-
-	// range() overloads
-	template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
-	IteratorPair<IntegerIterator<Int>> range (Int from, Int to) {
-		return {IntegerIterator<Int>{from}, IntegerIterator<Int>{to}};
+	friend integer_iterator operator+ (difference_type n, const integer_iterator & it) noexcept {
+		return it + n;
 	}
-	template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
-	IteratorPair<IntegerIterator<Int>> range (Int to) {
-		return range (Int{0}, to);
+	integer_iterator & operator-= (difference_type n) noexcept { return n_ -= n, *this; }
+	integer_iterator operator- (difference_type n) const noexcept {
+		return integer_iterator (n_ - n);
 	}
+	difference_type operator- (const integer_iterator & o) const noexcept { return n_ - o.n_; }
+	reference operator[] (difference_type n) const noexcept { return n_ + n; }
+	bool operator< (const integer_iterator & o) const noexcept { return n_ < o.n_; }
+	bool operator> (const integer_iterator & o) const noexcept { return n_ > o.n_; }
+	bool operator<= (const integer_iterator & o) const noexcept { return n_ <= o.n_; }
+	bool operator>= (const integer_iterator & o) const noexcept { return n_ >= o.n_; }
 
-	/**********************************************************************************
-	 * Iterable reference & value.
-	 * Reference: const and mutable lvalue-references (T = const I& / I&).
-	 * Value: store temporary object to guarantee its lifetime (T = I).
-	 * This class is just a lazy iterator pair.
-	 */
-	template <typename T> class Iterable;
+private:
+	Int n_{};
+};
 
-	// Utils to get base (decayed) stored type:
-	// T = const I& / I& -> const I / I
-	// T = I -> const I (a stored temporary is considered constant)
-	template <typename T>
-	using IterableBaseType = typename std::conditional<std::is_reference<T>::value,
-	                                                   remove_reference_t<T>, add_const_t<T>>::type;
+/*******************************************************************************
+ * range() function overloads
+ * TODO add init_list (careful, init_list data only lives for the full expression)
+ */
 
-	// Same traits as the iterator pair.
-	// std::remove_reference<T> gives us const I or I, to select I::const_iterator or I::iterator
-	template <typename T> struct RangeTraits<Iterable<T>> {
-		using Iterator = IteratorTypeOf<IterableBaseType<T>>;
-		using SizeType = typename std::iterator_traits<Iterator>::difference_type;
-	};
+template <typename T, typename = enable_if_t<is_range<T>::value>>
+auto range (T && t) -> decltype (std::forward<T> (t)) {
+	return std::forward<T> (t);
+}
 
-	template <typename T> class Iterable : public Base<Iterable<T>> {
-		static_assert (IsBaseTypeIterable<T>::value, "Iterable<T>: requires that T is iterable");
-		static_assert (std::is_lvalue_reference<T>::value || !std::is_reference<T>::value,
-		               "Iterable<T>: T must be 'const I&', 'I&', or 'I'");
+template <typename It, typename = enable_if_t<is_iterator<It>::value>>
+iterator_pair<It> range (It begin_it, It end_it) {
+	return {begin_it, end_it};
+}
 
-	public:
-		using typename Base<Iterable<T>>::Iterator;
+template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
+iterator_pair<integer_iterator<Int>> range (Int from, Int to) {
+	return {integer_iterator<Int>{from}, integer_iterator<Int>{to}};
+}
+template <typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
+iterator_pair<integer_iterator<Int>> range (Int to) {
+	return range (Int{}, to);
+}
 
-		// T = const I& / I& : T&& -> const I& / I &, just copy reference (reference collapsing)
-		// T = I : T&& -> I&&, construct I by move
-		Iterable (T && t) : iterable_ (std::forward<T> (t)) {}
+// Array situation:
+// T[N] -> matched by std::begin()
+// (T*, T*) -> matched by range (It, It)
+// (T*, N) -> below
+template <typename T, typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
+iterator_pair<T *> range (T * base, Int size) {
+	return {base, base + size};
+}
 
-		// T = const I& / I& : returns I::const_iterator / I::iterator
-		// T = I : returns const_iterator, object is constant
-		Iterator begin () const {
-			using std::begin;
-			return begin (iterable_);
-		}
-		Iterator end () const {
-			using std::end;
-			return end (iterable_);
-		}
+/*******************************************************************************
+ * Range object.
+ * Wraps any range into a user friendly object where most range functions available as methods.
+ * FIXME try to have the same semantics with temporaries as free functions ?
+ * TODO range_object taking variadic params, calls range() for ease of use
+ */
+template <typename R> class range_object_wrapper {
+private:
+	R wrapped_;
 
-	private:
-		T iterable_; // Reference for const I& / I&, object for I.
-	};
+public:
+	range_object_wrapper (R && r) : wrapped_ (std::forward<R> (r)) {}
 
-	// range() overload
-	// Matchings: const I& -> Iterable<const I&> ; I& -> Iterable<I&> ; I&& -> Iterable<I>.
-	template <typename T,
-	          typename = enable_if_t<IsBaseTypeIterable<T>::value && !IsBaseTypeContainer<T>::value>>
-	Iterable<T> range (T && iterable) {
-		return {std::forward<T> (iterable)};
+	// Forced to use duck:: prefix: unqualified lookup stops at class level
+	auto begin () const -> decltype (duck::adl_begin (wrapped_)) {
+		return duck::adl_begin (wrapped_);
 	}
+	auto end () const -> decltype (duck::adl_end (wrapped_)) { return duck::adl_end (wrapped_); }
+	bool empty () const { return duck::empty (wrapped_); }
+	auto size () const -> decltype (duck::size (wrapped_)) { return duck::size (wrapped_); }
+	auto front () const -> decltype (duck::front (wrapped_)) { return duck::front (wrapped_); }
+	auto back () const -> decltype (duck::back (wrapped_)) { return duck::back (wrapped_); }
+};
+template <typename R> range_object_wrapper<R> range_object (R && r) {
+	return {std::forward<R> (r)};
+}
 
-	/**********************************************************************************
-	 * Container reference & value.
-	 * Similar to iterable, but specialised for STL compatible containers.
-	 * Provide optimized functions using the container directly (empty, size).
-	 */
-	template <typename C> class Container;
+// TODO operator== may not benefit from ADL, or may clash...
+// TODO to_container
+// TODO operator[] in range object
+// TODO contains, offset_of
 
-	// Traits
-	template <typename C> struct RangeTraits<Container<C>> {
-		using Iterator = IteratorTypeOf<IterableBaseType<C>>;
-		using SizeType = typename IterableBaseType<C>::size_type;
-	};
-
-	template <typename C> class Container : public Base<Container<C>> {
-		static_assert (std::is_lvalue_reference<C>::value || !std::is_reference<C>::value,
-		               "Container<C>: C must be 'const I&', 'I&', or 'I'");
-		static_assert (IsBaseTypeContainer<C>::value, "Container<C>: C must be a container");
-
-	public:
-		using typename Base<Container<C>>::Iterator;
-		using typename Base<Container<C>>::SizeType;
-
-		Container (C && c) : container_ (std::forward<C> (c)) {}
-
-		Iterator begin () const {
-			using std::begin;
-			return begin (container_);
-		}
-		Iterator end () const {
-			using std::end;
-			return end (container_);
-		}
-		SizeType size () const { return container_.size (); }
-
-	private:
-		C container_;
-	};
-
-	// range () overloads
-	template <typename C, typename = enable_if_t<IsBaseTypeContainer<C>::value>>
-	Container<C> range (C && container) {
-		return {std::forward<C> (container)};
-	}
-	template <typename T> Container<std::vector<T>> range (std::initializer_list<T> ilist) {
-		// Range overload for initializer_list<T>.
-		// initializer_list are somewhat equivalent to reference to const temporary.
-		// Thus they cannot be stored (lifetime will not be extended enough).
-		// So we have to build a container with its data (vector will do fine...).
-		return {ilist};
-	}
-
-	/**********************************************************************************
-	 * String range.
-	 * range() only cares about storage : "hello" is considered as char[6] "hello\0".
-	 * char_range () removes the null terminator
-	 * FIXME fragile
-	 */
-	template <std::size_t N, typename = enable_if_t<(N > 0)>>
-	IteratorPair<const char *> char_range (const char (&str)[N]) {
-		return {&str[0], &str[N - 1]};
-	}
-	inline IteratorPair<const char *> char_range (const char * str) {
-		return {str, str + std::char_traits<char>::length (str)};
-	}
-
-	/**********************************************************************************
-	 * Utils.
-	 */
-
-	// operator== returns true if values are equal and range have same length
-	template <typename R1, typename R2,
-	          typename = enable_if_t<IsRange<R1>::value && IsRange<R2>::value>>
-	bool operator== (const R1 & r1, const R2 & r2) {
-#if HAS_CPP14
-		return std::equal (r1.begin (), r1.end (), r2.begin (), r2.end ());
-#else
-		typename R1::Iterator r1_it = r1.begin ();
-		typename R1::Iterator r1_end = r1.end ();
-		typename R2::Iterator r2_it = r2.begin ();
-		typename R2::Iterator r2_end = r2.end ();
-		for (; r1_it != r1_end && r2_it != r2_end; ++r1_it, ++r2_it)
-			if (!(*r1_it == *r2_it))
-				return false;
-		return r1_it == r1_end && r2_it == r2_end;
-#endif
-	}
-} // namespace Range
-
-// Pull range() functions in namespace duck
-using Range::char_range;
-using Range::range;
 } // namespace duck

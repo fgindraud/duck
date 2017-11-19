@@ -2,7 +2,7 @@
 #include "doctest.h"
 
 #include <duck/range/algorithm.h>
-#include <duck/range/range.h>
+#include <duck/range/range_v2.h>
 #include <vector>
 
 using duck::range;

@@ -3,7 +3,7 @@
 // Overloads of <algorithm> functions to accept range arguments instead of iterator pairs.
 
 #include <algorithm>
-#include <duck/range/range.h>
+#include <duck/range/range_v2.h>
 
 #ifndef HAS_CPP14
 #define HAS_CPP14 (__cpluplus >= 201402L)
