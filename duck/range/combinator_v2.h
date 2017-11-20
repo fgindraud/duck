@@ -4,76 +4,91 @@
 // STATUS: WIP
 
 #include <algorithm>
-#include <duck/range/range.h>
+#include <duck/range/range_v2.h>
 #include <limits>
 
 namespace duck {
-/* Ranges base combinators lib.
- */
+namespace Range {
+	/* Ranges base combinators lib.
+	 */
 
-/********************************************************************************
- * Type traits.
- */
-template <typename It, typename Category>
-using is_iterator_of_category = std::is_base_of<Category, iterator_category_t<It>>;
+	/********************************************************************************
+	 * Type traits.
+	 */
 
-// Is callable
-template <typename Callable, typename Arg, typename = void> struct IsCallable : std::false_type {};
-template <typename Callable, typename Arg>
-struct IsCallable<Callable, Arg,
-                  void_t<decltype (std::declval<Callable &> () (std::declval<Arg> ()))>>
-    : std::true_type {};
+	// Test if we at least support RequiredCategory
+	template <typename Category, typename RequiredCategory>
+	using HasRequiredCategory = std::is_base_of<RequiredCategory, Category>;
+	template <typename It, typename RequiredCategory>
+	using IteratorHasRequiredCategory =
+	    HasRequiredCategory<typename std::iterator_traits<It>::iterator_category, RequiredCategory>;
+	template <typename R, typename RequiredCategory>
+	using RangeHasRequiredCategory =
+	    IteratorHasRequiredCategory<typename RangeTraits<R>::Iterator, RequiredCategory>;
 
-// Is predicate
-template <typename Predicate, typename Arg, typename = void>
-struct IsPredicate : std::false_type {};
-template <typename Predicate, typename Arg>
-struct IsPredicate<
-    Predicate, Arg,
-    void_t<decltype (static_cast<bool> (std::declval<Predicate &> () (std::declval<Arg> ())))>>
-    : std::true_type {};
+	// Is callable
+	template <typename Callable, typename Arg, typename = void>
+	struct IsCallable : std::false_type {};
+	template <typename Callable, typename Arg>
+	struct IsCallable<Callable, Arg,
+	                  void_t<decltype (std::declval<Callable &> () (std::declval<Arg> ()))>>
+	    : std::true_type {};
 
-/********************************************************************************
- * Slicing. TODO
- * Just pack lambdas that transform iterators ?
- */
+	// Is predicate
+	template <typename Predicate, typename Arg, typename = void>
+	struct IsPredicate : std::false_type {};
+	template <typename Predicate, typename Arg>
+	struct IsPredicate<
+	    Predicate, Arg,
+	    void_t<decltype (static_cast<bool> (std::declval<Predicate &> () (std::declval<Arg> ())))>>
+	    : std::true_type {};
 
-/********************************************************************************
- * Reverse order.
- */
-template <typename R> class reverse_range {
-	static_assert (is_range<R>::value, "reverse_range<R>: R must be a range");
-	static_assert (
-	    is_iterator_of_category<range_iterator_t<R>, std::bidirectional_iterator_tag>::value,
-	    "reverse_range<R>: R must be at least bidirectional_iterator");
+	/********************************************************************************
+	 * Slicing. TODO
+	 * Just pack lambdas that transform iterators ?
+	 */
 
-public:
-	using iterator = std::reverse_iterator<range_iterator_t<R>>;
+	/********************************************************************************
+	 * Reverse order.
+	 */
+	template <typename R> class Reverse;
 
-	reverse_range (R && r) : inner_ (std::move (r)) {}
+	template <typename R> struct RangeTraits<Reverse<R>> {
+		using Iterator = std::reverse_iterator<typename RangeTraits<R>::Iterator>;
+		using SizeType = typename RangeTraits<R>::SizeType;
+	};
 
-	iterator begin () const { return iterator{inner_.end ()}; }
-	iterator end () const { return iterator{inner_.begin ()}; }
-	iterator_difference_t<iterator> size () const { return duck::size (inner_); }
+	template <typename R> class Reverse : public Base<Reverse<R>> {
+		static_assert (IsRange<R>::value, "Reverse<R>: R must be a range");
+		static_assert (RangeHasRequiredCategory<R, std::bidirectional_iterator_tag>::value,
+		               "Reverse<R>: R must be at least bidirectional_iterator");
 
-private:
-	R inner_;
-};
+	public:
+		using typename Base<Reverse<R>>::Iterator;
+		using typename Base<Reverse<R>>::SizeType;
 
-template <typename R> reverse_range<R> reverse (R && r) {
-	return {std::forward<R> (r)};
-}
+		Reverse (const R & r) : inner_ (r) {}
+		Reverse (R && r) : inner_ (std::move (r)) {}
 
-struct reverse_range_tag {};
-inline reverse_range_tag reverse () {
-	return {};
-}
-template <typename R>
-auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R> (r))) {
-	return reverse (std::forward<R> (r));
-}
+		Iterator begin () const { return Iterator{inner_.end ()}; }
+		Iterator end () const { return Iterator{inner_.begin ()}; }
+		SizeType size () const { return inner_.size (); }
 
-#if 0
+	private:
+		R inner_;
+	};
+
+	namespace Combinator {
+		template <typename R> Reverse<decay_t<R>> reverse (R && r) { return {std::forward<R> (r)}; }
+
+		struct ReverseTag {};
+		inline ReverseTag reverse () { return {}; }
+		template <typename R>
+		auto operator| (R && r, ReverseTag) -> decltype (reverse (std::forward<R> (r))) {
+			return reverse (std::forward<R> (r));
+		}
+	} // namespace Combinator
+
 	/********************************************************************************
 	 * Filter with a predicate.
 	 */
@@ -86,7 +101,7 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 	};
 
 	template <typename R, typename Predicate> class Filter : public Base<Filter<R, Predicate>> {
-		static_assert (is_range<R>::value, "Filter<R, Predicate>: R must be a range");
+		static_assert (IsRange<R>::value, "Filter<R, Predicate>: R must be a range");
 		static_assert (IsPredicate<Predicate, typename std::iterator_traits<
 		                                          typename RangeTraits<R>::Iterator>::reference>::value,
 		               "Filter<R, Predicate>: Predicate must be callable on R values");
@@ -137,7 +152,7 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 	};
 
 	template <typename R, typename Predicate> class FilterIterator {
-		static_assert (is_range<R>::value, "FilterIterator<R, Predicate>: R must be a range");
+		static_assert (IsRange<R>::value, "FilterIterator<R, Predicate>: R must be a range");
 		static_assert (IsPredicate<Predicate, typename std::iterator_traits<
 		                                          typename RangeTraits<R>::Iterator>::reference>::value,
 		               "Filter<R, Predicate>: Predicate must be callable on R values");
@@ -200,16 +215,16 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 			return {std::forward<R> (r), std::forward<Predicate> (predicate)};
 		}
 
-		template <typename Predicate> struct Filter_tag {
-			Filter_tag (const Predicate & p) : predicate (p) {}
-			Filter_tag (Predicate && p) : predicate (std::move (p)) {}
+		template <typename Predicate> struct FilterTag {
+			FilterTag (const Predicate & p) : predicate (p) {}
+			FilterTag (Predicate && p) : predicate (std::move (p)) {}
 			Predicate predicate;
 		};
-		template <typename Predicate> Filter_tag<decay_t<Predicate>> filter (Predicate && predicate) {
+		template <typename Predicate> FilterTag<decay_t<Predicate>> filter (Predicate && predicate) {
 			return {std::forward<Predicate> (predicate)};
 		}
 		template <typename R, typename Predicate>
-		auto operator| (R && r, Filter_tag<Predicate> tag)
+		auto operator| (R && r, FilterTag<Predicate> tag)
 		    -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
 			return filter (std::forward<R> (r), std::move (tag.predicate));
 		}
@@ -228,7 +243,7 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 	};
 
 	template <typename R, typename Function> class Apply : public Base<Apply<R, Function>> {
-		static_assert (is_range<R>::value, "Apply<R, Function>: R must be a range");
+		static_assert (IsRange<R>::value, "Apply<R, Function>: R must be a range");
 		static_assert (IsCallable<Function, typename std::iterator_traits<
 		                                        typename RangeTraits<R>::Iterator>::reference>::value,
 		               "Apply<R, Function>: Function must be callable on R values");
@@ -254,7 +269,7 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 	};
 
 	template <typename R, typename Function> class ApplyIterator {
-		static_assert (is_range<R>::value, "ApplyIterator<R, Function>: R must be a range");
+		static_assert (IsRange<R>::value, "ApplyIterator<R, Function>: R must be a range");
 		static_assert (IsCallable<Function, typename std::iterator_traits<
 		                                        typename RangeTraits<R>::Iterator>::reference>::value,
 		               "ApplyIterator<R, Function>: Function must be callable on R values");
@@ -328,16 +343,16 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 			return {std::forward<R> (r), std::forward<Function> (function)};
 		}
 
-		template <typename Function> struct Apply_tag {
-			Apply_tag (const Function & p) : function (p) {}
-			Apply_tag (Function && p) : function (std::move (p)) {}
+		template <typename Function> struct ApplyTag {
+			ApplyTag (const Function & p) : function (p) {}
+			ApplyTag (Function && p) : function (std::move (p)) {}
 			Function function;
 		};
-		template <typename Function> Apply_tag<decay_t<Function>> apply (Function && function) {
+		template <typename Function> ApplyTag<decay_t<Function>> apply (Function && function) {
 			return {std::forward<Function> (function)};
 		}
 		template <typename R, typename Function>
-		auto operator| (R && r, Apply_tag<Function> tag)
+		auto operator| (R && r, ApplyTag<Function> tag)
 		    -> decltype (apply (std::forward<R> (r), std::move (tag.function))) {
 			return apply (std::forward<R> (r), std::move (tag.function));
 		}
@@ -423,7 +438,7 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 	};
 
 	template <typename R, typename IntType> class Index : public Base<Index<R, IntType>> {
-		static_assert (is_range<R>::value, "Index<R, IntType>: R must be a range");
+		static_assert (IsRange<R>::value, "Index<R, IntType>: R must be a range");
 		static_assert (std::is_integral<IntType>::value,
 		               "Index<R, IntType>: IntType must be an integral type");
 
@@ -447,12 +462,12 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 			return {std::forward<R> (r)};
 		}
 
-		template <typename IntType> struct Index_tag {};
-		template <typename IntType = int> Index_tag<IntType> index () { return {}; }
+		template <typename IntType> struct IndexTag {};
+		template <typename IntType = int> IndexTag<IntType> index () { return {}; }
 		template <typename IntType, typename R>
-		auto operator| (R && r, Index_tag<IntType>) -> decltype (index<IntType> (std::forward<R> (r))) {
+		auto operator| (R && r, IndexTag<IntType>) -> decltype (index<IntType> (std::forward<R> (r))) {
 			return index<IntType> (std::forward<R> (r));
 		}
 	} // namespace Combinator
-#endif
+} // namespace Range
 } // namespace duck

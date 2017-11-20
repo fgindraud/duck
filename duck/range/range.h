@@ -7,6 +7,10 @@
 #include <iterator>
 #include <utility>
 
+#if __cpluplus >= 201402L
+#include <algorithm> // operator==
+#endif
+
 namespace duck {
 /* Range
  * TODO overall doc
@@ -158,6 +162,31 @@ template <typename T> bool contains (const T & t, range_iterator_t<const T &> it
 	                                      iterator_category_t<range_iterator_t<const T &>>{});
 }
 
+/**********************************************************************************
+ * Comparison.
+ * operator== should have less priority than container specific operator==.
+ * Can be used for all ranges if imported.
+ * TODO test
+ */
+
+// operator== returns true if values are equal and range have same length
+template <typename R1, typename R2,
+          typename = enable_if_t<is_range<const R1 &>::value && is_range<const R2 &>::value>>
+bool operator== (const R1 & r1, const R2 & r2) {
+#if __cpluplus >= 201402L
+	return std::equal (begin (r1), end (r1), begin (r2), end (r2));
+#else
+	auto r1_it = begin (r1);
+	auto r1_end = end (r1);
+	auto r2_it = begin (r2);
+	auto r2_end = end (r2);
+	for (; r1_it != r1_end && r2_it != r2_end; ++r1_it, ++r2_it)
+		if (!(*r1_it == *r2_it))
+			return false;
+	return r1_it == r1_end && r2_it == r2_end;
+#endif
+}
+
 /*******************************************************************************
  * iterator_pair:
  * - eager range implementation, represents a pair of iterators
@@ -286,25 +315,25 @@ private:
 	R wrapped_;
 
 public:
-	using const_iterator = range_iterator_t<const R &>;
+	using iterator = range_iterator_t<const R &>;
 
 	range_object_wrapper (R && r) : wrapped_ (std::forward<R> (r)) {}
 
 	// Forced to use duck:: prefix: unqualified lookup stops at class level
-	const_iterator begin () const { return duck::adl_begin (wrapped_); }
-	const_iterator end () const { return duck::adl_end (wrapped_); }
+	iterator begin () const { return duck::adl_begin (wrapped_); }
+	iterator end () const { return duck::adl_end (wrapped_); }
 	bool empty () const { return duck::empty (wrapped_); }
-	iterator_difference_t<const_iterator> size () const { return duck::size (wrapped_); }
-	iterator_reference_t<const_iterator> front () const { return duck::front (wrapped_); }
-	iterator_reference_t<const_iterator> back () const { return duck::back (wrapped_); }
-	iterator_reference_t<const_iterator> operator[] (iterator_difference_t<const_iterator> n) const {
+	iterator_difference_t<iterator> size () const { return duck::size (wrapped_); }
+	iterator_reference_t<iterator> front () const { return duck::front (wrapped_); }
+	iterator_reference_t<iterator> back () const { return duck::back (wrapped_); }
+	iterator_reference_t<iterator> operator[] (iterator_difference_t<iterator> n) const {
 		return duck::nth (wrapped_, n);
 	}
 
 	template <typename Container> Container to_container () const {
 		return duck::to_container<Container> (wrapped_);
 	}
-	bool contains (const_iterator it) const { return duck::contains (wrapped_, it); }
+	bool contains (iterator it) const { return duck::contains (wrapped_, it); }
 };
 template <typename R> range_object_wrapper<R> range_object (R && r) {
 	return {std::forward<R> (r)};

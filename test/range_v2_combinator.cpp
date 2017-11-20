@@ -1,25 +1,25 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <duck/range/combinator.h>
+#include <duck/range/combinator_v2.h>
 #include <forward_list>
 #include <iterator>
 #include <list>
 #include <vector>
 
 // Lousy wrapper of std vector which is move only : test move construction of ranges
-class move_only_int_vector {
+class UniqIntVector {
 private:
 	std::vector<int> v;
 
 public:
-	move_only_int_vector () = default;
-	move_only_int_vector (std::initializer_list<int> l) : v (l) {}
+	UniqIntVector () = default;
+	UniqIntVector (std::initializer_list<int> l) : v (l) {}
 
-	move_only_int_vector (const move_only_int_vector &) = delete;
-	move_only_int_vector (move_only_int_vector &&) = default;
-	move_only_int_vector & operator= (const move_only_int_vector &) = delete;
-	move_only_int_vector & operator= (move_only_int_vector &&) = default;
+	UniqIntVector (const UniqIntVector &) = delete;
+	UniqIntVector (UniqIntVector &&) = default;
+	UniqIntVector & operator= (const UniqIntVector &) = delete;
+	UniqIntVector & operator= (UniqIntVector &&) = default;
 
 	typename std::vector<int>::const_iterator begin () const { return v.begin (); }
 	typename std::vector<int>::const_iterator end () const { return v.end (); }
@@ -27,28 +27,27 @@ public:
 
 // Testing combinators with multiple containers, to test different iterator categories
 TYPE_TO_STRING (std::vector<int>);
-TYPE_TO_STRING (move_only_int_vector);
+TYPE_TO_STRING (UniqIntVector);
 TYPE_TO_STRING (std::list<int>);
 TYPE_TO_STRING (std::forward_list<int>);
 
-using bidir_container_types =
-    doctest::Types<std::vector<int>, move_only_int_vector, std::list<int>>;
-using forward_container_types =
-    doctest::Types<std::vector<int>, move_only_int_vector, std::list<int>, std::forward_list<int>>;
+using BidirContainers = doctest::Types<std::vector<int>, UniqIntVector, std::list<int>>;
+using ForwardContainers =
+    doctest::Types<std::vector<int>, UniqIntVector, std::list<int>, std::forward_list<int>>;
 
+namespace DRC = duck::Range::Combinator;
 auto values = {0, 1, 2, 3, 4};
 
-TEST_CASE_TEMPLATE ("reverse", C, bidir_container_types) {
-	auto range = C{values} | duck::reverse ();
-	CHECK (duck::size (range) == duck::size (values));
+TEST_CASE_TEMPLATE ("reverse", Container, BidirContainers) {
+	auto range = duck::range (Container{values}) | DRC::reverse ();
+	CHECK (range.size () == values.size ());
 	using RevIt = std::reverse_iterator<typename std::initializer_list<int>::iterator>;
-	CHECK (range == duck::range (RevIt{duck::end (values)}, RevIt{duck::begin (values)}));
+	CHECK (range == duck::range (RevIt{values.end ()}, RevIt{values.begin ()}));
 
-	CHECK (duck::empty (C{} | duck::reverse ()));
+	CHECK ((duck::range (Container{}) | DRC::reverse ()).empty ());
 }
 
-#if 0
-TEST_CASE_TEMPLATE ("index", Container, forward_container_types) {
+TEST_CASE_TEMPLATE ("index", Container, ForwardContainers) {
 	for (auto & iv : duck::range (Container{values}) | DRC::index<int> ()) {
 		CHECK (iv.index == iv.value ());
 	}
@@ -56,27 +55,26 @@ TEST_CASE_TEMPLATE ("index", Container, forward_container_types) {
 	CHECK ((duck::range (Container{}) | DRC::index ()).empty ());
 }
 
-TEST_CASE_TEMPLATE ("filter", Container, forward_container_types) {
+TEST_CASE_TEMPLATE ("filter", Container, ForwardContainers) {
 	auto filtered_range =
 	    duck::range (Container{values}) | DRC::filter ([](int i) { return i % 2 == 0; });
-	CHECK (duck::size (filtered_range) == 3);
+	CHECK (filtered_range.size () == 3);
 	CHECK (filtered_range == duck::range ({0, 2, 4}));
 
 	auto chained_filtered_range = duck::range (Container{values}) |
 	                              DRC::filter ([](int i) { return i < 2; }) |
 	                              DRC::filter ([](int i) { return i > 0; });
-	CHECK (duck::size (chained_filtered_range) == 1);
-	CHECK (duck::front (chained_filtered_range) == 1);
+	CHECK (chained_filtered_range.size () == 1);
+	CHECK (chained_filtered_range.front () == 1);
 
 	CHECK ((duck::range (Container{}) | DRC::filter ([](int) { return true; })).empty ());
 }
 
-TEST_CASE_TEMPLATE ("apply", Container, forward_container_types) {
+TEST_CASE_TEMPLATE ("apply", Container, ForwardContainers) {
 	auto applied_range = duck::range (Container{values}) | DRC::apply ([](int i) { return i - 2; }) |
 	                     DRC::filter ([](int i) { return i >= 0; });
-	CHECK (duck::size (applied_range) == 3);
+	CHECK (applied_range.size () == 3);
 	CHECK (applied_range == duck::range (0, 3));
 
 	CHECK ((duck::range (Container{}) | DRC::apply ([](int i) { return i; })).empty ());
 }
-#endif
