@@ -137,6 +137,19 @@ struct pointer_pair {
 };
 TYPE_TO_STRING (pointer_pair);
 
+/* initializer list.
+ * maps to an int_vector...
+ */
+struct int_init_list : int_vector {
+	static auto make_empty () -> decltype (duck::range (std::initializer_list<int>{})) {
+		return duck::range (std::initializer_list<int>{});
+	}
+	static auto make_0_4 () -> decltype (duck::range ({0, 1, 2, 3, 4})) {
+		return duck::range ({0, 1, 2, 3, 4});
+	}
+};
+TYPE_TO_STRING (int_init_list);
+
 /* wrapper to const&, &, &&
  */
 std::vector<int> empty_int_vector{};
@@ -196,12 +209,12 @@ struct rvalue_wrapper {
 TYPE_TO_STRING (rvalue_wrapper);
 
 // List of tested type cases
-using all_range_types =
-    doctest::Types<int_vector, int_list, int_forward_list, int_range, adl_dummy_int_range,
-                   const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper, pointer_pair>;
+using all_range_types = doctest::Types<int_vector, int_list, int_forward_list, int_range,
+                                       adl_dummy_int_range, int_init_list, const_lvalue_wrapper,
+                                       lvalue_wrapper, rvalue_wrapper, pointer_pair>;
 using bidir_range_types =
-    doctest::Types<int_vector, int_list, int_range, adl_dummy_int_range, const_lvalue_wrapper,
-                   lvalue_wrapper, rvalue_wrapper, pointer_pair>;
+    doctest::Types<int_vector, int_list, int_range, adl_dummy_int_range, int_init_list,
+                   const_lvalue_wrapper, lvalue_wrapper, rvalue_wrapper, pointer_pair>;
 
 /* Template test cases.
  * Test properties like returned types, and properties on iterators.

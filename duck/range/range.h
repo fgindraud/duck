@@ -12,7 +12,6 @@
 namespace duck {
 /* Range
  * TODO overall doc
- * TODO adapt algorithm
  * TODO adapt combinators
  *
  * rvalue note:
@@ -216,7 +215,6 @@ private:
 
 /*******************************************************************************
  * range() function overloads
- * TODO add init_list (careful, init_list data only lives for the full expression)
  */
 
 template <typename T, typename = enable_if_t<is_range<T>::value>>
@@ -245,6 +243,11 @@ iterator_pair<integer_iterator<Int>> range (Int to) {
 template <typename T, typename Int, typename = enable_if_t<std::is_integral<Int>::value>>
 iterator_pair<T *> range (T * base, Int size) {
 	return {base, base + size};
+}
+
+// ilist lifetime is never extended beyond the return, so we must build a temporary vector...
+template <typename T> std::vector<T> range (std::initializer_list<T> ilist) {
+	return std::vector<T>{ilist};
 }
 
 /*******************************************************************************
