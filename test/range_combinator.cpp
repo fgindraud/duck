@@ -2,21 +2,10 @@
 #include "doctest.h"
 
 #include <duck/range/combinator.h>
-#include <duck/range/range_v2.h>
 #include <forward_list>
 #include <iterator>
 #include <list>
 #include <vector>
-
-// FIXME
-#include <iostream>
-template <typename Derived>
-static std::ostream & operator<< (std::ostream & os, const duck::Range::Base<Derived> & r) {
-	os << "Range(";
-	for (const auto & v : r.derived ())
-		os << v << ",";
-	return os << ")";
-}
 
 // Lousy wrapper of std vector which is move only : test move construction of ranges
 class UniqIntVector {

@@ -3,8 +3,6 @@
 // Range V3
 // STATUS: WIP, new_syntax_convention
 
-// __cpluplus >= 201402L
-
 #include <duck/type_traits.h>
 #include <iterator>
 #include <utility>
@@ -48,13 +46,13 @@ using std::end;
  */
 
 // Iterator type deduced from begin(T / T&)
-template <typename T> using range_iterator_t = decltype (begin (std::declval<T &> ()));
+template <typename T> using range_iterator_t = decltype (begin (std::declval<T> ()));
 
 // A Range is anything iterable, with begin and end
 template <typename T, typename = void> struct is_range : std::false_type {};
 template <typename T>
-struct is_range<
-    T, void_t<decltype (begin (std::declval<T &> ())), decltype (end (std::declval<T &> ()))>>
+struct is_range<T,
+                void_t<decltype (begin (std::declval<T> ())), decltype (end (std::declval<T> ()))>>
     : std::true_type {};
 
 // Typedefs
@@ -73,24 +71,22 @@ template <typename T> struct is_iterator<T, void_t<iterator_category_t<T>>> : st
 // Has empty() method
 template <typename T, typename = void> struct has_empty_method : std::false_type {};
 template <typename T>
-struct has_empty_method<T, void_t<decltype (std::declval<const T &> ().empty ())>>
-    : std::true_type {};
+struct has_empty_method<T, void_t<decltype (std::declval<T> ().empty ())>> : std::true_type {};
 
-// Has size() method
+// Has size() method and size_type typedef
 template <typename T, typename = void> struct has_size_method : std::false_type {};
 template <typename T>
-struct has_size_method<T, void_t<decltype (std::declval<const T &> ().size ())>> : std::true_type {
-};
+struct has_size_method<T, void_t<decltype (std::declval<T> ().size ())>> : std::true_type {};
 
 /*********************************************************************************
  * ADL versions of begin / end.
  * Alternative to the "using std::begin; begin (t)" pattern, in one line.
  * Also support rvalue ranges with the same conditions as begin/end.
  */
-template <typename T> auto adl_begin (T && t) -> decltype (begin (std::forward<T> (t))) {
+template <typename T> range_iterator_t<T> adl_begin (T && t) {
 	return begin (std::forward<T> (t));
 }
-template <typename T> auto adl_end (T && t) -> decltype (end (std::forward<T> (t))) {
+template <typename T> range_iterator_t<T> adl_end (T && t) {
 	return end (std::forward<T> (t));
 }
 
@@ -107,30 +103,59 @@ namespace internal_range {
 	}
 } // namespace internal_range
 template <typename T> bool empty (const T & t) {
-	return internal_range::empty_impl (t, has_empty_method<T>{});
+	return internal_range::empty_impl (t, has_empty_method<const T &>{});
 }
 
 // size
 namespace internal_range {
-	template <typename T> auto size_impl (const T & t, std::true_type) -> decltype (t.size ()) {
-		return t.size ();
+	template <typename T>
+	iterator_difference_t<range_iterator_t<const T &>> size_impl (const T & t, std::true_type) {
+		return static_cast<iterator_difference_t<range_iterator_t<const T &>>> (t.size ());
 	}
 	template <typename T>
-	auto size_impl (const T & t, std::false_type) -> decltype (std::distance (begin (t), end (t))) {
+	iterator_difference_t<range_iterator_t<const T &>> size_impl (const T & t, std::false_type) {
 		return std::distance (begin (t), end (t));
 	}
 } // namespace internal_range
-template <typename T>
-auto size (const T & t) -> decltype (internal_range::size_impl (t, has_size_method<T>{})) {
+template <typename T> iterator_difference_t<range_iterator_t<const T &>> size (const T & t) {
 	return internal_range::size_impl (t, has_size_method<T>{});
 }
 
 // front / back
-template <typename T> auto front (T && t) -> decltype (*begin (std::forward<T> (t))) {
+template <typename T> iterator_reference_t<range_iterator_t<T>> front (T && t) {
 	return *begin (std::forward<T> (t));
 }
-template <typename T> auto back (T && t) -> decltype (*std::prev (end (std::forward<T> (t)))) {
+template <typename T> iterator_reference_t<range_iterator_t<T>> back (T && t) {
 	return *std::prev (end (std::forward<T> (t)));
+}
+template <typename T>
+iterator_reference_t<range_iterator_t<T>> nth (T && t,
+                                               iterator_difference_t<range_iterator_t<T>> n) {
+	return *std::next (begin (std::forward<T> (t)), n);
+}
+
+// to_container
+template <typename Container, typename T> Container to_container (const T & t) {
+	return Container{begin (t), end (t)};
+}
+
+// contains
+namespace internal_range {
+	template <typename It>
+	bool contains_impl (It begin_it, It end_it, It it, std::random_access_iterator_tag) {
+		return begin_it <= it && it < end_it;
+	}
+	template <typename It>
+	bool contains_impl (It begin_it, It end_it, It it, std::input_iterator_tag) {
+		for (; begin_it != end_it; ++begin_it)
+			if (begin_it == it)
+				return true;
+		return false;
+	}
+} // namespace internal_range
+template <typename T> bool contains (const T & t, range_iterator_t<const T &> it) {
+	return internal_range::contains_impl (begin (t), end (t), it,
+	                                      iterator_category_t<range_iterator_t<const T &>>{});
 }
 
 /*******************************************************************************
@@ -261,25 +286,29 @@ private:
 	R wrapped_;
 
 public:
+	using const_iterator = range_iterator_t<const R &>;
+
 	range_object_wrapper (R && r) : wrapped_ (std::forward<R> (r)) {}
 
 	// Forced to use duck:: prefix: unqualified lookup stops at class level
-	auto begin () const -> decltype (duck::adl_begin (wrapped_)) {
-		return duck::adl_begin (wrapped_);
-	}
-	auto end () const -> decltype (duck::adl_end (wrapped_)) { return duck::adl_end (wrapped_); }
+	const_iterator begin () const { return duck::adl_begin (wrapped_); }
+	const_iterator end () const { return duck::adl_end (wrapped_); }
 	bool empty () const { return duck::empty (wrapped_); }
-	auto size () const -> decltype (duck::size (wrapped_)) { return duck::size (wrapped_); }
-	auto front () const -> decltype (duck::front (wrapped_)) { return duck::front (wrapped_); }
-	auto back () const -> decltype (duck::back (wrapped_)) { return duck::back (wrapped_); }
+	iterator_difference_t<const_iterator> size () const { return duck::size (wrapped_); }
+	iterator_reference_t<const_iterator> front () const { return duck::front (wrapped_); }
+	iterator_reference_t<const_iterator> back () const { return duck::back (wrapped_); }
+	iterator_reference_t<const_iterator> operator[] (iterator_difference_t<const_iterator> n) const {
+		return duck::nth (wrapped_, n);
+	}
+
+	template <typename Container> Container to_container () const {
+		return duck::to_container<Container> (wrapped_);
+	}
+	bool contains (const_iterator it) const { return duck::contains (wrapped_, it); }
 };
 template <typename R> range_object_wrapper<R> range_object (R && r) {
 	return {std::forward<R> (r)};
 }
 
 // TODO operator== may not benefit from ADL, or may clash...
-// TODO to_container
-// TODO operator[] in range object
-// TODO contains, offset_of
-
 } // namespace duck

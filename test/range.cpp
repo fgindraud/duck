@@ -23,7 +23,7 @@ struct int_vector {
 	using const_iterator = typename range_type::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
-	using size_type = typename range_type::size_type;
+	using size_type = typename const_iterator::difference_type;
 	// Create values
 	static range_type make_empty () { return range_type{}; }
 	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
@@ -38,7 +38,7 @@ struct int_list {
 	using const_iterator = typename range_type::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
-	using size_type = typename range_type::size_type;
+	using size_type = typename const_iterator::difference_type;
 
 	static range_type make_empty () { return range_type{}; }
 	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
@@ -53,7 +53,7 @@ struct int_forward_list {
 	using const_iterator = typename range_type::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::false_type;
-	using size_type = typename range_type::difference_type;
+	using size_type = typename const_iterator::difference_type;
 
 	static range_type make_empty () { return range_type{}; }
 	static range_type make_0_4 () { return range_type{0, 1, 2, 3, 4}; }
@@ -165,7 +165,7 @@ struct const_lvalue_wrapper {
 	using mutable_iterator = typename std::vector<int>::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
-	using size_type = typename std::vector<int>::size_type;
+	using size_type = typename const_iterator::difference_type;
 
 	static auto make_empty () -> decltype (duck::range_object (empty_int_vector_const_ref)) {
 		return duck::range_object (empty_int_vector_const_ref);
@@ -181,7 +181,7 @@ struct lvalue_wrapper {
 	using mutable_iterator = typename std::vector<int>::iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
-	using size_type = typename std::vector<int>::size_type;
+	using size_type = typename const_iterator::difference_type;
 
 	static auto make_empty () -> decltype (duck::range_object (empty_int_vector_ref)) {
 		return duck::range_object (empty_int_vector_ref);
@@ -197,7 +197,7 @@ struct rvalue_wrapper {
 	using mutable_iterator = typename std::vector<int>::const_iterator;
 	using has_empty = std::true_type;
 	using has_size = std::true_type;
-	using size_type = typename std::vector<int>::size_type;
+	using size_type = typename const_iterator::difference_type;
 
 	static auto make_empty () -> decltype (duck::range_object (int_vector::make_empty ())) {
 		return duck::range_object (int_vector::make_empty ());
@@ -230,6 +230,8 @@ TEST_CASE_TEMPLATE ("typedefs", C, all_range_types) {
 
 	using RT = decltype (empty);
 	static_assert (duck::is_range<RT>::value, "0_4 C is not a range");
+	static_assert (duck::is_range<const RT &>::value, "0_4 const C& is not a range");
+	static_assert (duck::is_range<RT &>::value, "0_4 C& is not a range");
 
 	static_assert (duck::has_empty_method<RT>::value == C::has_empty::value,
 	               "has_empty_method trait failed");
@@ -237,7 +239,7 @@ TEST_CASE_TEMPLATE ("typedefs", C, all_range_types) {
 	               "has_size_method trait failed");
 }
 
-TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front", C, all_range_types) {
+TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front/nth/contains", C, all_range_types) {
 	{
 		auto empty_range = C::make_empty ();
 		const auto & empty_ref = empty_range;
@@ -251,6 +253,8 @@ TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front", C, all_range_types)
 		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
 		               "size (const C&) is not C::size_type");
 		CHECK (s == 0);
+		CHECK_FALSE (duck::contains (empty_ref, b));
+		CHECK_FALSE (duck::contains (empty_ref, e));
 	}
 	{
 		auto non_empty_range = C::make_0_4 ();
@@ -264,9 +268,16 @@ TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front", C, all_range_types)
 		                            duck::iterator_reference_t<typename C::const_iterator>>::value,
 		               "front(const C&) is not C::const_iterator::reference");
 		CHECK (duck::front (ref) == 0);
+		static_assert (std::is_same<decltype (duck::nth (ref, 2)),
+		                            duck::iterator_reference_t<typename C::const_iterator>>::value,
+		               "nth(const C&) is not C::const_iterator::reference");
+		CHECK (duck::nth (ref, 2) == 2);
+		CHECK (duck::contains (ref, b));
+		CHECK (duck::contains (ref, std::next (b)));
+		CHECK_FALSE (duck::contains (ref, e));
 	}
 }
-TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front", C, all_range_types) {
+TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front/nth/contains", C, all_range_types) {
 	{
 		auto empty_range = C::make_empty ();
 		auto & empty_ref = empty_range;
@@ -280,6 +291,8 @@ TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front", C, all_range_types) {
 		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
 		               "size (C&) is not C::size_type");
 		CHECK (s == 0);
+		CHECK_FALSE (duck::contains (empty_ref, b));
+		CHECK_FALSE (duck::contains (empty_ref, e));
 	}
 	{
 		auto non_empty_range = C::make_0_4 ();
@@ -293,9 +306,16 @@ TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front", C, all_range_types) {
 		                            duck::iterator_reference_t<typename C::mutable_iterator>>::value,
 		               "front(C&) is not C::mutable_iterator::reference");
 		CHECK (duck::front (ref) == 0);
+		static_assert (std::is_same<decltype (duck::nth (ref, 2)),
+		                            duck::iterator_reference_t<typename C::mutable_iterator>>::value,
+		               "nth(C&) is not C::mutable_iterator::reference");
+		CHECK (duck::nth (ref, 2) == 2);
+		CHECK (duck::contains (ref, b));
+		CHECK (duck::contains (ref, std::next (b)));
+		CHECK_FALSE (duck::contains (ref, e));
 	}
 }
-TEST_CASE_TEMPLATE ("C&& - begin/end/empty/size/front", C, all_range_types) {
+TEST_CASE_TEMPLATE ("C&& - begin/end/empty/size/front/nth", C, all_range_types) {
 	{
 		auto b = duck::adl_begin (C::make_empty ());
 		auto e = duck::adl_end (C::make_empty ()); // Cannot compare, may not be the same object
@@ -316,6 +336,10 @@ TEST_CASE_TEMPLATE ("C&& - begin/end/empty/size/front", C, all_range_types) {
 		                            duck::iterator_reference_t<typename C::const_iterator>>::value,
 		               "front(C&&) is not C::const_iterator::reference");
 		CHECK (duck::front (C::make_0_4 ()) == 0);
+		static_assert (std::is_same<decltype (duck::nth (C::make_0_4 (), 2)),
+		                            duck::iterator_reference_t<typename C::const_iterator>>::value,
+		               "nth(C&&) is not C::const_iterator::reference");
+		CHECK (duck::nth (C::make_0_4 (), 2) == 2);
 	}
 }
 
