@@ -146,6 +146,19 @@ iterator_reference_t<range_iterator_t<T>> nth (T && t,
 	return *std::next (begin (std::forward<T> (t)), n);
 }
 
+// at (n) : get iterator at index n ; negative counts from end
+namespace internal_range {
+	template <typename T>
+	iterator_difference_t<range_iterator_t<const T &>>
+	normalize_index (const T & t, iterator_difference_t<range_iterator_t<const T &>> n) {
+		return n < 0 ? size (t) + n : n;
+	}
+} // namespace internal_range
+template <typename T>
+range_iterator_t<T> at (T && t, iterator_difference_t<range_iterator_t<T>> n) {
+	return std::next (begin (std::forward<T> (t)), internal_range::normalize_index (t, n));
+}
+
 // to_container
 template <typename Container, typename T> Container to_container (const T & t) {
 	return Container{begin (t), end (t)};

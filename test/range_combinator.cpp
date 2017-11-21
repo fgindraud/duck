@@ -44,6 +44,10 @@ TEST_CASE_TEMPLATE ("slicing", C, forward_container_types) {
 	CHECK ((range | duck::pop_front (2)) == duck::range (2, 5));
 	CHECK ((range | duck::pop_back ()) == duck::range (0, 4));
 	CHECK ((range | duck::pop_back (2)) == duck::range (0, 3));
+	CHECK ((range | duck::slice (2, 3)) == duck::range (2, 3));
+	CHECK (duck::size (range | duck::slice (2, 3)) == 1);
+	CHECK ((range | duck::slice (-2, -1)) == duck::range (3, 4));
+	CHECK (duck::size (range | duck::slice (-2, -1)) == 1);
 }
 
 TEST_CASE_TEMPLATE ("reverse", C, bidir_container_types) {

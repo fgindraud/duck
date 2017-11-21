@@ -130,8 +130,51 @@ template <typename R> pop_back_range<R> operator| (R && r, pop_back_range_tag ta
 }
 
 /********************************************************************************
- * Slicing. TODO
+ * General python like slicing (-n : n from end).
+ * Transformed indexes must be in order.
  */
+template <typename R> class slice_range {
+	static_assert (is_range<R>::value, "slice_range<R>: R must be a range");
+
+public:
+	using iterator = range_iterator_t<R>;
+
+	slice_range (R && r, iterator_difference_t<iterator> from, iterator_difference_t<iterator> to)
+	    : inner_ (std::forward<R> (r)), from_ (from), to_ (to) {
+		assert (internal_range::normalize_index (inner_, from_) >= 0);
+		assert (internal_range::normalize_index (inner_, from_) <=
+		        internal_range::normalize_index (inner_, to_));
+		assert (internal_range::normalize_index (inner_, to_) <= duck::size (inner_));
+	}
+
+	iterator begin () const { return at (inner_, from_); }
+	iterator end () const { return at (inner_, to_); }
+	iterator_difference_t<iterator> size () const {
+		return internal_range::normalize_index (inner_, to_) -
+		       internal_range::normalize_index (inner_, from_);
+	}
+
+private:
+	R inner_;
+	iterator_difference_t<iterator> from_;
+	iterator_difference_t<iterator> to_;
+};
+
+template <typename R> slice_range<R> slice (R && r, iterator_difference_t<range_iterator_t<R>> n) {
+	return {std::forward<R> (r), n};
+}
+
+struct slice_range_tag {
+	std::ptrdiff_t from;
+	std::ptrdiff_t to;
+};
+inline slice_range_tag slice (std::ptrdiff_t from, std::ptrdiff_t to) {
+	return {from, to};
+}
+template <typename R> slice_range<R> operator| (R && r, slice_range_tag tag) {
+	return {std::forward<R> (r), static_cast<iterator_difference_t<range_iterator_t<R>>> (tag.from),
+	        static_cast<iterator_difference_t<range_iterator_t<R>>> (tag.to)};
+}
 
 /********************************************************************************
  * Reverse order.
