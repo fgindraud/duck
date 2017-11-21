@@ -1,11 +1,13 @@
 #pragma once
 
 // Range V3
-// STATUS: WIP, NSC
+// STATUS: operational, NSC
 
 #include <duck/type_traits.h>
+#include <initializer_list>
 #include <iterator>
 #include <utility>
+#include <vector> // std::initializer_list
 
 #if __cpluplus >= 201402L
 #include <algorithm> // operator==
@@ -13,7 +15,14 @@
 
 namespace duck {
 /* Range
- * TODO overall doc
+ * Provide a common interface for iterables.
+ *
+ * A range represents something which can be iterated upon.
+ * The range is constant : after creation, they cannot be modified.
+ * The iterated objects can be modified however, if supported by the objects
+ * (const_iterator VS iterator).
+ *
+ * TODO doc
  *
  * rvalue note:
  * Range based on lvalues (references to containers) are mostly safe.
