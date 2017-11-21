@@ -38,6 +38,11 @@ using forward_container_types =
 
 auto values = {0, 1, 2, 3, 4};
 
+TEST_CASE_TEMPLATE ("slicing", C, forward_container_types) {
+	auto range = C{values} | duck::pop_front (2);
+	CHECK (range == duck::range (2, 5));
+}
+
 TEST_CASE_TEMPLATE ("reverse", C, bidir_container_types) {
 	auto range = C{values} | duck::reverse ();
 	CHECK (duck::size (range) == duck::size (values));

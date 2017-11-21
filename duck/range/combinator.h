@@ -30,8 +30,43 @@ struct is_unary_predicate<
     : std::true_type {};
 
 /********************************************************************************
+ * Pop front.
+ */
+template <typename R> class pop_front_range {
+	static_assert (is_range<R>::value, "pop_front_range<R>: R must be a range");
+
+public:
+	using iterator = range_iterator_t<R>;
+
+	pop_front_range (R && r, iterator_difference_t<iterator> n)
+	    : inner_ (std::forward<R> (r)), n_ (n) {}
+
+	iterator begin () const { return std::next (duck::adl_begin (inner_), n_); }
+	iterator end () const { return duck::adl_end (inner_); }
+	iterator_difference_t<iterator> size () const { return duck::size (inner_) - n_; }
+
+private:
+	R inner_;
+	iterator_difference_t<iterator> n_;
+};
+
+template <typename R>
+pop_front_range<R> pop_front (R && r, iterator_difference_t<range_iterator_t<R>> n) {
+	return {std::forward<R> (r), n};
+}
+
+struct pop_front_range_tag {
+	std::ptrdiff_t n;
+};
+inline pop_front_range_tag pop_front (std::ptrdiff_t n) {
+	return {n};
+}
+template <typename R> pop_front_range<R> operator| (R && r, pop_front_range_tag tag) {
+	return {std::forward<R> (r), static_cast<iterator_difference_t<range_iterator_t<R>>> (tag.n)};
+}
+
+/********************************************************************************
  * Slicing. TODO
- * Just pack lambdas that transform iterators ?
  */
 
 /********************************************************************************
@@ -64,9 +99,8 @@ struct reverse_range_tag {};
 inline reverse_range_tag reverse () {
 	return {};
 }
-template <typename R>
-auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R> (r))) {
-	return reverse (std::forward<R> (r));
+template <typename R> reverse_range<R> operator| (R && r, reverse_range_tag) {
+	return {std::forward<R> (r)};
 }
 
 /********************************************************************************
@@ -168,8 +202,8 @@ template <typename Int = int> indexed_range_tag<Int> indexed () {
 	return {};
 }
 template <typename Int, typename R>
-auto operator| (R && r, indexed_range_tag<Int>) -> decltype (index<Int> (std::forward<R> (r))) {
-	return index<Int> (std::forward<R> (r));
+indexed_range<R, Int> operator| (R && r, indexed_range_tag<Int>) {
+	return {std::forward<R> (r)};
 }
 
 /********************************************************************************
@@ -278,9 +312,8 @@ filtered_range_tag<remove_cvref_t<Predicate>> filter (Predicate && predicate) {
 	return {std::forward<Predicate> (predicate)};
 }
 template <typename R, typename Predicate>
-auto operator| (R && r, filtered_range_tag<Predicate> tag)
-    -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
-	return filter (std::forward<R> (r), std::move (tag.predicate));
+filtered_range<R, Predicate> operator| (R && r, filtered_range_tag<Predicate> tag) {
+	return {std::forward<R> (r), std::move (tag.predicate)};
 }
 
 /********************************************************************************
@@ -375,8 +408,7 @@ template <typename Function> mapped_range_tag<remove_cvref_t<Function>> map (Fun
 	return {std::forward<Function> (function)};
 }
 template <typename R, typename Function>
-auto operator| (R && r, mapped_range_tag<Function> tag)
-    -> decltype (map (std::forward<R> (r), std::move (tag.function))) {
-	return map (std::forward<R> (r), std::move (tag.function));
+mapped_range<R, Function> operator| (R && r, mapped_range_tag<Function> tag) {
+	return {std::forward<R> (r), std::move (tag.function)};
 }
 } // namespace duck
