@@ -54,29 +54,28 @@ TEST_CASE_TEMPLATE ("index", C, forward_container_types) {
 	// Empty, also check that index<Int> has a default
 	CHECK (duck::empty (C{} | duck::indexed ()));
 }
-#if 0
 
-TEST_CASE_TEMPLATE ("filter", Container, forward_container_types) {
-	auto filtered_range =
-	    duck::range (Container{values}) | DRC::filter ([](int i) { return i % 2 == 0; });
+TEST_CASE_TEMPLATE ("filter", C, forward_container_types) {
+	auto filtered_range = C{values} | duck::filter ([](int i) { return i % 2 == 0; });
 	CHECK (duck::size (filtered_range) == 3);
 	CHECK (filtered_range == duck::range ({0, 2, 4}));
 
-	auto chained_filtered_range = duck::range (Container{values}) |
-	                              DRC::filter ([](int i) { return i < 2; }) |
-	                              DRC::filter ([](int i) { return i > 0; });
+	auto chained_filtered_range = C{values} | duck::filter ([](int i) { return i < 2; }) |
+	                              duck::filter ([](int i) { return i > 0; });
 	CHECK (duck::size (chained_filtered_range) == 1);
 	CHECK (duck::front (chained_filtered_range) == 1);
 
-	CHECK ((duck::range (Container{}) | DRC::filter ([](int) { return true; })).empty ());
+	CHECK (duck::empty (C{} | duck::filter ([](int) { return true; })));
 }
+#if 0
 
-TEST_CASE_TEMPLATE ("apply", Container, forward_container_types) {
-	auto applied_range = duck::range (Container{values}) | DRC::apply ([](int i) { return i - 2; }) |
-	                     DRC::filter ([](int i) { return i >= 0; });
+
+TEST_CASE_TEMPLATE ("apply", C, forward_container_types) {
+	auto applied_range = duck::range (C{values}) | duck::apply ([](int i) { return i - 2; }) |
+	                     duck::filter ([](int i) { return i >= 0; });
 	CHECK (duck::size (applied_range) == 3);
 	CHECK (applied_range == duck::range (0, 3));
 
-	CHECK ((duck::range (Container{}) | DRC::apply ([](int i) { return i; })).empty ());
+	CHECK ((duck::range (C{}) | duck::apply ([](int i) { return i; })).empty ());
 }
 #endif

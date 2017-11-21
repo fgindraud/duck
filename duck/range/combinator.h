@@ -26,11 +26,11 @@ struct IsCallable<Callable, Arg,
 
 // Is predicate
 template <typename Predicate, typename Arg, typename = void>
-struct IsPredicate : std::false_type {};
+struct is_unary_predicate : std::false_type {};
 template <typename Predicate, typename Arg>
-struct IsPredicate<
+struct is_unary_predicate<
     Predicate, Arg,
-    void_t<decltype (static_cast<bool> (std::declval<Predicate &> () (std::declval<Arg> ())))>>
+    void_t<decltype (static_cast<bool> (std::declval<Predicate> () (std::declval<Arg> ())))>>
     : std::true_type {};
 
 /********************************************************************************
@@ -175,147 +175,118 @@ template <typename Int, typename R>
 auto operator| (R && r, indexed_range_tag<Int>) -> decltype (index<Int> (std::forward<R> (r))) {
 	return index<Int> (std::forward<R> (r));
 }
-#if 0
-	/********************************************************************************
-	 * Filter with a predicate.
-	 */
-	template <typename R, typename Predicate> class FilterIterator;
-	template <typename R, typename Predicate> class Filter;
 
-	template <typename R, typename Predicate> struct RangeTraits<Filter<R, Predicate>> {
-		using Iterator = FilterIterator<R, Predicate>;
-		using SizeType = typename std::iterator_traits<Iterator>::difference_type;
-	};
+/********************************************************************************
+ * Filter with a predicate.
+ */
+template <typename R, typename Predicate> class filtered_range {
+	static_assert (is_range<R>::value, "filtered_range<R, Predicate>: R must be a range");
+	static_assert (is_unary_predicate<Predicate, iterator_reference_t<range_iterator_t<R>>>::value,
+	               "filtered_range<R, Predicate>: Predicate must be callable on R values");
 
-	template <typename R, typename Predicate> class Filter : public Base<Filter<R, Predicate>> {
-		static_assert (is_range<R>::value, "Filter<R, Predicate>: R must be a range");
-		static_assert (IsPredicate<Predicate, typename std::iterator_traits<
-		                                          typename RangeTraits<R>::Iterator>::reference>::value,
-		               "Filter<R, Predicate>: Predicate must be callable on R values");
-
+public:
+	using inner_iterator = range_iterator_t<R>;
+	class iterator {
 	public:
-		using typename Base<Filter<R, Predicate>>::Iterator;
-
-		Filter (const R & r, const Predicate & predicate) : inner_ (r), predicate_ (predicate) {}
-		Filter (const R & r, Predicate && predicate) : inner_ (r), predicate_ (std::move (predicate)) {}
-		Filter (R && r, const Predicate & predicate) : inner_ (std::move (r)), predicate_ (predicate) {}
-		Filter (R && r, Predicate && predicate)
-		    : inner_ (std::move (r)), predicate_ (std::move (predicate)) {}
-
-		Iterator begin () const;
-		Iterator end () const;
-
-	private:
-		friend class FilterIterator<R, Predicate>;
-
-		using InnerIterator = typename RangeTraits<R>::Iterator;
-		InnerIterator next (InnerIterator from) const {
-			return std::find_if (from, inner_.end (), predicate_);
-		}
-		InnerIterator next_after (InnerIterator from) const {
-			if (from == inner_.end ())
-				return from;
-			else
-				return next (++from);
-		}
-		InnerIterator previous_before (InnerIterator from) const {
-			if (from == inner_.begin ()) {
-				return from;
-			} else {
-				// Try to find a match before from
-				// If this fails, from was first, return it
-				using RevIt = std::reverse_iterator<InnerIterator>;
-				auto rev_end = RevIt{inner_.begin ()};
-				auto rev_next = std::find_if (RevIt{--from}, rev_end, predicate_);
-				if (rev_next != rev_end)
-					return rev_next.base ();
-				else
-					return from;
-			}
-		}
-
-		R inner_;
-		Predicate predicate_;
-	};
-
-	template <typename R, typename Predicate> class FilterIterator {
-		static_assert (is_range<R>::value, "FilterIterator<R, Predicate>: R must be a range");
-		static_assert (IsPredicate<Predicate, typename std::iterator_traits<
-		                                          typename RangeTraits<R>::Iterator>::reference>::value,
-		               "Filter<R, Predicate>: Predicate must be callable on R values");
-
-	public:
-		using InnerIterator = typename RangeTraits<R>::Iterator;
-
 		// At most this is a bidirectional_iterator
 		using iterator_category =
-		    common_type_t<std::bidirectional_iterator_tag,
-		                  typename std::iterator_traits<InnerIterator>::iterator_category>;
-		using value_type = typename std::iterator_traits<InnerIterator>::value_type;
-		using difference_type = typename std::iterator_traits<InnerIterator>::difference_type;
-		using pointer = typename std::iterator_traits<InnerIterator>::pointer;
-		using reference = typename std::iterator_traits<InnerIterator>::reference;
+		    common_type_t<std::bidirectional_iterator_tag, iterator_category_t<inner_iterator>>;
+		using value_type = iterator_value_type_t<inner_iterator>;
+		using difference_type = iterator_difference_t<inner_iterator>;
+		using pointer = iterator_pointer_t<inner_iterator>;
+		using reference = iterator_reference_t<inner_iterator>;
 
-		FilterIterator () = default;
-		FilterIterator (InnerIterator it, const Filter<R, Predicate> & range)
-		    : it_ (it), range_ (&range) {}
+		iterator () = default;
+		iterator (inner_iterator it, const filtered_range & range) : it_ (it), range_ (&range) {}
 
-		InnerIterator base () const { return it_; }
+		inner_iterator base () const { return it_; }
 
 		// Input / output
-		FilterIterator & operator++ () { return it_ = range_->next_after (it_), *this; }
+		iterator & operator++ () { return it_ = range_->next_after (it_), *this; }
 		reference operator* () const { return *it_; }
 		pointer operator-> () const { return it_.operator-> (); }
-		bool operator== (const FilterIterator & o) const { return it_ == o.it_; }
-		bool operator!= (const FilterIterator & o) const { return it_ != o.it_; }
+		bool operator== (const iterator & o) const { return it_ == o.it_; }
+		bool operator!= (const iterator & o) const { return it_ != o.it_; }
 
 		// Forward
-		FilterIterator operator++ (int) {
-			FilterIterator tmp (*this);
+		iterator operator++ (int) {
+			iterator tmp (*this);
 			++*this;
 			return tmp;
 		}
 
 		// Bidir
-		FilterIterator & operator-- () { return it_ = range_->previous_before (it_), *this; }
-		FilterIterator operator-- (int) {
-			FilterIterator tmp (*this);
+		iterator & operator-- () { return it_ = range_->previous_before (it_), *this; }
+		iterator operator-- (int) {
+			iterator tmp (*this);
 			--*this;
 			return tmp;
 		}
 
 	private:
-		InnerIterator it_{};
-		const Filter<R, Predicate> * range_{nullptr};
+		inner_iterator it_{};
+		const filtered_range * range_{nullptr};
 	};
 
-	template <typename R, typename Predicate> auto Filter<R, Predicate>::begin () const -> Iterator {
-		return {next (inner_.begin ()), *this};
+	filtered_range (R && r, const Predicate & predicate)
+	    : inner_ (std::forward<R> (r)), predicate_ (predicate) {}
+	filtered_range (R && r, Predicate && predicate)
+	    : inner_ (std::forward<R> (r)), predicate_ (std::move (predicate)) {}
+
+	iterator begin () const { return {next (duck::adl_begin (inner_)), *this}; }
+	iterator end () const { return {duck::adl_end (inner_), *this}; }
+
+private:
+	inner_iterator next (inner_iterator from) const {
+		return std::find_if (from, duck::adl_end (inner_), predicate_);
 	}
-	template <typename R, typename Predicate> auto Filter<R, Predicate>::end () const -> Iterator {
-		return {inner_.end (), *this};
+	inner_iterator next_after (inner_iterator from) const {
+		if (from == duck::adl_end (inner_))
+			return from;
+		else
+			return next (++from);
+	}
+	inner_iterator previous_before (inner_iterator from) const {
+		auto b = duck::adl_begin (inner_);
+		if (from == b) {
+			return from;
+		} else {
+			// Try to find a match before from
+			// If this fails, from was first, return it
+			using RevIt = std::reverse_iterator<inner_iterator>;
+			auto rev_end = RevIt{b};
+			auto rev_next = std::find_if (RevIt{--from}, rev_end, predicate_);
+			if (rev_next != rev_end)
+				return rev_next.base ();
+			else
+				return from;
+		}
 	}
 
-	namespace Combinator {
-		template <typename R, typename Predicate>
-		Filter<decay_t<R>, decay_t<Predicate>> filter (R && r, Predicate && predicate) {
-			return {std::forward<R> (r), std::forward<Predicate> (predicate)};
-		}
+	R inner_;
+	Predicate predicate_;
+};
 
-		template <typename Predicate> struct Filter_tag {
-			Filter_tag (const Predicate & p) : predicate (p) {}
-			Filter_tag (Predicate && p) : predicate (std::move (p)) {}
-			Predicate predicate;
-		};
-		template <typename Predicate> Filter_tag<decay_t<Predicate>> filter (Predicate && predicate) {
-			return {std::forward<Predicate> (predicate)};
-		}
-		template <typename R, typename Predicate>
-		auto operator| (R && r, Filter_tag<Predicate> tag)
-		    -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
-			return filter (std::forward<R> (r), std::move (tag.predicate));
-		}
-	} // namespace Combinator
+template <typename R, typename Predicate>
+filtered_range<R, remove_cvref_t<Predicate>> filter (R && r, Predicate && predicate) {
+	return {std::forward<R> (r), std::forward<Predicate> (predicate)};
+}
+
+template <typename Predicate> struct filtered_range_tag {
+	filtered_range_tag (const Predicate & p) : predicate (p) {}
+	filtered_range_tag (Predicate && p) : predicate (std::move (p)) {}
+	Predicate predicate;
+};
+template <typename Predicate>
+filtered_range_tag<remove_cvref_t<Predicate>> filter (Predicate && predicate) {
+	return {std::forward<Predicate> (predicate)};
+}
+template <typename R, typename Predicate>
+auto operator| (R && r, filtered_range_tag<Predicate> tag)
+    -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
+	return filter (std::forward<R> (r), std::move (tag.predicate));
+}
+#if 0
 
 	/********************************************************************************
 	 * Processed range.
@@ -347,7 +318,7 @@ auto operator| (R && r, indexed_range_tag<Int>) -> decltype (index<Int> (std::fo
 
 		Iterator begin () const;
 		Iterator end () const;
-		SizeType size () const { return inner_.size (); }
+		SizeType size () const { return duck::size (inner_); }
 
 	private:
 		friend class ApplyIterator<R, Function>;
@@ -362,20 +333,20 @@ auto operator| (R && r, indexed_range_tag<Int>) -> decltype (index<Int> (std::fo
 		               "ApplyIterator<R, Function>: Function must be callable on R values");
 
 	public:
-		using InnerIterator = typename RangeTraits<R>::Iterator;
+		using inner_iterator = typename RangeTraits<R>::Iterator;
 
-		using iterator_category = typename std::iterator_traits<InnerIterator>::iterator_category;
+		using iterator_category = typename std::iterator_traits<inner_iterator>::iterator_category;
 		using value_type = decltype (std::declval<const Function &> () (
-		    std::declval<typename std::iterator_traits<InnerIterator>::reference> ()));
-		using difference_type = typename std::iterator_traits<InnerIterator>::difference_type;
+		    std::declval<iterator_reference_t<inner_iterator>> ()));
+		using difference_type = iterator_difference_t<inner_iterator>;
 		using pointer = void;
 		using reference = value_type; // No way to take references on function_ result
 
 		ApplyIterator () = default;
-		ApplyIterator (InnerIterator it, const Apply<R, Function> & range)
+		ApplyIterator (inner_iterator it, const Apply<R, Function> & range)
 		    : it_ (it), range_ (&range) {}
 
-		InnerIterator base () const { return it_; }
+		inner_iterator base () const { return it_; }
 
 		// Input / output
 		ApplyIterator & operator++ () { return ++it_, *this; }
@@ -413,15 +384,15 @@ auto operator| (R && r, indexed_range_tag<Int>) -> decltype (index<Int> (std::fo
 		bool operator>= (const ApplyIterator & o) const { return it_ >= o.it_; }
 
 	private:
-		InnerIterator it_{};
+		inner_iterator it_{};
 		const Apply<R, Function> * range_{nullptr};
 	};
 
 	template <typename R, typename Function> auto Apply<R, Function>::begin () const -> Iterator {
-		return {inner_.begin (), *this};
+		return {duck::begin (inner_), *this};
 	}
 	template <typename R, typename Function> auto Apply<R, Function>::end () const -> Iterator {
-		return {inner_.end (), *this};
+		return {duck::end (inner_), *this};
 	}
 
 	namespace Combinator {
