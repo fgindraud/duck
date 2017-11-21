@@ -1,7 +1,7 @@
 #pragma once
 
 // Range V3
-// STATUS: WIP, new_syntax_convention
+// STATUS: WIP, NSC
 
 #include <duck/type_traits.h>
 #include <iterator>
@@ -14,7 +14,6 @@
 namespace duck {
 /* Range
  * TODO overall doc
- * TODO adapt combinators
  *
  * rvalue note:
  * Range based on lvalues (references to containers) are mostly safe.

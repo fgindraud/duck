@@ -67,15 +67,14 @@ TEST_CASE_TEMPLATE ("filter", C, forward_container_types) {
 
 	CHECK (duck::empty (C{} | duck::filter ([](int) { return true; })));
 }
-#if 0
 
+TEST_CASE_TEMPLATE ("map", C, forward_container_types) {
+	auto mapped_range = C{values} | duck::map ([](int i) { return i - 2; }) |
+	                    duck::filter ([](int i) { return i >= 0; });
+	CHECK (duck::size (mapped_range) == 3);
+	CHECK (mapped_range == duck::range (0, 3));
 
-TEST_CASE_TEMPLATE ("apply", C, forward_container_types) {
-	auto applied_range = duck::range (C{values}) | duck::apply ([](int i) { return i - 2; }) |
-	                     duck::filter ([](int i) { return i >= 0; });
-	CHECK (duck::size (applied_range) == 3);
-	CHECK (applied_range == duck::range (0, 3));
-
-	CHECK ((duck::range (C{}) | duck::apply ([](int i) { return i; })).empty ());
+	CHECK (duck::empty (C{} | duck::map ([](int i) { return i; })));
 }
-#endif
+
+// TODO test with refs, and test typedefs

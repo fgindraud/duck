@@ -1,6 +1,6 @@
 #pragma once
 
-// Range V2
+// Range V3 combinators
 // STATUS: WIP
 
 #include <algorithm>
@@ -8,9 +8,6 @@
 #include <limits>
 
 namespace duck {
-/* Ranges base combinators lib.
- */
-
 /********************************************************************************
  * Type traits.
  */
@@ -18,10 +15,9 @@ template <typename It, typename Category>
 using is_iterator_of_category = std::is_base_of<Category, iterator_category_t<It>>;
 
 // Is callable
-template <typename Callable, typename Arg, typename = void> struct IsCallable : std::false_type {};
-template <typename Callable, typename Arg>
-struct IsCallable<Callable, Arg,
-                  void_t<decltype (std::declval<Callable &> () (std::declval<Arg> ()))>>
+template <typename F, typename Arg, typename = void> struct is_unary_invocable : std::false_type {};
+template <typename F, typename Arg>
+struct is_unary_invocable<F, Arg, void_t<decltype (std::declval<F> () (std::declval<Arg> ()))>>
     : std::true_type {};
 
 // Is predicate
@@ -286,135 +282,101 @@ auto operator| (R && r, filtered_range_tag<Predicate> tag)
     -> decltype (filter (std::forward<R> (r), std::move (tag.predicate))) {
 	return filter (std::forward<R> (r), std::move (tag.predicate));
 }
-#if 0
 
-	/********************************************************************************
-	 * Processed range.
-	 * Apply function f to each element.
-	 */
-	template <typename R, typename Function> class ApplyIterator;
-	template <typename R, typename Function> class Apply;
+/********************************************************************************
+ * Processed range.
+ * Apply function f to each element.
+ */
+template <typename R, typename Function> class mapped_range {
+	static_assert (is_range<R>::value, "mapped_range<R, Function>: R must be a range");
+	static_assert (is_unary_invocable<Function, iterator_reference_t<range_iterator_t<R>>>::value,
+	               "mapped_range<R, Function>: Function must be callable on R values");
 
-	template <typename R, typename Function> struct RangeTraits<Apply<R, Function>> {
-		using Iterator = ApplyIterator<R, Function>;
-		using SizeType = typename RangeTraits<R>::SizeType;
-	};
-
-	template <typename R, typename Function> class Apply : public Base<Apply<R, Function>> {
-		static_assert (is_range<R>::value, "Apply<R, Function>: R must be a range");
-		static_assert (IsCallable<Function, typename std::iterator_traits<
-		                                        typename RangeTraits<R>::Iterator>::reference>::value,
-		               "Apply<R, Function>: Function must be callable on R values");
-
+public:
+	class iterator {
 	public:
-		using typename Base<Apply<R, Function>>::Iterator;
-		using typename Base<Apply<R, Function>>::SizeType;
-
-		Apply (const R & r, const Function & function) : inner_ (r), function_ (function) {}
-		Apply (const R & r, Function && function) : inner_ (r), function_ (std::move (function)) {}
-		Apply (R && r, const Function & function) : inner_ (std::move (r)), function_ (function) {}
-		Apply (R && r, Function && function)
-		    : inner_ (std::move (r)), function_ (std::move (function)) {}
-
-		Iterator begin () const;
-		Iterator end () const;
-		SizeType size () const { return duck::size (inner_); }
-
-	private:
-		friend class ApplyIterator<R, Function>;
-		R inner_;
-		Function function_;
-	};
-
-	template <typename R, typename Function> class ApplyIterator {
-		static_assert (is_range<R>::value, "ApplyIterator<R, Function>: R must be a range");
-		static_assert (IsCallable<Function, typename std::iterator_traits<
-		                                        typename RangeTraits<R>::Iterator>::reference>::value,
-		               "ApplyIterator<R, Function>: Function must be callable on R values");
-
-	public:
-		using inner_iterator = typename RangeTraits<R>::Iterator;
-
-		using iterator_category = typename std::iterator_traits<inner_iterator>::iterator_category;
-		using value_type = decltype (std::declval<const Function &> () (
-		    std::declval<iterator_reference_t<inner_iterator>> ()));
+		using inner_iterator = range_iterator_t<R>;
+		using iterator_category = iterator_category_t<inner_iterator>;
+		using value_type = invoke_result_t<Function, iterator_reference_t<inner_iterator>>;
 		using difference_type = iterator_difference_t<inner_iterator>;
 		using pointer = void;
 		using reference = value_type; // No way to take references on function_ result
 
-		ApplyIterator () = default;
-		ApplyIterator (inner_iterator it, const Apply<R, Function> & range)
-		    : it_ (it), range_ (&range) {}
+		iterator () = default;
+		iterator (inner_iterator it, const mapped_range & range) : it_ (it), range_ (&range) {}
 
 		inner_iterator base () const { return it_; }
 
 		// Input / output
-		ApplyIterator & operator++ () { return ++it_, *this; }
+		iterator & operator++ () { return ++it_, *this; }
 		reference operator* () const { return range_->function_ (*it_); }
 		// No operator->
-		bool operator== (const ApplyIterator & o) const { return it_ == o.it_; }
-		bool operator!= (const ApplyIterator & o) const { return it_ != o.it_; }
+		bool operator== (const iterator & o) const { return it_ == o.it_; }
+		bool operator!= (const iterator & o) const { return it_ != o.it_; }
 
 		// Forward
-		ApplyIterator operator++ (int) {
-			ApplyIterator tmp (*this);
+		iterator operator++ (int) {
+			iterator tmp (*this);
 			++*this;
 			return tmp;
 		}
 
 		// Bidir
-		ApplyIterator & operator-- () { return --it_, *this; }
-		ApplyIterator operator-- (int) {
-			ApplyIterator tmp (*this);
+		iterator & operator-- () { return --it_, *this; }
+		iterator operator-- (int) {
+			iterator tmp (*this);
 			--*this;
 			return tmp;
 		}
 
 		// Random access
-		ApplyIterator & operator+= (difference_type n) { return it_ += n, *this; }
-		ApplyIterator operator+ (difference_type n) const { return ApplyIterator (it_ + n, range_); }
-		friend ApplyIterator operator+ (difference_type n, const ApplyIterator & it) { return it + n; }
-		ApplyIterator & operator-= (difference_type n) { return it_ -= n, *this; }
-		ApplyIterator operator- (difference_type n) const { return ApplyIterator (it_ - n, range_); }
-		difference_type operator- (const ApplyIterator & o) const { return it_ - o.it_; }
+		iterator & operator+= (difference_type n) { return it_ += n, *this; }
+		iterator operator+ (difference_type n) const { return iterator (it_ + n, range_); }
+		friend iterator operator+ (difference_type n, const iterator & it) { return it + n; }
+		iterator & operator-= (difference_type n) { return it_ -= n, *this; }
+		iterator operator- (difference_type n) const { return iterator (it_ - n, range_); }
+		difference_type operator- (const iterator & o) const { return it_ - o.it_; }
 		reference operator[] (difference_type n) const { return *(*this + n); }
-		bool operator< (const ApplyIterator & o) const { return it_ < o.it_; }
-		bool operator> (const ApplyIterator & o) const { return it_ > o.it_; }
-		bool operator<= (const ApplyIterator & o) const { return it_ <= o.it_; }
-		bool operator>= (const ApplyIterator & o) const { return it_ >= o.it_; }
+		bool operator< (const iterator & o) const { return it_ < o.it_; }
+		bool operator> (const iterator & o) const { return it_ > o.it_; }
+		bool operator<= (const iterator & o) const { return it_ <= o.it_; }
+		bool operator>= (const iterator & o) const { return it_ >= o.it_; }
 
 	private:
 		inner_iterator it_{};
-		const Apply<R, Function> * range_{nullptr};
+		const mapped_range * range_{nullptr};
 	};
 
-	template <typename R, typename Function> auto Apply<R, Function>::begin () const -> Iterator {
-		return {duck::begin (inner_), *this};
-	}
-	template <typename R, typename Function> auto Apply<R, Function>::end () const -> Iterator {
-		return {duck::end (inner_), *this};
-	}
+	mapped_range (R && r, const Function & function)
+	    : inner_ (std::forward<R> (r)), function_ (function) {}
+	mapped_range (R && r, Function && function)
+	    : inner_ (std::forward<R> (r)), function_ (std::move (function)) {}
 
-	namespace Combinator {
-		template <typename R, typename Function>
-		Apply<decay_t<R>, decay_t<Function>> apply (R && r, Function && function) {
-			return {std::forward<R> (r), std::forward<Function> (function)};
-		}
+	iterator begin () const { return {duck::adl_begin (inner_), *this}; }
+	iterator end () const { return {duck::adl_end (inner_), *this}; }
+	iterator_difference_t<iterator> size () const { return duck::size (inner_); }
 
-		template <typename Function> struct Apply_tag {
-			Apply_tag (const Function & p) : function (p) {}
-			Apply_tag (Function && p) : function (std::move (p)) {}
-			Function function;
-		};
-		template <typename Function> Apply_tag<decay_t<Function>> apply (Function && function) {
-			return {std::forward<Function> (function)};
-		}
-		template <typename R, typename Function>
-		auto operator| (R && r, Apply_tag<Function> tag)
-		    -> decltype (apply (std::forward<R> (r), std::move (tag.function))) {
-			return apply (std::forward<R> (r), std::move (tag.function));
-		}
-	} // namespace Combinator
+private:
+	R inner_;
+	Function function_;
+};
 
-#endif
+template <typename R, typename Function>
+mapped_range<R, remove_cvref_t<Function>> map (R && r, Function && function) {
+	return {std::forward<R> (r), std::forward<Function> (function)};
+}
+
+template <typename Function> struct mapped_range_tag {
+	mapped_range_tag (const Function & f) : function (f) {}
+	mapped_range_tag (Function && f) : function (std::move (f)) {}
+	Function function;
+};
+template <typename Function> mapped_range_tag<remove_cvref_t<Function>> map (Function && function) {
+	return {std::forward<Function> (function)};
+}
+template <typename R, typename Function>
+auto operator| (R && r, mapped_range_tag<Function> tag)
+    -> decltype (map (std::forward<R> (r), std::move (tag.function))) {
+	return map (std::forward<R> (r), std::move (tag.function));
+}
 } // namespace duck
