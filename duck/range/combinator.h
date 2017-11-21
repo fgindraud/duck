@@ -4,6 +4,7 @@
 // STATUS: WIP
 
 #include <algorithm>
+#include <cassert>
 #include <duck/range/range.h>
 #include <limits>
 
@@ -39,7 +40,10 @@ public:
 	using iterator = range_iterator_t<R>;
 
 	pop_front_range (R && r, iterator_difference_t<iterator> n)
-	    : inner_ (std::forward<R> (r)), n_ (n) {}
+	    : inner_ (std::forward<R> (r)), n_ (n) {
+		assert (n_ >= 0);
+		assert (n_ <= duck::size (inner_));
+	}
 
 	iterator begin () const { return std::next (duck::adl_begin (inner_), n_); }
 	iterator end () const { return duck::adl_end (inner_); }
@@ -58,10 +62,70 @@ pop_front_range<R> pop_front (R && r, iterator_difference_t<range_iterator_t<R>>
 struct pop_front_range_tag {
 	std::ptrdiff_t n;
 };
-inline pop_front_range_tag pop_front (std::ptrdiff_t n) {
+inline pop_front_range_tag pop_front (std::ptrdiff_t n = 1) {
 	return {n};
 }
 template <typename R> pop_front_range<R> operator| (R && r, pop_front_range_tag tag) {
+	return {std::forward<R> (r), static_cast<iterator_difference_t<range_iterator_t<R>>> (tag.n)};
+}
+
+/********************************************************************************
+ * Pop back.
+ */
+namespace internal_range {
+	template <typename R>
+	range_iterator_t<R> nth_iterator_from_end_impl (R && r,
+	                                                iterator_difference_t<range_iterator_t<R>> n,
+	                                                std::bidirectional_iterator_tag) {
+		return std::prev (end (std::forward<R> (r)), n);
+	}
+	template <typename R>
+	range_iterator_t<R> nth_iterator_from_end_impl (R && r,
+	                                                iterator_difference_t<range_iterator_t<R>> n,
+	                                                std::forward_iterator_tag) {
+		auto s = size (r);
+		return std::next (begin (std::forward<R> (r)), s - n);
+	}
+	template <typename R>
+	range_iterator_t<R> nth_iterator_from_end (R && r, iterator_difference_t<range_iterator_t<R>> n) {
+		return nth_iterator_from_end_impl (std::forward<R> (r), n,
+		                                   iterator_category_t<range_iterator_t<R>>{});
+	}
+} // namespace internal_range
+
+template <typename R> class pop_back_range {
+	static_assert (is_range<R>::value, "pop_back_range<R>: R must be a range");
+
+public:
+	using iterator = range_iterator_t<R>;
+
+	pop_back_range (R && r, iterator_difference_t<iterator> n)
+	    : inner_ (std::forward<R> (r)), n_ (n) {
+		assert (n_ >= 0);
+		assert (n_ <= duck::size (inner_));
+	}
+
+	iterator begin () const { return duck::adl_begin (inner_); }
+	iterator end () const { return internal_range::nth_iterator_from_end (inner_, n_); }
+	iterator_difference_t<iterator> size () const { return duck::size (inner_) - n_; }
+
+private:
+	R inner_;
+	iterator_difference_t<iterator> n_;
+};
+
+template <typename R>
+pop_back_range<R> pop_back (R && r, iterator_difference_t<range_iterator_t<R>> n) {
+	return {std::forward<R> (r), n};
+}
+
+struct pop_back_range_tag {
+	std::ptrdiff_t n;
+};
+inline pop_back_range_tag pop_back (std::ptrdiff_t n = 1) {
+	return {n};
+}
+template <typename R> pop_back_range<R> operator| (R && r, pop_back_range_tag tag) {
 	return {std::forward<R> (r), static_cast<iterator_difference_t<range_iterator_t<R>>> (tag.n)};
 }
 

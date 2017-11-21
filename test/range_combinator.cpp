@@ -39,8 +39,11 @@ using forward_container_types =
 auto values = {0, 1, 2, 3, 4};
 
 TEST_CASE_TEMPLATE ("slicing", C, forward_container_types) {
-	auto range = C{values} | duck::pop_front (2);
-	CHECK (range == duck::range (2, 5));
+	auto range = C{values};
+	CHECK ((range | duck::pop_front ()) == duck::range (1, 5));
+	CHECK ((range | duck::pop_front (2)) == duck::range (2, 5));
+	CHECK ((range | duck::pop_back ()) == duck::range (0, 4));
+	CHECK ((range | duck::pop_back (2)) == duck::range (0, 3));
 }
 
 TEST_CASE_TEMPLATE ("reverse", C, bidir_container_types) {
