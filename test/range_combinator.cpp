@@ -47,14 +47,14 @@ TEST_CASE_TEMPLATE ("reverse", C, bidir_container_types) {
 	CHECK (duck::empty (C{} | duck::reverse ()));
 }
 
-#if 0
-TEST_CASE_TEMPLATE ("index", Container, forward_container_types) {
-	for (auto & iv : duck::range (Container{values}) | DRC::index<int> ()) {
+TEST_CASE_TEMPLATE ("index", C, forward_container_types) {
+	for (auto & iv : C{values} | duck::indexed<int> ()) {
 		CHECK (iv.index == iv.value ());
 	}
 	// Empty, also check that index<Int> has a default
-	CHECK ((duck::range (Container{}) | DRC::index ()).empty ());
+	CHECK (duck::empty (C{} | duck::indexed ()));
 }
+#if 0
 
 TEST_CASE_TEMPLATE ("filter", Container, forward_container_types) {
 	auto filtered_range =

@@ -255,6 +255,8 @@ TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front/nth/contains", C, all
 		CHECK (s == 0);
 		CHECK_FALSE (duck::contains (empty_ref, b));
 		CHECK_FALSE (duck::contains (empty_ref, e));
+		CHECK (empty_ref == duck::range (0));
+		CHECK_FALSE (empty_ref == duck::range (5));
 	}
 	{
 		auto non_empty_range = C::make_0_4 ();
@@ -275,6 +277,8 @@ TEST_CASE_TEMPLATE ("const C& - begin/end/empty/size/front/nth/contains", C, all
 		CHECK (duck::contains (ref, b));
 		CHECK (duck::contains (ref, std::next (b)));
 		CHECK_FALSE (duck::contains (ref, e));
+		CHECK_FALSE (ref == duck::range (0));
+		CHECK (ref == duck::range (5));
 	}
 }
 TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front/nth/contains", C, all_range_types) {
@@ -293,6 +297,8 @@ TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front/nth/contains", C, all_range
 		CHECK (s == 0);
 		CHECK_FALSE (duck::contains (empty_ref, b));
 		CHECK_FALSE (duck::contains (empty_ref, e));
+		CHECK (empty_ref == duck::range (0));
+		CHECK_FALSE (empty_ref == duck::range (5));
 	}
 	{
 		auto non_empty_range = C::make_0_4 ();
@@ -313,6 +319,8 @@ TEST_CASE_TEMPLATE ("C& - begin/end/empty/size/front/nth/contains", C, all_range
 		CHECK (duck::contains (ref, b));
 		CHECK (duck::contains (ref, std::next (b)));
 		CHECK_FALSE (duck::contains (ref, e));
+		CHECK_FALSE (ref == duck::range (0));
+		CHECK (ref == duck::range (5));
 	}
 }
 TEST_CASE_TEMPLATE ("C&& - begin/end/empty/size/front/nth", C, all_range_types) {
@@ -328,6 +336,8 @@ TEST_CASE_TEMPLATE ("C&& - begin/end/empty/size/front/nth", C, all_range_types) 
 		static_assert (std::is_same<decltype (s), typename C::size_type>::value,
 		               "size (C&&) is not C::size_type");
 		CHECK (s == 0);
+		CHECK (C::make_empty () == duck::range (0));
+		CHECK_FALSE (C::make_empty () == duck::range (5));
 	}
 	{
 		CHECK_FALSE (duck::empty (C::make_0_4 ()));
@@ -340,6 +350,8 @@ TEST_CASE_TEMPLATE ("C&& - begin/end/empty/size/front/nth", C, all_range_types) 
 		                            duck::iterator_reference_t<typename C::const_iterator>>::value,
 		               "nth(C&&) is not C::const_iterator::reference");
 		CHECK (duck::nth (C::make_0_4 (), 2) == 2);
+		CHECK_FALSE (C::make_0_4 () == duck::range (0));
+		CHECK (C::make_0_4 () == duck::range (5));
 	}
 }
 

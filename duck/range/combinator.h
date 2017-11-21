@@ -50,10 +50,10 @@ template <typename R> class reverse_range {
 public:
 	using iterator = std::reverse_iterator<range_iterator_t<R>>;
 
-	reverse_range (R && r) : inner_ (std::move (r)) {}
+	reverse_range (R && r) : inner_ (std::forward<R> (r)) {}
 
-	iterator begin () const { return iterator{inner_.end ()}; }
-	iterator end () const { return iterator{inner_.begin ()}; }
+	iterator begin () const { return iterator{duck::adl_end (inner_)}; }
+	iterator end () const { return iterator{duck::adl_begin (inner_)}; }
 	iterator_difference_t<iterator> size () const { return duck::size (inner_); }
 
 private:
@@ -73,6 +73,108 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 	return reverse (std::forward<R> (r));
 }
 
+/********************************************************************************
+ * Indexed range.
+ * Returned value_type has an index field, and a value() member.
+ * end() iterator index is UB.
+ */
+template <typename It, typename Int> class indexed_iterator {
+	static_assert (is_iterator<It>::value, "indexed_iterator<It, Int>: It must be an iterator type");
+	static_assert (std::is_integral<Int>::value, "indexed_iterator<It, Int>: Int must be integral");
+
+public:
+	using iterator_category = iterator_category_t<It>;
+	struct value_type {
+		It it;
+		Int index;
+		value_type () = default;
+		value_type (It it_arg, Int index_arg) : it (it_arg), index (index_arg) {}
+		iterator_reference_t<It> value () const { return *it; }
+	};
+	using difference_type = iterator_difference_t<It>;
+	using pointer = const value_type *;
+	using reference = const value_type &;
+
+	indexed_iterator () = default;
+	indexed_iterator (It it, Int index) : d_ (it, index) {}
+
+	It base () const { return d_.it; }
+
+	// Input / output
+	indexed_iterator & operator++ () { return ++d_.it, ++d_.index, *this; }
+	reference operator* () const { return d_; }
+	pointer operator-> () const { return &d_; }
+	bool operator== (const indexed_iterator & o) const { return d_.it == o.d_.it; }
+	bool operator!= (const indexed_iterator & o) const { return d_.it != o.d_.it; }
+
+	// Forward
+	indexed_iterator operator++ (int) {
+		indexed_iterator tmp (*this);
+		++*this;
+		return tmp;
+	}
+
+	// Bidir
+	indexed_iterator & operator-- () { return --d_.it, --d_.index, *this; }
+	indexed_iterator operator-- (int) {
+		indexed_iterator tmp (*this);
+		--*this;
+		return tmp;
+	}
+
+	// Random access
+	indexed_iterator & operator+= (difference_type n) { return d_.it += n, d_.index += n, *this; }
+	indexed_iterator operator+ (difference_type n) const {
+		return indexed_iterator (d_.it + n, d_.index + n);
+	}
+	friend indexed_iterator operator+ (difference_type n, const indexed_iterator & it) {
+		return it + n;
+	}
+	indexed_iterator & operator-= (difference_type n) { return d_.it -= n, d_.index -= n, *this; }
+	indexed_iterator operator- (difference_type n) const {
+		return indexed_iterator (d_.it - n, d_.index - n);
+	}
+	difference_type operator- (const indexed_iterator & o) const { return d_.it - o.d_.it; }
+	value_type operator[] (difference_type n) const { return *(*this + n); }
+	bool operator< (const indexed_iterator & o) const { return d_.it < o.d_.it; }
+	bool operator> (const indexed_iterator & o) const { return d_.it > o.d_.it; }
+	bool operator<= (const indexed_iterator & o) const { return d_.it <= o.d_.it; }
+	bool operator>= (const indexed_iterator & o) const { return d_.it >= o.d_.it; }
+
+private:
+	value_type d_{};
+};
+
+template <typename R, typename Int> class indexed_range {
+	static_assert (is_range<R>::value, "indexed_range<R, Int>: R must be a range");
+	static_assert (std::is_integral<Int>::value,
+	               "indexed_range<R, Int>: Int must be an integral type");
+
+public:
+	using iterator = indexed_iterator<range_iterator_t<R>, Int>;
+
+	indexed_range (R && r) : inner_ (std::forward<R> (r)) {}
+
+	iterator begin () const { return {duck::adl_begin (inner_), 0}; }
+	iterator end () const { return {duck::adl_end (inner_), std::numeric_limits<Int>::max ()}; }
+	iterator_difference_t<iterator> size () const { return duck::size (inner_); }
+
+private:
+	R inner_;
+};
+
+template <typename Int, typename R> indexed_range<R, Int> index (R && r) {
+	return {std::forward<R> (r)};
+}
+
+template <typename Int> struct indexed_range_tag {};
+template <typename Int = int> indexed_range_tag<Int> indexed () {
+	return {};
+}
+template <typename Int, typename R>
+auto operator| (R && r, indexed_range_tag<Int>) -> decltype (index<Int> (std::forward<R> (r))) {
+	return index<Int> (std::forward<R> (r));
+}
 #if 0
 	/********************************************************************************
 	 * Filter with a predicate.
@@ -343,116 +445,5 @@ auto operator| (R && r, reverse_range_tag) -> decltype (reverse (std::forward<R>
 		}
 	} // namespace Combinator
 
-	/********************************************************************************
-	 * Indexed range.
-	 * Returned value_type has an index field, and a value() member.
-	 * end() iterator index is UB.
-	 */
-	template <typename It, typename IntType> class IndexIterator {
-		static_assert (IsIterator<It>::value,
-		               "IndexIterator<It, IntType>: It must be an iterator type");
-		static_assert (std::is_integral<IntType>::value,
-		               "IndexIterator<It, IntType>: IntType must be integral");
-
-	public:
-		using iterator_category = typename std::iterator_traits<It>::iterator_category;
-		struct value_type {
-			It it;
-			IntType index;
-			value_type () = default;
-			value_type (It it_arg, IntType index_arg) : it (it_arg), index (index_arg) {}
-			typename std::iterator_traits<It>::reference value () const { return *it; }
-		};
-		using difference_type = typename std::iterator_traits<It>::difference_type;
-		using pointer = const value_type *;
-		using reference = const value_type &;
-
-		IndexIterator () = default;
-		IndexIterator (It it, IntType index) : d_ (it, index) {}
-
-		It base () const { return d_.it; }
-
-		// Input / output
-		IndexIterator & operator++ () { return ++d_.it, ++d_.index, *this; }
-		reference operator* () const { return d_; }
-		pointer operator-> () const { return &d_; }
-		bool operator== (const IndexIterator & o) const { return d_.it == o.d_.it; }
-		bool operator!= (const IndexIterator & o) const { return d_.it != o.d_.it; }
-
-		// Forward
-		IndexIterator operator++ (int) {
-			IndexIterator tmp (*this);
-			++*this;
-			return tmp;
-		}
-
-		// Bidir
-		IndexIterator & operator-- () { return --d_.it, --d_.index, *this; }
-		IndexIterator operator-- (int) {
-			IndexIterator tmp (*this);
-			--*this;
-			return tmp;
-		}
-
-		// Random access
-		IndexIterator & operator+= (difference_type n) { return d_.it += n, d_.index += n, *this; }
-		IndexIterator operator+ (difference_type n) const {
-			return IndexIterator (d_.it + n, d_.index + n);
-		}
-		friend IndexIterator operator+ (difference_type n, const IndexIterator & it) { return it + n; }
-		IndexIterator & operator-= (difference_type n) { return d_.it -= n, d_.index -= n, *this; }
-		IndexIterator operator- (difference_type n) const {
-			return IndexIterator (d_.it - n, d_.index - n);
-		}
-		difference_type operator- (const IndexIterator & o) const { return d_.it - o.d_.it; }
-		value_type operator[] (difference_type n) const { return *(*this + n); }
-		bool operator< (const IndexIterator & o) const { return d_.it < o.d_.it; }
-		bool operator> (const IndexIterator & o) const { return d_.it > o.d_.it; }
-		bool operator<= (const IndexIterator & o) const { return d_.it <= o.d_.it; }
-		bool operator>= (const IndexIterator & o) const { return d_.it >= o.d_.it; }
-
-	private:
-		value_type d_{};
-	};
-
-	template <typename R, typename IntType> class Index;
-
-	template <typename R, typename IntType> struct RangeTraits<Index<R, IntType>> {
-		using Iterator = IndexIterator<typename RangeTraits<R>::Iterator, IntType>;
-		using SizeType = typename RangeTraits<R>::SizeType;
-	};
-
-	template <typename R, typename IntType> class Index : public Base<Index<R, IntType>> {
-		static_assert (is_range<R>::value, "Index<R, IntType>: R must be a range");
-		static_assert (std::is_integral<IntType>::value,
-		               "Index<R, IntType>: IntType must be an integral type");
-
-	public:
-		using typename Base<Index<R, IntType>>::Iterator;
-		using typename Base<Index<R, IntType>>::SizeType;
-
-		Index (const R & r) : inner_ (r) {}
-		Index (R && r) : inner_ (std::move (r)) {}
-
-		Iterator begin () const { return {inner_.begin (), 0}; }
-		Iterator end () const { return {inner_.end (), std::numeric_limits<IntType>::max ()}; }
-		SizeType size () const { return inner_.size (); }
-
-	private:
-		R inner_;
-	};
-
-	namespace Combinator {
-		template <typename IntType, typename R> Index<decay_t<R>, IntType> index (R && r) {
-			return {std::forward<R> (r)};
-		}
-
-		template <typename IntType> struct Index_tag {};
-		template <typename IntType = int> Index_tag<IntType> index () { return {}; }
-		template <typename IntType, typename R>
-		auto operator| (R && r, Index_tag<IntType>) -> decltype (index<IntType> (std::forward<R> (r))) {
-			return index<IntType> (std::forward<R> (r));
-		}
-	} // namespace Combinator
 #endif
 } // namespace duck
