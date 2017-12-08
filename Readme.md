@@ -20,9 +20,8 @@ Currently completely work in progress.
 TODO (completely out-of-date and not updated often):
 - add license stuff and small doc in files.
 - ranges:
-	- rewrite ranges to V2 (in progress): lazy, simpler iterators referencing ranges.
 	- expand std::algorithm version with ranges ?
-	- combinators with operator| + type tags syntax ?
+	- more combinators ?
 - formatter:
 	- bad, generate too many types.
 	- introduce piece-string system ?
