@@ -60,7 +60,7 @@ TEST_CASE_TEMPLATE ("reverse", C, bidir_container_types) {
 }
 
 TEST_CASE_TEMPLATE ("index", C, forward_container_types) {
-	for (auto & iv : C{values} | duck::indexed<int> ()) {
+	for (auto iv : C{values} | duck::indexed<int> ()) {
 		CHECK (iv.index == iv.value ());
 	}
 	// Empty, also check that index<Int> has a default

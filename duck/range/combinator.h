@@ -230,7 +230,7 @@ public:
 	};
 	using difference_type = iterator_difference_t<It>;
 	using pointer = const value_type *;
-	using reference = const value_type &;
+	using reference = value_type;
 
 	indexed_iterator () = default;
 	indexed_iterator (It it, Int index) : d_ (it, index) {}
