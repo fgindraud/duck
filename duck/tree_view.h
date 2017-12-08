@@ -3,7 +3,9 @@
 // Tree topology view
 // STATUS: WIP
 
+#include <cassert>
 #include <cstdint>
+#include <duck/range/algorithm.h>
 #include <iterator>
 #include <vector>
 
@@ -57,7 +59,36 @@ public:
 
 	// input / output
 	tree_topology_view_dfs_iterator & operator++ () {
-		// TODO
+		auto child_edges = tree_->child_edges (node_);
+		if (!child_edges.empty ()) {
+			// Go to first child
+			node_ = tree_->child_node (child_edges.front ());
+		} else {
+			// Go to "next sibling"
+			auto invalid_edge = tree_->invalid_edge ();
+			auto invalid_node = tree_->invalid_node ();
+			while (true) {
+				// First go up to father ; stop if we reach root (invalid_sth)
+				auto edge = tree_->father_edge (node_);
+				if (edge == invalid_edge) {
+					node_ = invalid_node;
+					break;
+				}
+				node_ = tree_->father_node (edge);
+				if (node_ == invalid_node) {
+					break;
+				}
+				// Go to next sibling. If no next sibling, just loop again.
+				auto father_child_edges = tree_->child_edges (node_);
+				auto previous_child_position = duck::find (father_child_edges, edge);
+				assert (previous_child_position != father_child_edges.end ()); // should be found
+				auto next_sibling_edge = ++previous_child_position;
+				if (next_sibling_edge != father_child_edges.end ()) {
+					node_ = tree_->child_node (*next_sibling_edge);
+					break;
+				}
+			}
+		}
 		return *this;
 	}
 	reference operator* () const { return node_; }

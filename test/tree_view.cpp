@@ -59,18 +59,19 @@ struct tree_view : duck::tree_topology_view {
 };
 
 TEST_CASE ("test") {
-	auto tree = N (2, N (0), N (1));
+	auto tree = N (1, N (2, N (3), N (4)), N (5), N (6, N (7), N (8), N (9)));
 	CHECK (tree != nullptr);
 
 	auto view = tree_view (tree);
 	CHECK (view.root_node () != view.invalid_node ());
-	CHECK (tree.get () == tree_view::convert (view.root_node()));
+	CHECK (tree.get () == tree_view::convert (view.root_node ()));
 
 	auto r = duck::dfs_range (view);
-	auto b = r.begin();
-	CHECK (b != r.end());
-	CHECK (*b == view.root_node());
+	CHECK (tree.get () == tree_view::convert (duck::front (r)));
+	CHECK (!duck::empty (r));
+	auto dfs_values =
+	    r | duck::map ([](tree_view::node_id_t id) { return tree_view::convert (id)->value; });
+	CHECK (dfs_values == duck::range (1, 10));
 
-	auto root_index = duck::front (r);
-	CHECK (tree.get () == tree_view::convert (root_index));
+	CHECK (duck::empty (duck::dfs_range (tree_view (nullptr))));
 }
