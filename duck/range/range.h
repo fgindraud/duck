@@ -240,7 +240,7 @@ public:
 	using pointer = const value_type *;
 	using reference = value_type; // Force copying the int
 
-	integer_iterator () noexcept = default;
+	integer_iterator () = default;
 	integer_iterator (Int n) noexcept : n_ (n) {}
 
 	// Input / output

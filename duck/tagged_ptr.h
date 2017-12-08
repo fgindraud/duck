@@ -16,7 +16,7 @@ template <typename PtrType, std::size_t N> class TaggedPtr {
 public:
 	static constexpr std::size_t required_alignment = std::size_t (1) << N;
 
-	constexpr TaggedPtr () noexcept = default;
+	constexpr TaggedPtr () = default;
 	TaggedPtr (PtrType ptr) noexcept { set_ptr (ptr); }
 
 	constexpr PtrType get_ptr () const noexcept {

@@ -4,6 +4,7 @@
 // STATUS: WIP
 
 #include <cstdint>
+#include <iterator>
 #include <vector>
 
 namespace duck {
@@ -21,14 +22,14 @@ public:
 	struct node_id_t {
 		std::intptr_t value;
 		explicit node_id_t (std::intptr_t v) : value (v) {}
-		bool operator== (const node_id_t & o) { return value == o.value; }
-		bool operator!= (const node_id_t & o) { return value != o.value; }
+		bool operator== (const node_id_t & o) const { return value == o.value; }
+		bool operator!= (const node_id_t & o) const { return value != o.value; }
 	};
 	struct edge_id_t {
 		std::intptr_t value;
 		explicit edge_id_t (std::intptr_t v) : value (v) {}
-		bool operator== (const edge_id_t & o) { return value == o.value; }
-		bool operator!= (const edge_id_t & o) { return value != o.value; }
+		bool operator== (const edge_id_t & o) const { return value == o.value; }
+		bool operator!= (const edge_id_t & o) const { return value != o.value; }
 	};
 
 	virtual ~tree_topology_view () = default;
@@ -40,5 +41,54 @@ public:
 	virtual edge_id_t father_edge (node_id_t id) const = 0;
 	virtual std::vector<edge_id_t> child_edges (node_id_t id) const = 0;
 };
+
+class tree_topology_view_dfs_iterator {
+public:
+	using iterator_category = std::forward_iterator_tag;
+	using value_type = typename tree_topology_view::node_id_t;
+	using difference_type = std::ptrdiff_t;
+	using pointer = const value_type *;
+	using reference = value_type;
+
+	tree_topology_view_dfs_iterator () = default;
+	tree_topology_view_dfs_iterator (const tree_topology_view & view,
+	                                 const tree_topology_view::node_id_t & id)
+	    : tree_ (&view), node_ (id) {}
+
+	// input / output
+	tree_topology_view_dfs_iterator & operator++ () {
+		// TODO
+		return *this;
+	}
+	reference operator* () const { return node_; }
+	pointer operator-> () const { return &node_; }
+	bool operator== (const tree_topology_view_dfs_iterator & o) const { return node_ == o.node_; }
+	bool operator!= (const tree_topology_view_dfs_iterator & o) const { return node_ != o.node_; }
+
+	// forward
+	tree_topology_view_dfs_iterator operator++ (int) {
+		auto tmp = *this;
+		++*this;
+		return tmp;
+	}
+
+private:
+	const tree_topology_view * tree_{nullptr};
+	tree_topology_view::node_id_t node_{0};
+};
+
+class tree_topology_view_dfs_range {
+public:
+	tree_topology_view_dfs_range (const tree_topology_view & tree) : tree_ (tree) {}
+
+	tree_topology_view_dfs_iterator begin () const { return {tree_, tree_.root_node ()}; }
+	tree_topology_view_dfs_iterator end () const { return {tree_, tree_.invalid_node ()}; }
+
+private:
+	const tree_topology_view & tree_;
+};
+inline tree_topology_view_dfs_range dfs_range (const tree_topology_view & tree) {
+	return {tree};
+}
 
 } // namespace duck
