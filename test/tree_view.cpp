@@ -28,30 +28,33 @@ template <typename... Args> std::unique_ptr<node_t> N (int v, Args &&... args) {
 	return append (std::unique_ptr<node_t>{new node_t{v}}, std::forward<Args> (args)...);
 }
 
-struct tree_view : duck::tree_topology_view {
+struct tree_view : duck::bidirectional_tree_topology{
 	const node_t * root;
+
+	using node_id = duck::topology_node_id;
+	using edge_id = duck::topology_edge_id;
 
 	tree_view (const node_t * root) : root (root) {}
 	tree_view (const std::unique_ptr<node_t> & root) : tree_view (root.get ()) {}
 
-	static inline const node_t * convert (node_id_t id) {
+	static inline const node_t * convert (node_id id) {
 		return reinterpret_cast<const node_t *> (id.value);
 	}
-	static inline node_id_t convert (const node_t * node) {
-		return node_id_t (reinterpret_cast<std::intptr_t> (node));
+	static inline node_id convert (const node_t * node) {
+		return node_id (reinterpret_cast<std::intptr_t> (node));
 	}
 
-	node_id_t invalid_node () const final { return convert (nullptr); }
-	edge_id_t invalid_edge () const final { return father_edge (invalid_node ()); }
-	node_id_t root_node () const final { return convert (root); }
-	node_id_t father_node (edge_id_t id) const final {
+	node_id invalid_node () const final { return convert (nullptr); }
+	edge_id invalid_edge () const final { return father_edge (invalid_node ()); }
+	node_id root_node () const final { return convert (root); }
+	node_id father_node (edge_id id) const final {
 		auto * child = convert (child_node (id));
 		return convert (child->parent);
 	}
-	node_id_t child_node (edge_id_t id) const final { return node_id_t (id.value); }
-	edge_id_t father_edge (node_id_t id) const final { return edge_id_t (id.value); }
-	std::vector<edge_id_t> child_edges (node_id_t id) const final {
-		return duck::to_container<std::vector<edge_id_t>> (
+	node_id child_node (edge_id id) const final { return node_id (id.value); }
+	edge_id father_edge (node_id id) const final { return edge_id (id.value); }
+	std::vector<edge_id> child_edges (node_id id) const final {
+		return duck::to_container<std::vector<edge_id>> (
 		    convert (id)->childrens | duck::map ([this](const std::unique_ptr<node_t> & child) {
 			    return father_edge (convert (child.get ()));
 		    }));
@@ -70,7 +73,7 @@ TEST_CASE ("test") {
 	CHECK (tree.get () == tree_view::convert (duck::front (r)));
 	CHECK (!duck::empty (r));
 	auto dfs_values =
-	    r | duck::map ([](tree_view::node_id_t id) { return tree_view::convert (id)->value; });
+	    r | duck::map ([](tree_view::node_id id) { return tree_view::convert (id)->value; });
 	CHECK (dfs_values == duck::range (1, 10));
 
 	CHECK (duck::empty (duck::dfs_range (tree_view (nullptr))));
