@@ -5,7 +5,9 @@
 
 #include <cassert>
 #include <cstdint>
+#include <deque>
 #include <duck/range/algorithm.h>
+#include <duck/range/combinator.h>
 #include <iterator>
 #include <vector>
 
@@ -128,11 +130,81 @@ public:
 private:
 	const bidirectional_tree_topology & tree_;
 };
-inline forward_tree_dfs_range dfs_range (const bidirectional_tree_topology & tree) {
+inline forward_tree_dfs_range forward_dfs_range (const bidirectional_tree_topology & tree) {
 	return {tree};
 }
 
-// TODO add input_tree_dfs_range, with stack
+/* DFS walk of the tree using a stack.
+ * Provide an input iterator only.
+ * Calling begin() resets the walk : it can walked only once at a time, but multiple times.
+ */
+class input_tree_dfs_range {
+public:
+	class iterator {
+		// end() is an iterator with range_ == nullptr
+		// comparisons just test if == end (), not internal position in the walk
+	public:
+		using iterator_category = std::input_iterator_tag;
+		using value_type = topology_node_id;
+		using difference_type = std::ptrdiff_t;
+		using pointer = void;
+		using reference = value_type;
+
+		iterator () = default;
+		iterator (const input_tree_dfs_range & r) : range_ (&r) {}
+
+		// input / output
+		iterator & operator++ () {
+			auto & stack = range_->nodes_to_visit_;
+			const auto & tree = range_->tree_;
+			auto invalid_node = tree.invalid_node ();
+			auto invalid_edge = tree.invalid_edge ();
+
+			auto node = stack.back ();
+			stack.pop_back ();
+			for (auto child_edge : tree.child_edges (node) | duck::reverse ()) {
+				if (child_edge != invalid_edge) {
+					auto child_node = tree.child_node (child_edge);
+					if (child_node != invalid_node) {
+						stack.push_back (child_node);
+					}
+				}
+			}
+			if (stack.empty ()) {
+				range_ = nullptr;
+			}
+			return *this;
+		}
+		reference operator* () const { return range_->nodes_to_visit_.back (); }
+		bool operator== (const iterator & o) const { return range_ == o.range_; }
+		bool operator!= (const iterator & o) const { return range_ != o.range_; }
+
+	private:
+		const input_tree_dfs_range * range_{nullptr};
+	};
+
+	input_tree_dfs_range (const downward_tree_topology & tree) : tree_ (tree) {}
+
+	iterator begin () const {
+		nodes_to_visit_.clear ();
+		auto root = tree_.root_node ();
+		if (root != tree_.invalid_node ()) {
+			nodes_to_visit_.push_back (root);
+			return {*this};
+		} else {
+			return end ();
+		}
+	}
+	iterator end () const { return {}; }
+
+private:
+	const downward_tree_topology & tree_;
+	mutable std::deque<topology_node_id> nodes_to_visit_; // not a std::stack, we need clear()
+};
+inline input_tree_dfs_range input_dfs_range (const downward_tree_topology & tree) {
+	return {tree};
+}
+
 // TODO input_bfs with queue
 
 } // namespace duck

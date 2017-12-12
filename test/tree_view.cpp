@@ -28,7 +28,7 @@ template <typename... Args> std::unique_ptr<node_t> N (int v, Args &&... args) {
 	return append (std::unique_ptr<node_t>{new node_t{v}}, std::forward<Args> (args)...);
 }
 
-struct tree_view : duck::bidirectional_tree_topology{
+struct tree_view : duck::bidirectional_tree_topology {
 	const node_t * root;
 
 	using node_id = duck::topology_node_id;
@@ -69,12 +69,26 @@ TEST_CASE ("test") {
 	CHECK (view.root_node () != view.invalid_node ());
 	CHECK (tree.get () == tree_view::convert (view.root_node ()));
 
-	auto r = duck::dfs_range (view);
-	CHECK (tree.get () == tree_view::convert (duck::front (r)));
-	CHECK (!duck::empty (r));
-	auto dfs_values =
-	    r | duck::map ([](tree_view::node_id id) { return tree_view::convert (id)->value; });
-	CHECK (dfs_values == duck::range (1, 10));
+	{
+		// forward_dfs_range
+		auto r = duck::forward_dfs_range (view);
+		CHECK (tree.get () == tree_view::convert (duck::front (r)));
+		CHECK (!duck::empty (r));
+		auto dfs_values =
+		    r | duck::map ([](tree_view::node_id id) { return tree_view::convert (id)->value; });
+		CHECK (dfs_values == duck::range (1, 10));
 
-	CHECK (duck::empty (duck::dfs_range (tree_view (nullptr))));
+		CHECK (duck::empty (duck::forward_dfs_range (tree_view (nullptr))));
+	}
+	{
+		// input_dfs_range
+		auto r = duck::input_dfs_range (view);
+		CHECK (tree.get () == tree_view::convert (duck::front (r)));
+		CHECK (!duck::empty (r));
+		auto dfs_values =
+		    r | duck::map ([](tree_view::node_id id) { return tree_view::convert (id)->value; });
+		CHECK (dfs_values == duck::range (1, 10));
+
+		CHECK (duck::empty (duck::input_dfs_range (tree_view (nullptr))));
+	}
 }
