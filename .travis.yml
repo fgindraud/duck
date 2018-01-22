@@ -1,6 +1,6 @@
 # Inspired from doctest env
 sudo: false
-language: c++
+language: cpp
 
 notifications:
    email: false
