@@ -22,27 +22,10 @@ install (FILES
 
 ### Lib ###
 
-# List of C++ features that we use (should map to c++11)
-set (wanted_features
-	cxx_alias_templates
-	cxx_alignof
-	cxx_auto_type
-	cxx_constexpr
-	cxx_decltype
-	cxx_default_function_template_args
-	cxx_defaulted_functions
-	cxx_delegating_constructors
-	cxx_deleted_functions
-	cxx_generalized_initializers
-	cxx_noexcept
-	cxx_nonstatic_member_init
-	cxx_nullptr
-	cxx_override
-	cxx_range_for
-	cxx_rvalue_references
-	cxx_static_assert
-	cxx_variadic_templates
-	)
+# Use C++14 for now
+set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD_REQUIRED YES)
+set (CMAKE_CXX_EXTENSIONS NO)
 
 # Check demangling support (used in tests)
 include (CheckCXXSymbolExists)
@@ -54,7 +37,6 @@ target_include_directories (lib INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:include>
 	)
-target_compile_features (lib INTERFACE ${wanted_features}) # This will force a -std=c++14 if needed
 
 # Install header lib and cmake crap
 install (TARGETS lib EXPORT ${PROJECT_NAME}-targets

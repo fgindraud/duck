@@ -4,7 +4,7 @@ Duck cpp utils library
 [![Build Status](https://travis-ci.org/lereldarion/duck.svg?branch=master)](https://travis-ci.org/lereldarion/duck)
 [![Duck License](https://img.shields.io/github/license/mashape/apistatus.svg)]()
 
-Small collections of C++11 header only useful classes.
+Small collections of C++11/C++14 header only useful classes.
 Placed under namespace `duck`.
 
 Setup
