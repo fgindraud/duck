@@ -21,22 +21,6 @@ matrix:
       - env: COMPILER=clang++
         os: osx
         compiler: clang
-      # Linux GCC 4.8
-      - env: COMPILER=g++-4.8
-        os: linux
-        compiler: gcc
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-4.8", "libc6-dbg"]
-              sources: *sources
-      # Linux GCC 5
-      - env: COMPILER=g++-5
-        os: linux
-        compiler: gcc
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-5", "libc6-dbg"]
-              sources: *sources
       # Linux GCC 6
       - env: COMPILER=g++-6
         os: linux
@@ -44,14 +28,6 @@ matrix:
         addons:
            apt:
               packages: ["cmake", "cmake-data", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Linux Clang 3.5 (include g++-6 to have recent libs)
-      - env: COMPILER=clang++-3.5
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "clang-3.5", "g++-6", "libc6-dbg"]
               sources: *sources
       # Linux Clang 3.9
       - env: COMPILER=clang++-3.9

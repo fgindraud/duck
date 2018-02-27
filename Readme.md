@@ -11,7 +11,7 @@ Setup
 -----
 
 Header only, so no compilation is required.
-A standard cmake setup is provided, which can compile and launch some tests, and create cmake package files.
+A standard cmake setup is provided, which can compile and launch some tests.
 
 Status
 ------
