@@ -17,7 +17,7 @@ auto CommandLineParser::new_named_uninitialized_option (std::initializer_list<st
 	auto index = static_cast<int> (options_.size ());
 	options_.emplace_back ();
 	for (auto name : names) {
-		if (name.empty ()) {
+		if (name.size () == 0) {
 			throw Exception ("Empty option name declaration");
 		}
 		auto r = option_index_by_name_.emplace (to_string (name), index);
