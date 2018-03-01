@@ -6,6 +6,10 @@
 
 #include <duck/command_line.h>
 
+using duck::CommandLineParser;
+using duck::CommandLineView;
+using duck::string_view;
+
 TEST_CASE ("Usage message") {
 	// No actual checks, but useful to manually look at the formatting for different cases
 

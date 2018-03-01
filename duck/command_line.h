@@ -1,5 +1,8 @@
 #pragma once
 
+// Command line parser
+// STATUS: operational
+
 #include <exception>
 #include <functional>
 #include <initializer_list>
@@ -7,8 +10,9 @@
 #include <string>
 #include <vector>
 
-#include "view.h"
+#include <duck/view.h>
 
+namespace duck {
 /* Command line view.
  * Nicer interface to represent (argc, argv).
  */
@@ -129,3 +133,4 @@ public:
 	Exception (const char * message);
 	const char * what () const noexcept final;
 };
+} // namespace duck

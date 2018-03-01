@@ -1,7 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
 
+#include <vector>
+
 #include <duck/view.h>
+
+using duck::string_view;
 
 namespace doctest {
 template <typename T> struct StringMaker<std::vector<T>> {
@@ -20,12 +24,13 @@ template <typename T> struct StringMaker<std::vector<T>> {
 template <> struct StringMaker<string_view> {
 	static String convert (string_view sv) {
 		using doctest::toString;
-		return toString ("\"") + toString (to_string (sv)) + toString ("\"");
+		return toString ("\"") + toString (duck::to_string (sv)) + toString ("\"");
 	}
 };
 } // namespace doctest
 
 TEST_CASE ("split") {
+	using duck::split;
 	CHECK (split (',', "") == std::vector<string_view>{""});
 	CHECK (split (',', ",") == std::vector<string_view>{"", ""});
 	CHECK (split (',', ",,") == std::vector<string_view>{"", "", ""});

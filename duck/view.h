@@ -1,10 +1,14 @@
 #pragma once
 
+// View structures
+// STATUS: prototype, NSC
+
 #include <string>
 #include <vector>
 
 #include <fmt/core.h> // Use their compatibility string_view
 
+namespace duck {
 /* string_view: Const reference (pointer) to a sequence of char.
  * Does not own the data, only points to it.
  * The char sequence may not be null terminated.
@@ -23,3 +27,4 @@ bool is_prefix_of (char prefix, string_view str);
 
 // Split at separator. Does not remove empty parts, does not trim whitespace.
 std::vector<string_view> split (char separator, string_view text);
+} // namespace duck

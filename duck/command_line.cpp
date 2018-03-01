@@ -1,4 +1,4 @@
-#include "command_line.h"
+#include <duck/command_line.h>
 
 #include <algorithm>
 #include <cassert>
@@ -8,6 +8,7 @@
 
 #include <fmt/format.h>
 
+namespace duck {
 auto CommandLineParser::new_named_uninitialized_option (std::initializer_list<string_view> names)
     -> Option & {
 	if (names.size () == 0) {
@@ -221,3 +222,4 @@ CommandLineParser::Exception::Exception (const char * message) : message_ (messa
 const char * CommandLineParser::Exception::what () const noexcept {
 	return message_.c_str ();
 }
+} // namespace duck

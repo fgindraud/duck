@@ -1,8 +1,9 @@
-#include "view.h"
+#include <duck/view.h>
 
 #include <algorithm>
 #include <cstdlib>
 
+namespace duck {
 // string_view
 
 std::string to_string (string_view sv) {
@@ -35,3 +36,4 @@ std::vector<string_view> split (char separator, string_view text) {
 	}
 	return r;
 }
+} // namespace duck
