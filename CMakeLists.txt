@@ -7,22 +7,17 @@ set (CMAKE_CXX_STANDARD_REQUIRED YES)
 set (CMAKE_CXX_EXTENSIONS NO)
 
 # Deps
-set (FMT_INSTALL ON)
 add_subdirectory (external/fmt EXCLUDE_FROM_ALL) # fmt target
+add_subdirectory (external/doctest EXCLUDE_FROM_ALL) # doctest target
 
-### Lib ###
+### Duck lib ###
 
 # Check demangling support (used in tests)
 include (CheckCXXSymbolExists)
 CHECK_CXX_SYMBOL_EXISTS("abi::__cxa_demangle" "cxxabi.h" DUCK_HAVE_DEMANGLING)
 
-# Header only library target (no compilation, just -I and requirements)
-add_library (lib INTERFACE)
-target_include_directories (lib INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-	$<INSTALL_INTERFACE:include>
-	)
-target_link_libraries (lib INTERFACE fmt)
+# Lib
+add_subdirectory (duck)
 
 ### Tests ###
 enable_testing ()

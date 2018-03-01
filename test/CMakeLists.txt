@@ -37,7 +37,7 @@ foreach (test_file ${test_files})
 		# Normal test, compile and run later
 		# I use boost unit test framework for these
 		add_executable (${test_name} ${test_file})
-		target_link_libraries (${test_name} lib)
+		target_link_libraries (${test_name} PRIVATE duck doctest)
 		target_compile_options (${test_name} PRIVATE -Wall -Wextra -O2)
 		if (DUCK_HAVE_DEMANGLING)
 			target_compile_definitions (${test_name} PRIVATE "DUCK_HAVE_DEMANGLING")
