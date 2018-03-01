@@ -1,10 +1,10 @@
-#include <duck/command_line.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest.h>
 
 #include <cstdio>
 #include <fmt/format.h>
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include <doctest.h>
+#include <duck/command_line.h>
 
 TEST_CASE ("Usage message") {
 	// No actual checks, but useful to manually look at the formatting for different cases

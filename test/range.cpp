@@ -1,12 +1,13 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <doctest.h>
 
-#include <duck/range/range.h>
 #include <forward_list>
 #include <iterator>
 #include <list>
 #include <type_traits>
 #include <vector>
+
+#include <duck/range/range.h>
 
 /* Define multiple type of containers to test with range.
  * Containers and expected properties are encoded as a struct.

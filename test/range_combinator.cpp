@@ -1,11 +1,12 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <doctest.h>
 
-#include <duck/range/combinator.h>
 #include <forward_list>
 #include <iterator>
 #include <list>
 #include <vector>
+
+#include <duck/range/combinator.h>
 
 // Lousy wrapper of std vector which is move only : test move construction of ranges
 class move_only_int_vector {

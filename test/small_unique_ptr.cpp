@@ -1,8 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <doctest.h>
+
+#include <type_traits>
 
 #include <duck/small_unique_ptr.h>
-#include <type_traits>
 
 namespace NoMoveSupport {
 struct Base {

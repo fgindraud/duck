@@ -1,11 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
-
-#include <duck/range/combinator.h>
-#include <duck/tree_view.h>
+#include <doctest.h>
 
 #include <memory>
 #include <vector>
+
+#include <duck/range/combinator.h>
+#include <duck/tree_view.h>
 
 struct node_t {
 	std::vector<std::unique_ptr<node_t>> childrens;

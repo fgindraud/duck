@@ -1,11 +1,12 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <doctest.h>
 
-#include <duck/optional.h>
 #include <map>
 #include <memory> // tests with uniq_ptr
 #include <string> // to_string
 #include <type_traits>
+
+#include <duck/optional.h>
 
 TEST_CASE ("basic operations") {
 	duck::Optional<int> a;
@@ -253,7 +254,7 @@ TEST_CASE ("reference optionals") {
 
 TEST_CASE ("optional_find") {
 	std::map<int, int> m;
-	m[12]=42;
+	m[12] = 42;
 	auto empty = duck::optional_find (m, 0);
 	CHECK (!empty);
 	auto not_empty = duck::optional_find (m, 12);
@@ -263,8 +264,8 @@ TEST_CASE ("optional_find") {
 
 TEST_CASE ("cast") {
 	int a = 42;
-	duck::Optional<int &> ref {a};
-	auto b = ref.cast<int>();
+	duck::Optional<int &> ref{a};
+	auto b = ref.cast<int> ();
 	CHECK (b);
 	CHECK (*b == a);
 	CHECK (&(*b) != &a);

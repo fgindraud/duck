@@ -1,9 +1,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <doctest.h>
+
+#include <list>
 
 #include <duck/range/range.h>
 #include <duck/small_vector.h>
-#include <list>
 
 template <typename SV> std::ptrdiff_t inline_storage_offset (const SV & sv) {
 	// Only works if non allocated, and data returns a ptr to inline storage

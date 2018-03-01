@@ -1,7 +1,8 @@
-#include <duck/range/combinator.h>
-#include <duck/range/range.h>
 #include <forward_list>
 #include <vector>
+
+#include <duck/range/combinator.h>
+#include <duck/range/range.h>
 
 struct blah {};
 

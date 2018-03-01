@@ -1,10 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include <doctest.h>
 
-#include <duck/variant.h>
 #include <iostream>
 #include <sstream>
 #include <string>
+
+#include <duck/variant.h>
 
 struct blah {};
 inline std::ostream & operator<< (std::ostream & os, const blah &) {
