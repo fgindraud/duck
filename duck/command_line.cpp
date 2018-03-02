@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <fmt/format.h>
+#include <duck/format.h>
 
 namespace duck {
 auto CommandLineParser::new_named_uninitialized_option (std::initializer_list<string_view> names)
@@ -17,7 +17,7 @@ auto CommandLineParser::new_named_uninitialized_option (std::initializer_list<st
 	auto index = static_cast<int> (options_.size ());
 	options_.emplace_back ();
 	for (auto name : names) {
-		if (name.size () == 0) {
+		if (name.empty ()) {
 			throw Exception ("Empty option name declaration");
 		}
 		auto r = option_index_by_name_.emplace (to_string (name), index);
@@ -127,7 +127,7 @@ void CommandLineParser::usage (std::FILE * output, string_view program_name) con
 }
 
 static string_view make_string_view (std::cmatch::const_reference match_result) {
-	return make_string_view (match_result.first, match_result.second);
+	return {match_result.first, match_result.second};
 }
 
 void CommandLineParser::parse (const CommandLineView & command_line) {
@@ -161,7 +161,7 @@ void CommandLineParser::parse (const CommandLineView & command_line) {
 				auto dashes = make_string_view (matched_positions[1]);
 				auto opt_name = make_string_view (matched_positions[2]);
 				auto equal_sign_or_empty = make_string_view (matched_positions[3]);
-				auto opt_name_with_dashes = make_string_view (dashes.begin (), opt_name.end ());
+				auto opt_name_with_dashes = string_view (dashes.begin (), opt_name.end ());
 
 				auto it = option_index_by_name_.find (opt_name);
 				if (it == option_index_by_name_.end ()) {
@@ -171,7 +171,7 @@ void CommandLineParser::parse (const CommandLineView & command_line) {
 
 				if (opt.type == Option::Type::Flag) {
 					// Simple flag option
-					if (equal_sign_or_empty.size () != 0) {
+					if (!equal_sign_or_empty.empty ()) {
 						throw Exception (fmt::format ("Flag '{}' takes no value", opt_name_with_dashes));
 					}
 					assert (opt.flag_action);
@@ -179,9 +179,9 @@ void CommandLineParser::parse (const CommandLineView & command_line) {
 				} else {
 					// Value option, extract value
 					string_view value;
-					if (equal_sign_or_empty.size () != 0) {
+					if (!equal_sign_or_empty.empty ()) {
 						// Value is the rest of the argument
-						value = make_string_view (equal_sign_or_empty.end (), arg.end ());
+						value = string_view (equal_sign_or_empty.end (), arg.end ());
 					} else {
 						// Value is the next argument
 						++current;

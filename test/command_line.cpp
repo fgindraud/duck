@@ -2,8 +2,8 @@
 #include <doctest.h>
 
 #include <cstdio>
-#include <fmt/format.h>
 
+#include <duck/format.h>
 #include <duck/command_line.h>
 
 using duck::CommandLineParser;

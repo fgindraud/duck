@@ -3,24 +3,25 @@
 // View structures
 // STATUS: prototype, NSC
 
-#include <string>
 #include <vector>
 
-#include <fmt/core.h> // Use their compatibility string_view
+#include <gsl.h>
 
 namespace duck {
+/* span<T> represents a reference to a segment of a T array.
+ * Equivalent to a (T* base, int len).
+ */
+using gsl::span;
+
 /* string_view: Const reference (pointer) to a sequence of char.
  * Does not own the data, only points to it.
  * The char sequence may not be null terminated.
  *
  * std::string_view exists in C++17, but not before sadly.
  */
-using fmt::string_view;
+using string_view = gsl::cstring_span;
 
-inline string_view make_string_view (const char * begin, const char * end) {
-	return {begin, static_cast<std::size_t> (end - begin)};
-}
-std::string to_string (string_view sv);
+using gsl::to_string; // Create new std::string from string_view
 
 bool is_prefix_of (string_view prefix, string_view str);
 bool is_prefix_of (char prefix, string_view str);

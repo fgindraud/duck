@@ -124,13 +124,13 @@ private:
 };
 
 class CommandLineParser::Exception : public std::exception {
-private:
-	std::string message_;
-
 public:
 	Exception (string_view message);
 	Exception (std::string && message);
 	Exception (const char * message);
 	const char * what () const noexcept final;
+
+private:
+	std::string message_;
 };
 } // namespace duck

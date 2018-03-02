@@ -9,6 +9,7 @@ set (CMAKE_CXX_EXTENSIONS NO)
 # Deps
 add_subdirectory (external/fmt EXCLUDE_FROM_ALL) # fmt target
 add_subdirectory (external/doctest EXCLUDE_FROM_ALL) # doctest target
+add_subdirectory (external/gsl EXCLUDE_FROM_ALL) # "gsl" target for utils
 
 ### Duck lib ###
 

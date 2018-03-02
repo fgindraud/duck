@@ -1,4 +1,4 @@
-add_library (duck
+add_library (duck STATIC
 	command_line.cpp
 	view.cpp
 	)
@@ -9,4 +9,5 @@ target_include_directories (duck PUBLIC
 	$<INSTALL_INTERFACE:include>
 	)
 
-target_link_libraries (duck PUBLIC fmt)
+target_compile_options (duck PRIVATE -Wall -Wextra)
+target_link_libraries (duck PUBLIC fmt gsl)
