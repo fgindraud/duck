@@ -106,8 +106,8 @@ void CommandLineParser::usage (std::FILE * output, string_view program_name) con
 	fmt::print (output, "Usage: {}{}{}\n", program_name, has_options ? " [options]" : "",
 	            usage_line_pos_arg_text);
 
-	auto print_opt_arg_line = [this, &output, &description_text_offset](string_view name,
-	                                                                    string_view description) {
+	auto print_opt_arg_line = [&output, &description_text_offset](string_view name,
+	                                                              string_view description) {
 		fmt::print (output, "  {0: <{1}}  {2}\n", name, description_text_offset, description);
 	};
 
