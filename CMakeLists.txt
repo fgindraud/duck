@@ -23,3 +23,6 @@ add_subdirectory (duck)
 ### Tests ###
 enable_testing ()
 add_subdirectory (test)
+
+### Experiments ###
+add_subdirectory (experiments)

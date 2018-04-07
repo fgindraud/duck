@@ -3,8 +3,6 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace duck {
-
 using Integer = std::ptrdiff_t;
 
 // Pointers
@@ -33,5 +31,3 @@ template <typename T> struct TypeInfo {
 	static constexpr Integer size () noexcept { return static_cast<Integer> (sizeof (T)); }
 	static constexpr Integer alignment () noexcept { return static_cast<Integer> (alignof (T)); }
 };
-
-} // namespace duck
