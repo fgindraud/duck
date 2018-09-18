@@ -110,7 +110,7 @@ public:
 	}
 
 private:
-	std::unique_ptr<T> array_;
+	std::unique_ptr<T[]> array_;
 	std::size_t linear_size_;               // Total size (in T objects) of array
 	std::array<std::size_t, N> dimensions_; // Size of dimension k
 	std::array<std::size_t, N> offsets_;    // Offset of elements of dimension k (in T objects)
