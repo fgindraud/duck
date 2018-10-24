@@ -7,4 +7,8 @@
 
 TEST_CASE ("Blah") {
 	CHECK (TypeInfo<int>::size () == sizeof (int));
+
+	Ref<Struct<int, int>> r;
+
+	//auto a = get<0> (r);
 }
