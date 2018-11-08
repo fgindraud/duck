@@ -28,17 +28,17 @@ auto CommandLineParser::new_named_uninitialized_option (std::initializer_list<st
 	return options_.back ();
 }
 
-void CommandLineParser::add_flag (std::initializer_list<string_view> names, string_view description,
-                                  std::function<void()> action) {
+void CommandLineParser::flag (std::initializer_list<string_view> names, string_view description,
+                              std::function<void()> action) {
 	auto & opt = new_named_uninitialized_option (names);
 	opt.type = Option::Type::Flag;
 	opt.flag_action = std::move (action);
 	opt.description = to_string (description);
 }
 
-void CommandLineParser::add_value_option (std::initializer_list<string_view> names,
-                                          string_view value_name, string_view description,
-                                          std::function<void(string_view value)> action) {
+void CommandLineParser::option (std::initializer_list<string_view> names, string_view value_name,
+                                string_view description,
+                                std::function<void(string_view value)> action) {
 	auto & opt = new_named_uninitialized_option (names);
 	opt.type = Option::Type::Value;
 	opt.value_action = std::move (action);
@@ -46,8 +46,19 @@ void CommandLineParser::add_value_option (std::initializer_list<string_view> nam
 	opt.description = to_string (description);
 }
 
-void CommandLineParser::add_positional_argument (string_view value_name, string_view description,
-                                                 std::function<void(string_view value)> action) {
+void CommandLineParser::option2 (
+    std::initializer_list<string_view> names, string_view value1_name, string_view value2_name,
+    string_view description, std::function<void(string_view value1, string_view value2)> action) {
+	auto & opt = new_named_uninitialized_option (names);
+	opt.type = Option::Type::Value2;
+	opt.value2_action = std::move (action);
+	opt.value_name = to_string (value1_name);
+	opt.value2_name = to_string (value2_name);
+	opt.description = to_string (description);
+}
+
+void CommandLineParser::positional (string_view value_name, string_view description,
+                                    std::function<void(string_view value)> action) {
 	positional_arguments_.emplace_back ();
 	auto & arg = positional_arguments_.back ();
 	arg.action = std::move (action);
@@ -77,14 +88,13 @@ void CommandLineParser::usage (std::FILE * output, string_view program_name) con
 			text.append (opt_name.size () == 1 ? "-" : "--");
 			text.append (opt_name);
 		}
+		// Append value name for value options
 		for (std::size_t i = 0; i < options_.size (); ++i) {
 			const auto & opt = options_[i];
 			if (opt.type == Option::Type::Value) {
-				// Append value name for value options
-				auto & text = option_text[i];
-				text.append (" <");
-				text.append (opt.value_name);
-				text.append (">");
+				option_text[i] += fmt::format (" <{}>", opt.value_name);
+			} else if (opt.type == Option::Type::Value2) {
+				option_text[i] += fmt::format (" <{}> <{}>", opt.value_name, opt.value2_name);
 			}
 		}
 
@@ -186,12 +196,25 @@ void CommandLineParser::parse (const CommandLineView & command_line) {
 						// Value is the next argument
 						++current;
 						if (current == nb) {
-							throw Exception (fmt::format ("Option '{}' requires a value", opt_name_with_dashes));
+							throw Exception (fmt::format ("Option '{}' requires a value: {}",
+							                              opt_name_with_dashes, opt.value_name));
 						}
 						value = command_line.argument (current);
 					}
-					assert (opt.value_action);
-					opt.value_action (value);
+					if (opt.type == Option::Type::Value) {
+						assert (opt.value_action);
+						opt.value_action (value);
+					} else if (opt.type == Option::Type::Value2) {
+						// Extract second value
+						++current;
+						if (current == nb) {
+							throw Exception (fmt::format ("Option '{}' requires a second value: {}",
+							                              opt_name_with_dashes, opt.value2_name));
+						}
+						const string_view value2 = command_line.argument (current);
+						assert (opt.value2_action);
+						opt.value2_action (value, value2);
+					}
 				}
 			}
 		} else {

@@ -51,10 +51,13 @@ public:
 	 * 'description' should fit on one line (very short text).
 	 * 'value_name' is the name of the value pattern.
 	 */
-	void add_flag (std::initializer_list<string_view> names, string_view description,
-	               std::function<void()> action);
-	void add_value_option (std::initializer_list<string_view> names, string_view value_name,
-	                       string_view description, std::function<void(string_view value)> action);
+	void flag (std::initializer_list<string_view> names, string_view description,
+	           std::function<void()> action);
+	void option (std::initializer_list<string_view> names, string_view value_name,
+	             string_view description, std::function<void(string_view value)> action);
+	void option2 (std::initializer_list<string_view> names, string_view value1_name,
+	              string_view value2_name, string_view description,
+	              std::function<void(string_view value1, string_view value2)> action);
 
 	/* Declare positional arguments.
 	 * Each call of add_positional_argument declares a single argument.
@@ -62,8 +65,8 @@ public:
 	 * They are parsed in the order of declaration.
 	 * Usage text is the same as for options.
 	 */
-	void add_positional_argument (string_view value_name, string_view description,
-	                              std::function<void(string_view value)> action);
+	void positional (string_view value_name, string_view description,
+	                 std::function<void(string_view value)> action);
 
 	/* Print usage to output.
 	 * Options are given in the order of declaration.
@@ -98,16 +101,19 @@ private:
 	 */
 	struct Option {
 		enum class Type {
-			Flag, // Option is an optional flag without value
-			Value // Option is an optional flag with a value
+			Flag,  // Option is an optional flag without value
+			Value, // Option is an optional flag with a value
+			Value2 // Option is an optional flag with two values
 		};
 		Type type;
 
-		std::function<void(string_view value)> value_action;
 		std::function<void()> flag_action;
+		std::function<void(string_view value)> value_action;
+		std::function<void(string_view value1, string_view value2)> value2_action;
 
 		// Usage text (may be null)
 		std::string value_name;
+		std::string value2_name;
 		std::string description;
 	};
 	std::map<std::string, int, std::less<>> option_index_by_name_;
