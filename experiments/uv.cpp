@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#if 0 // TODO general version with a weak_shared_ptr
 template <typename Int, int N> struct IntegerWithBitFields {
 	// The N last bits are used as bitfields.
 	static_assert (std::is_unsigned<Int>::value);
@@ -38,7 +39,14 @@ template <typename Int, int N> struct IntegerWithBitFields {
 	}
 };
 
-template <typename T> struct DSP_Wrapper { std::int16_t reference_counter; };
+template <typename T> struct DeletableSharedPtr {
+	struct Block {
+		IntegerWithBitFields<std::uint16_t, 1> reference_counter_and_built_bit;
+		std::aligned_storage_t<sizeof (T), alignof (T)> storage;
+	};
+	Block * block{nullptr};
+};
+#endif
 
 namespace uv {
 // Basic exception type (no context)
@@ -56,7 +64,8 @@ inline void exception_on_error (int r) {
 /* Util struct:
  * Generate a default-constructible stateless closure type from a function pointer.
  * This is used to wrap stateless lambdas as other stateless lambdas.
- * Requires C++17 !
+ * Requires C++17 and clang.
+ * In C++20 this will not be necessary (default constructible stateless lambdas).
  */
 template <auto * f_ptr> struct ToFunctor {
 	ToFunctor () = default;
@@ -81,46 +90,67 @@ struct Loop : uv_loop_t {
 	void stop () { uv_stop (this); }
 };
 
-template <typename UV_Handle> struct WithRefCounter : UV_Handle {
-	// Reference counter is used later
-	int reference_counter = 0;
-};
+template <typename UV_Handle> void destroy_handle (UV_Handle * uvh) noexcept {
+	auto * handle = reinterpret_cast<uv_handle_t *> (uvh);
+	uv_close (handle, [](uv_handle_t * handle) {
+		assert (handle != nullptr);
+		auto * uvh = reinterpret_cast<UV_Handle *> (handle);
+		delete uvh;
+	});
+}
 
-template <typename UV_Handle> struct UserOwned {
+// Pointer to an inactive handle ; user has all rights.
+template <typename UV_Handle> struct InactiveHandle;
+// Pointer to an active handle, lent by UV in a callback.
+// User can only choose to destroy it, but it cannot extend the lease or transfer it.
+template <typename UV_Handle> struct ActiveHandleLease;
+
+template <typename UV_Handle> struct InactiveHandle {
 private:
 	struct Deleter {
-		void operator() (WithRefCounter<UV_Handle> * wrc) const {
-			auto * uvh = static_cast<UV_Handle *> (wrc);
-			auto * handle = reinterpret_cast<uv_handle_t *> (uvh);
-			uv_close (handle, [](uv_handle_t * handle) {
-				assert (handle != nullptr);
-				auto * uvh = reinterpret_cast<UV_Handle *> (handle);
-				auto * wrc = static_cast<WithRefCounter<UV_Handle> *> (uvh);
-				delete wrc;
-			});
-		}
+		void operator() (UV_Handle * uvh) const noexcept { destroy_handle (uvh); }
 	};
-	std::unique_ptr<WithRefCounter<UV_Handle>, Deleter> ptr;
+	std::unique_ptr<UV_Handle, Deleter> ptr;
 
-public:
-	explicit UserOwned (WithRefCounter<UV_Handle> * h) : ptr (h) {}
+	explicit InactiveHandle (UV_Handle * uvh) noexcept : ptr (uvh) {}
 	UV_Handle * handle () const noexcept { return ptr.get (); }
-};
+	UV_Handle * release () noexcept { return ptr.release (); }
 
-// Weak_ptr like system TODO extract the pattern in separate class
-template <typename UV_Handle> struct LoopOwned {
-private:
-	WithRefCounter<UV_Handle> * wrc;
+	friend InactiveHandle<uv_tcp_t> create_tcp (Loop &);
+	template <typename C> friend void listen (InactiveHandle<uv_tcp_t>, int, C);
+	friend InactiveHandle<uv_tcp_t> accept (ActiveHandleLease<uv_tcp_t> &);
+	friend void bind (InactiveHandle<uv_tcp_t> & tcp, const struct sockaddr & addr);
 
 public:
-	UV_Handle * handle () const noexcept { return wrc; }
-	int reference_counter () const noexcept {
-		assert (wrc != nullptr);
-		return wrc->reference_counter;
+	void close () noexcept { ptr.reset (); }
+}; // namespace uv
+
+template <typename UV_Handle> struct ActiveHandleLease {
+private:
+	UV_Handle * ptr;
+
+	explicit ActiveHandleLease (UV_Handle * handle) : ptr (handle) { assert (ptr != nullptr); }
+	UV_Handle * handle () const noexcept { return ptr; }
+	void end () { ptr = nullptr; }
+
+	template <typename C> friend void listen (InactiveHandle<uv_tcp_t>, int, C);
+	friend InactiveHandle<uv_tcp_t> accept (ActiveHandleLease<uv_tcp_t> &);
+
+public:
+	ActiveHandleLease (const ActiveHandleLease &) = delete;
+	ActiveHandleLease & operator= (const ActiveHandleLease &) = delete;
+	ActiveHandleLease (ActiveHandleLease &&) = delete;
+	ActiveHandleLease & operator= (ActiveHandleLease &&) = delete;
+	~ActiveHandleLease () {
+		if (ptr != nullptr) {
+			destroy_handle (ptr);
+		}
 	}
 
-	void close () {
-		// Kill the connection, but do not delete memory until all other refs are done for
+	void close () noexcept {
+		if (ptr != nullptr) {
+			destroy_handle (ptr);
+		}
 	}
 };
 
@@ -130,41 +160,43 @@ struct sockaddr_in ipv4_addr (const char * text_ip, int port) {
 	return sin;
 }
 
-inline UserOwned<uv_tcp_t> create_tcp (Loop & loop) {
-	auto storage = std::make_unique<WithRefCounter<uv_tcp_t>> ();
+inline InactiveHandle<uv_tcp_t> create_tcp (Loop & loop) {
+	auto storage = std::make_unique<uv_tcp_t> ();
 	exception_on_error (uv_tcp_init (&loop, storage.get ()));
-	return UserOwned<uv_tcp_t> (storage.release ());
+	return InactiveHandle<uv_tcp_t> (storage.release ());
 }
 
-inline void bind (UserOwned<uv_tcp_t> & tcp, const struct sockaddr & addr) {
+inline void bind (InactiveHandle<uv_tcp_t> & tcp, const struct sockaddr & addr) {
 	assert (tcp.handle ());
 	exception_on_error (uv_tcp_bind (tcp.handle (), &addr, 0));
 }
-inline void bind (UserOwned<uv_tcp_t> & tcp, const struct sockaddr_in & addr) {
+inline void bind (InactiveHandle<uv_tcp_t> & tcp, const struct sockaddr_in & addr) {
 	bind (tcp, reinterpret_cast<const struct sockaddr &> (addr));
 }
 
 template <typename Callback>
-LoopOwned<uv_tcp_t> listen (UserOwned<uv_tcp_t> && tcp, int backlog, Callback callback) {
-	using StatelessClosure = ToFunctor<static_cast<void (*) (uv_tcp_t &, int)> (callback)>;
+void listen (InactiveHandle<uv_tcp_t> tcp, int backlog, Callback callback) {
+	using CallbackType = void (*) (ActiveHandleLease<uv_tcp_t> &, int);
+	using StatelessClosure = ToFunctor<CallbackType (callback)>;
 	auto * stream = reinterpret_cast<uv_stream_t *> (tcp.handle ());
 	exception_on_error (uv_listen (stream, backlog, [](uv_stream_t * stream, int status) {
 		assert (stream != nullptr);
-		StatelessClosure () (reinterpret_cast<uv_tcp_t &> (*stream), status);
+		// Temporarily take partial ownership from UV, lend it to the callback
+		ActiveHandleLease<uv_tcp_t> lease (reinterpret_cast<uv_tcp_t *> (stream));
+		StatelessClosure () (lease, status);
+		lease.end ();
 	}));
-	return {};
+	tcp.release (); // Ownership in uv now
 }
 
-#if 0
-struct Tcp : private uv_tcp_t {
-	UniquePtr accept () {
-		auto c = create_unique (loop ());
-		exception_on_error (uv_accept (&to_uv_stream (), &c->to_uv_stream ()));
-		return c;
-	}
-};
-#endif
-
+inline InactiveHandle<uv_tcp_t> accept (ActiveHandleLease<uv_tcp_t> & listener) {
+	auto * listener_handle = listener.handle ();
+	assert (listener_handle != nullptr);
+	auto c = create_tcp (Loop::from (*listener_handle->loop));
+	exception_on_error (uv_accept (reinterpret_cast<uv_stream_t *> (listener_handle),
+	                               reinterpret_cast<uv_stream_t *> (c.handle ())));
+	return c;
+}
 } // namespace uv
 
 struct Database {
@@ -185,8 +217,13 @@ int main () {
 
 	auto server = uv::create_tcp (loop);
 	bind (server, uv::ipv4_addr ("0.0.0.0", 8000));
-	auto listener = listen (std::move (server), 10, [](uv_tcp_t & tcp, int) {
-		// Do nothing
+	listen (std::move (server), 10, [](auto & tcp, int status) {
+		if (status < 0) {
+			tcp.close ();
+		} else {
+			auto new_connection = accept (tcp);
+			// Do nothing with it, it will be destroyed at the end of the callback
+		}
 	});
 
 	return loop.run (UV_RUN_DEFAULT);
