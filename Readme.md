@@ -1,30 +1,16 @@
 Duck cpp utils library
 ===============================
 
-[![Build Status](https://travis-ci.org/lereldarion/duck.svg?branch=master)](https://travis-ci.org/lereldarion/duck)
 [![Duck License](https://img.shields.io/github/license/mashape/apistatus.svg)]()
 
-Small collections of C++11/C++14 header only useful classes.
-Placed under namespace `duck`.
+Various experiments and small header-only utilities in C++.
+Some are stabilisez and placed under namespace `duck`.
 
 Setup
 -----
 
 Header only, so no compilation is required.
 A standard cmake setup is provided, which can compile and launch some tests.
-
-Status
-------
-
-Currently completely work in progress.
-TODO (completely out-of-date and not updated often):
-- add license stuff and small doc in files.
-- ranges:
-	- expand std::algorithm version with ranges ?
-	- more combinators ?
-- formatter:
-	- bad, generate too many types.
-	- introduce piece-string system ?
 
 License
 -------
